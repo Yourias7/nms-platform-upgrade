@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>NMS Platform Upgrade</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <!-- favicon (ICO) -->
+    <link rel="icon" href="/static/img/favicon.ico" type="image/x-icon">
+
+    <!-- PNG favicons as fallback / modern browsers -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/img/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/static/img/favicon-16x16.png">
+
+    <!-- Apple touch (mobile) -->
+    <link rel="apple-touch-icon" sizes="180x180" href="/static/img/apple-touch-icon.png">
+
+    <!-- optional: theme color for some browsers -->
+    <meta name="theme-color" content="#0d6efd">
+  </head>
+  <body>
+    <!-- Animated glowing orbs -->
+    <div class="glow-orb glow-orb-1"></div>
+    <div class="glow-orb glow-orb-2"></div>
+    <div class="glow-orb glow-orb-3"></div>
+    
+    <nav class="navbar mb-4">
+      <div class="container-fluid">
+        <a class="navbar-brand d-flex align-items-center" href="#">
+          <img src="static\img\New folder\Picture1.png" alt="logo" style="height:24px; width:24px; margin-right:8px;"/>
+          <span>NMS Platform</span>
+        </a>
+        <ul class="nav nav-pills">
+          <li class="nav-item">
+            <a class="nav-link" href="/"> Home</a>
+          </li>
+          <li class="nav-item">
+            <button class="nav-link active" id="tab-dashboard" data-tab="dashboard">Dashboard</button>
+          </li>
+          <li class="nav-item">
+            <button class="nav-link" id="tab-alarms" data-tab="alarms">Alarms</button>
+          </li>
+          <li class="nav-item">
+            <button class="nav-link" id="tab-settings" data-tab="settings">Settings</button>
+          </li>
+        </ul>
+      </div>
+    </nav>
+
+    <main class="container">
+      <!-- Dashboard Tab Content -->
+      <div class="tab-content" id="content-dashboard">
+        <div class="row">
+          <div class="col-md-4">
+            <div class="card mb-3">
+              <div class="card-body">
+                <h5 class="card-title">Serials</h5>
+                <input id="filter" class="form-control mb-3" placeholder="Filter serials..." />
+                <div id="serialList" class="serial-grid"></div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-8">
+            <div class="card mb-3">
+              <div class="card-body">
+                <div id="map"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row mt-3">
+          <div class="col-12">
+            <div class="card">
+              <div class="card-body">
+                <h5 class="card-title">Details</h5>
+                <div class="d-flex justify-content-between mb-2">
+                  <div class="text-muted align-self-center">Select a serial to view records.</div>
+                  <div>
+                    <a id="exportBtn" class="btn btn-sm btn-outline-primary" style="display:none" href="#" download>Export CSV</a>
+                  </div>
+                </div>
+                <div id="detailsArea">Select a serial to view records.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Alarms Tab Content -->
+      <div class="tab-content" id="content-alarms" style="display:none;">
+        <div class="row">
+          <div class="col-12">
+            <div class="card">
+              <div class="card-body">
+                <h5 class="card-title">Communication Alarms</h5>
+                <p class="text-muted mb-3">Systems with no communication for more than 3 hours</p>
+                <div id="alarmsArea">
+                  <div class="text-center text-muted p-4">
+                    <div class="spinner-border" role="status">
+                      <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Checking for alarms...</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Settings Tab Content -->
+      <div class="tab-content" id="content-settings" style="display:none;">
+        <div class="row">
+          <div class="col-lg-8 mx-auto">
+            <div class="card">
+              <div class="card-body">
+                <h5 class="card-title">Alarm Threshold Settings</h5>
+                <p class="text-muted mb-4">Configure the threshold values for KPI alarms. LED indicators will turn red when values exceed these thresholds.</p>
+                
+                <div id="settings-message" class="alert" style="display:none;"></div>
+                
+                <form id="settings-form">
+                  <!-- RSRP Threshold -->
+                  <div class="mb-4">
+                    <label for="rsrp-threshold" class="form-label">
+                      <strong>RSRP Threshold (dBm)</strong>
+                      <span class="badge bg-secondary ms-2" id="rsrp-value">-120</span>
+                    </label>
+                    <input type="range" class="form-range" id="rsrp-threshold" 
+                           min="-140" max="-80" step="1" value="-120">
+                    <div class="d-flex justify-content-between text-muted small">
+                      <span>-140 dBm (Poor)</span>
+                      <span>Alarm when RSRP &lt; threshold</span>
+                      <span>-80 dBm (Excellent)</span>
+                    </div>
+                  </div>
+                  
+                  <!-- SINR Threshold -->
+                  <div class="mb-4">
+                    <label for="sinr-threshold" class="form-label">
+                      <strong>SINR Threshold (dB)</strong>
+                      <span class="badge bg-secondary ms-2" id="sinr-value">0</span>
+                    </label>
+                    <input type="range" class="form-range" id="sinr-threshold" 
+                           min="-10" max="30" step="1" value="0">
+                    <div class="d-flex justify-content-between text-muted small">
+                      <span>-10 dB (Poor)</span>
+                      <span>Alarm when SINR &lt; threshold</span>
+                      <span>30 dB (Excellent)</span>
+                    </div>
+                  </div>
+                  
+                  <!-- Temperature Threshold -->
+                  <div class="mb-4">
+                    <label for="temp-threshold" class="form-label">
+                      <strong>Temperature Threshold (°C)</strong>
+                      <span class="badge bg-secondary ms-2" id="temp-value">60</span>
+                    </label>
+                    <input type="range" class="form-range" id="temp-threshold" 
+                           min="40" max="90" step="1" value="60">
+                    <div class="d-flex justify-content-between text-muted small">
+                      <span>40°C</span>
+                      <span>Alarm when TEMP &gt; threshold</span>
+                      <span>90°C</span>
+                    </div>
+                  </div>
+                  
+                  <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary">
+                      <span>💾</span> Save Settings
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" id="reset-settings">
+                      <span>🔄</span> Reset to Defaults
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Load main app as ES6 module - it will import the others -->
+    <script type="module" src="/static/js/app.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  </body>
+</html>
