@@ -99,52 +99,64 @@ NMS Upgrade/
 
 ### Installation Steps
 
-1. **Clone or navigate to the repository**
-   ```powershell
-   cd "c:\Users\kgafe\Desktop\NMS Upgrade"
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd "NMS Upgrade"
    ```
 
 2. **Create and activate virtual environment**
    ```powershell
    # Create virtual environment
-   python -m venv .venv
+   python -m venv venv
    
    # Activate (Windows PowerShell)
-   .venv\Scripts\Activate.ps1
+   venv\Scripts\Activate.ps1
    
    # Activate (Windows CMD)
-   .venv\Scripts\activate.bat
+   venv\Scripts\activate.bat
    
    # Activate (macOS/Linux)
-   source .venv/bin/activate
+   source venv/bin/activate
    ```
 
 3. **Install Python dependencies**
-   ```powershell
+   ```bash
    pip install -r requirements.txt
    ```
 
-4. **Configure Data Source**
+4. **Configure Environment Variables**
+   ```bash
+   # Copy the example environment file
+   cp .env.example .env
+   
+   # Edit .env with your database credentials
+   # On Windows, you can use: copy .env.example .env
+   ```
+   
+   Update the [.env](.env) file with your actual database credentials:
+   ```env
+   DB_HOST=your-database-host
+   DB_NAME=your-database-name
+   DB_USER=your-username
+   DB_PASS=your-password
+   DB_PORT=3306
+   ```
+
+5. **Configure Data Source**
 
    **Option A: Excel File Mode (Recommended for Development)**
    - Place your `data.xlsx` file in the project root directory
    - Required columns: `SERIAL`, `LATITUDE`, `LONGITUDE`, `DATETIME`, `AZIMUTH`, `RSRP`, `SINR`, `TEMP`
    - The system will automatically detect and use the Excel file if present
 
-   **Option B: MySQL/MariaDB/MSSQL Mode (Production)**
-   - Edit [database.py](database.py) with your database credentials:
-     ```python
-     DB_HOST = "your-database-host"
-     DB_NAME = "your-database-name"
-     DB_USER = "your-username"
-     DB_PASS = "your-password"
-     DB_PORT = 3306
-     ```
+   **Option B: MySQL/MariaDB Mode (Production)**
+   - Ensure your database credentials are configured in [.env](.env)
    - Ensure the `Systems` table exists (see [models.py](models.py) for schema)
    - If no `data.xlsx` file exists, the system will use database automatically
 
-5. **Run the Application**
-   ```powershell
+6. **Run the Application**
+   ```bash
    uvicorn main:app --reload --host 127.0.0.1 --port 8001
    ```
    
@@ -771,6 +783,103 @@ For questions or issues:
 - **Advanced Filtering**: Date ranges, signal strength thresholds
 - **Alerts/Notifications**: System status change notifications
 - **Mobile Responsiveness**: Optimized mobile UI
+
+## 🤝 Contributing & Git Workflow
+
+### Initial Setup for Collaborators
+
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd "NMS Upgrade"
+   ```
+
+2. **Follow the Installation Steps** above to set up your local environment
+
+3. **Create your own .env file** (never commit this!)
+   ```bash
+   cp .env.example .env
+   # Edit .env with your local database credentials
+   ```
+
+### Recommended Branch Strategy
+
+We recommend using **Git Flow** or a simplified **Feature Branch Workflow**:
+
+#### Branch Structure:
+- `main` - Production-ready code, always stable
+- `develop` - Integration branch for features, main development branch
+- `feature/<feature-name>` - Individual feature branches
+- `bugfix/<bug-name>` - Bug fix branches
+- `hotfix/<issue>` - Urgent production fixes
+
+#### Workflow:
+
+1. **Start a new feature**
+   ```bash
+   # Make sure you're on develop and up to date
+   git checkout develop
+   git pull origin develop
+   
+   # Create a new feature branch
+   git checkout -b feature/add-user-authentication
+   ```
+
+2. **Make your changes and commit**
+   ```bash
+   git add .
+   git commit -m "Add user authentication system"
+   ```
+
+3. **Push your branch**
+   ```bash
+   git push origin feature/add-user-authentication
+   ```
+
+4. **Create a Pull Request**
+   - Go to your Git hosting platform (GitHub/GitLab/Bitbucket)
+   - Create a PR from `feature/add-user-authentication` → `develop`
+   - Request code review from team members
+   - Address feedback and make changes as needed
+
+5. **After PR is merged**
+   ```bash
+   git checkout develop
+   git pull origin develop
+   git branch -d feature/add-user-authentication
+   ```
+
+#### Best Practices:
+- **Never commit sensitive data**: Database passwords, API keys, etc. (use `.env`)
+- **Write descriptive commit messages**: "Add map filtering feature" not "update"
+- **Keep branches small and focused**: One feature per branch
+- **Pull before you push**: Always `git pull` before starting work
+- **Test before committing**: Run the application locally
+- **Code review**: At least one team member should review PRs
+- **Don't commit to `main` directly**: Always go through `develop` and PRs
+
+### Common Git Commands
+
+```bash
+# Check status of your changes
+git status
+
+# See what branches exist
+git branch -a
+
+# Switch to a different branch
+git checkout <branch-name>
+
+# Update your branch with latest changes from develop
+git checkout feature/your-feature
+git merge develop
+
+# Undo uncommitted changes
+git checkout -- <file>
+
+# View commit history
+git log --oneline --graph --decorate
+```
 
 ## License
 

@@ -4,11 +4,14 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 from dotenv import load_dotenv
 
-DB_HOST="mysql-yourias.alwaysdata.net"
-DB_NAME="yourias_db"
-DB_USER="yourias"
-DB_PASS="uhora$#20"
-DB_PORT=3306
+# Load environment variables from .env file
+load_dotenv()
+
+DB_HOST = os.getenv("DB_HOST", "mysql-yourias.alwaysdata.net")
+DB_NAME = os.getenv("DB_NAME", "yourias_db")
+DB_USER = os.getenv("DB_USER", "yourias")
+DB_PASS = os.getenv("DB_PASS", "")
+DB_PORT = int(os.getenv("DB_PORT", "3306"))
 
 # MariaDB/MySQL connection string
 DATABASE_URL = (
