@@ -7,15 +7,15 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
-DB_HOST = os.getenv("DB_HOST", "mysql-yourias.alwaysdata.net")
-DB_NAME = os.getenv("DB_NAME", "yourias_db")
-DB_USER = os.getenv("DB_USER", "yourias")
-DB_PASS = os.getenv("DB_PASS", "")
-DB_PORT = int(os.getenv("DB_PORT", "3306"))
+DB_HOST = os.getenv("DB_HOST", "swissqual-srv")
+DB_NAME = os.getenv("DB_NAME", "3skelion2")
+DB_USER = os.getenv("DB_USER", "sa")
+DB_PASS = os.getenv("DB_PASS", "swissqual")
+DB_PORT = int(os.getenv("DB_PORT", "1433"))
 
-# MariaDB/MySQL connection string
+# SQL Server connection string
 DATABASE_URL = (
-    f"mysql+pymysql://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+    f"mssql+pyodbc://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}?driver=ODBC+Driver+17+for+SQL+Server"
 )
 
 # Create SQLAlchemy engine (with connection pooling)

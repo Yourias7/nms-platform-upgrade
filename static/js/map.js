@@ -144,24 +144,25 @@ export async function updateMapMarkers(serialList) {
       data.forEach(row => {
         const lat = getFieldCaseInsensitive(row, ['latitude', 'lat']);
         const lon = getFieldCaseInsensitive(row, ['longitude', 'lon']);
-        const azimuth = getFieldCaseInsensitive(row, ['azimuth', 'az', 'heading']);
+        const heading = getFieldCaseInsensitive(row, ['heading', 'he', 'heading']);
         const rsrp = getFieldCaseInsensitive(row, ['rsrp', 'RSRP']);
         const sinr = getFieldCaseInsensitive(row, ['sinr', 'SINR']);
         const temp = getFieldCaseInsensitive(row, ['temp', 'TEMP', 'temperature']);
         
-        if (lat !== null && lon !== null && !isNaN(lat) && !isNaN(lon)) {
+        if (lat !== null && lon !== null && !isNaN(lat) && !isNaN(lon) && (lat !== 0 || lon !== 0)) {
           const latf = safeParseFloat(lat);
           const lonf = safeParseFloat(lon);
-          const azimuthDeg = safeParseFloat(azimuth, 0);
+          
+          const headingDeg = safeParseFloat(heading, 0);
           const rsrpVal = rsrp !== null ? safeParseFloat(rsrp).toFixed(1) : 'N/A';
           const sinrVal = sinr !== null ? safeParseFloat(sinr).toFixed(1) : 'N/A';
           const tempVal = temp !== null ? safeParseFloat(temp).toFixed(1) : 'N/A';
           
           let marker;
           if (useCustomIcon && customIconUrl) {
-            if (azimuthDeg && azimuthDeg !== 0) {
+            if (headingDeg && headingDeg !== 0) {
               // Rotated marker using DivIcon
-              const html = `<img src="${customIconUrl}" style="width:40px;height:40px;transform:rotate(${azimuthDeg}deg);transform-origin:20px 20px;"/>`;
+              const html = `<img src="${customIconUrl}" style="width:40px;height:40px;transform:rotate(${headingDeg}deg);transform-origin:20px 20px;"/>`;
               const divIcon = L.divIcon({
                 html: html,
                 className: '',
@@ -177,7 +178,7 @@ export async function updateMapMarkers(serialList) {
             marker = L.marker([latf, lonf]).addTo(map);
           }
           
-          const tooltipContent = `<b>${serial}</b><br>Lat: ${latf}, Lon: ${lonf}<br>Azimuth: ${azimuthDeg}°<br>RSRP: ${rsrpVal} dBm<br>SINR: ${sinrVal} dB<br>TEMP: ${tempVal}°C`;
+          const tooltipContent = `<b>${serial}</b><br>Lat: ${latf}, Lon: ${lonf}<br>Azimuth: ${headingDeg}°<br>RSRP: ${rsrpVal} dBm<br>SINR: ${sinrVal} dB<br>TEMP: ${tempVal}°C`;
           
           // Bind popup for click interaction
           marker.bindPopup(tooltipContent);
