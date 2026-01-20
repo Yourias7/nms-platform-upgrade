@@ -116,13 +116,18 @@ function getLEDClass(rsrp, sinr, temp) {
  */
 export async function renderSerials(data, onSelectSerial) {
   const serialListEl = document.getElementById('serialList');
+  const serialCountEl = document.getElementById('serialCount');
   serialListEl.innerHTML = '';
   
   if (!data || data.length === 0) {
     serialListEl.innerHTML = '<div class="text-muted text-center p-3">No serials found</div>';
+    if (serialCountEl) serialCountEl.textContent = `0`;
     clearMapMarkers();
     return;
   }
+  
+  // Update counter with filtered / total
+  if (serialCountEl) serialCountEl.textContent = `${data.length}`;
   
   // Render each serial as a card with LED indicator
   for (const s of data) {
@@ -135,8 +140,8 @@ export async function renderSerials(data, onSelectSerial) {
     
     // Fetch RSRP/SINR/TEMP to determine LED color
     try {
-      const { rsrp, sinr, temp } = await fetchLEDStatus(s);
-      led.className = `serial-card-led ${getLEDClass(rsrp, sinr, temp)}`;
+      const { rsrp, sinr, temp, lat, lon } = await fetchLEDStatus(s);
+      led.className = `serial-card-led ${getLEDClass(rsrp, sinr, temp, lat, lon)}`;
     } catch (err) {
       console.warn(`Failed to fetch LED status for ${s}:`, err);
     }
