@@ -1,9 +1,6 @@
-from fastapi import FastAPI, Depends, Request, Response
-from sqlalchemy.orm import Session
-import models
-from deps import get_db
+from fastapi import FastAPI, Request, Response
 import logging
-from data_source import list_serials as db_list_serials, get_records_by_serial, export_csv, serials_with_locations
+from data_source import list_serials, get_records_by_serial, export_csv, serials_with_locations
 from fastapi.responses import StreamingResponse, FileResponse
 import io
 import mimetypes
@@ -32,9 +29,9 @@ def get_system(serial: str):
 
 
 @app.get("/systems/serials")
-def list_serials():
+def list_serials_endpoint():
     """Return a list of all distinct SERIAL values."""
-    serials = db_list_serials()
+    serials = list_serials()
     logger.info(f"Returning {len(serials)} distinct serials")
     return serials
 
