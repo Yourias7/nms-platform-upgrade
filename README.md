@@ -53,17 +53,13 @@ A modern, full-stack Network Management System (NMS) web application built with 
 
 ```
 NMS Upgrade/
-├── main.py                 # FastAPI application entry point & API routes
-├── models.py              # SQLAlchemy ORM models (Measurement table)
-├── database.py            # Database connection & session management
-├── deps.py                # FastAPI dependency injection (DB sessions)
-├── data_source.py         # Excel data source adapter with fallback logic
-├── requirements.txt       # Python package dependencies
-├── README.md              # Project documentation (this file)
-├── data.xlsx              # (Optional) Excel data file for standalone mode
-├── __pycache__/           # Python bytecode cache
-├── scripts/
-│   └── create_sample_png.py  # Utility script for generating sample images
+├── app/                    # Application package
+│   ├── __init__.py        # Package initializer
+│   ├── main.py            # FastAPI application entry point & API routes
+│   ├── models.py          # SQLAlchemy ORM models (Measurement table)
+│   ├── database.py        # Database connection & session management
+│   ├── deps.py            # FastAPI dependency injection (DB sessions)
+│   └── data_source.py     # Excel data source adapter
 ├── static/
 │   ├── css/
 │   │   ├── style.css      # Main application styles (glassmorphism theme)
@@ -84,9 +80,18 @@ NMS Upgrade/
 │       ├── settings.js    # Settings tab functionality
 │       ├── alarms.js      # Alarms monitoring & display
 │       └── utils.js       # Shared utility functions (debounce, tabs, etc.)
-└── templates/
-    ├── dashboard.html     # Main dashboard UI
-    └── home.html          # Landing page
+├── templates/
+│   ├── dashboard.html     # Main dashboard UI
+│   └── home.html          # Landing page
+├── scripts/
+│   └── create_sample_png.py  # Utility script for generating sample images
+├── data.xlsx              # Excel data file (data source)
+├── requirements.txt       # Python package dependencies
+├── .env                   # Environment variables (not in git)
+├── .env.example           # Environment variables template
+├── .gitignore             # Git ignore rules
+├── GIT_WORKFLOW.md        # Git workflow guide
+└── README.md              # Project documentation (this file)
 ```
 
 ## 🚀 Quick Start
@@ -152,17 +157,17 @@ NMS Upgrade/
 
    **Option B: MySQL/MariaDB Mode (Production)**
    - Ensure your database credentials are configured in [.env](.env)
-   - Ensure the `Systems` table exists (see [models.py](models.py) for schema)
+   - Ensure the `Systems` table exists (see [app/models.py](app/models.py) for schema)
    - If no `data.xlsx` file exists, the system will use database automatically
 
 6. **Run the Application**
    ```bash
-   uvicorn main:app --reload --host 127.0.0.1 --port 8001
+   uvicorn app.main:app --reload --host 127.0.0.1 --port 8001
    ```
    
    For production deployment:
-   ```powershell
-   uvicorn main:app --host 0.0.0.0 --port 8001 --workers 4
+   ```bash
+   uvicorn app.main:app --host 0.0.0.0 --port 8001 --workers 4
    ```
 
 6. **Access the Application**

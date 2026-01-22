@@ -12,7 +12,7 @@ _df = None
 
 def _excel_path():
     """Return path to the Excel data file."""
-    return Path(__file__).parent / "data.xlsx"
+    return Path(__file__).parent.parent / "data.xlsx"
 
 
 def _load_df():

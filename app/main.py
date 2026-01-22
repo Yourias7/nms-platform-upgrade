@@ -1,9 +1,10 @@
 from fastapi import FastAPI, Request, Response
 import logging
-from data_source import list_serials, get_records_by_serial, export_csv, serials_with_locations
+from app.data_source import list_serials, get_records_by_serial, export_csv, serials_with_locations
 from fastapi.responses import StreamingResponse, FileResponse
 import io
 import mimetypes
+from pathlib import Path
 
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -16,9 +17,12 @@ logger = logging.getLogger("uvicorn")
 
 app = FastAPI()
 
+# Get base directory (project root)
+BASE_DIR = Path(__file__).resolve().parent.parent
+
 # Mount static files and templates
-app.mount("/static", StaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="templates")
+app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
+templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
 
 @app.get("/Systems/{serial}")
