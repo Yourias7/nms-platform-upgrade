@@ -35,7 +35,8 @@ export const CONFIG = {
   // LED indicator thresholds
   LED: {
     RSRP_THRESHOLD: -120,
-    SINR_THRESHOLD: 0
+    SINR_THRESHOLD: 0, 
+    TEMP_THRESHOLD: 80
   },
 
   // UI settings

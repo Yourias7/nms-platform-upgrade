@@ -35,7 +35,7 @@ export async function fetchSerialData(serial) {
 /**
  * Fetch LED status data (RSRP/SINR/TEMP) for a serial
  * @param {string} serial - Serial number to check
- * @returns {Promise<{rsrp: number|null, sinr: number|null, temp: number|null}>}
+ * @returns {Promise<{rsrp: number|null, sinr: number|null, temp: number|null, lat: number|null, lon: number|null}>}
  */
 export async function fetchLEDStatus(serial) {
   try {
@@ -44,7 +44,7 @@ export async function fetchLEDStatus(serial) {
     
     if (records && records.length > 0) {
       const latest = records[0];
-      let rsrp = null, sinr = null, temp = null;
+      let rsrp = null, sinr = null, temp = null, lat = null, lon = null;
       
       // Case-insensitive field matching
       for (const [key, val] of Object.entries(latest)) {
@@ -52,15 +52,17 @@ export async function fetchLEDStatus(serial) {
         if (lower === 'rsrp') rsrp = val;
         if (lower === 'sinr') sinr = val;
         if (lower === 'temp') temp = val;
+        if (lower === 'lat') lat = val;
+        if (lower === 'lon') lon = val;
       }
       
-      return { rsrp, sinr, temp };
+      return { rsrp, sinr, temp, lat, lon };
     }
   } catch (err) {
     console.warn(`Failed to fetch LED status for ${serial}:`, err);
   }
-  
-  return { rsrp: null, sinr: null, temp: null };
+
+  return { rsrp: null, sinr: null, temp: null, lat: null, lon: null };
 }
 
 /**
