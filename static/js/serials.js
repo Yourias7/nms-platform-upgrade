@@ -99,11 +99,13 @@ export function clearSelectedSerials() {
  * @param {number|null} rsrp
  * @param {number|null} sinr
  * @param {number|null} temp
+ * @param {number|null} lat
+ * @param {number|null} lon
  * @returns {string} CSS class name ('led-green' or 'led-red')
  */
-function getLEDClass(rsrp, sinr, temp) {
+function getLEDClass(rsrp, sinr, temp, lat, lon) {
   // Check if any KPI is in alarm
-  if (isInAlarm('rsrp', rsrp) || isInAlarm('sinr', sinr) || isInAlarm('temp', temp)) {
+  if (isInAlarm('rsrp', rsrp) || isInAlarm('sinr', sinr) || isInAlarm('temp', temp) || isInAlarm('lat', lat) || isInAlarm('lon', lon)) {
     return 'led-red';
   }
   return 'led-green';

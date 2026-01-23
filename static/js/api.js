@@ -52,8 +52,8 @@ export async function fetchLEDStatus(serial) {
         if (lower === 'rsrp') rsrp = val;
         if (lower === 'sinr') sinr = val;
         if (lower === 'temp') temp = val;
-        if (lower === 'lat') lat = val;
-        if (lower === 'lon') lon = val;
+        if (lower === 'latitude' || lower === 'lat') lat = val;
+        if (lower === 'longitude' || lower === 'lon') lon = val;
       }
       
       return { rsrp, sinr, temp, lat, lon };

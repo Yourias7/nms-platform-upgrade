@@ -7,7 +7,9 @@ const STORAGE_KEY = 'nms_alarm_thresholds';
 const DEFAULT_THRESHOLDS = {
   rsrp: -120,
   sinr: 0,
-  temp: 60
+  temp: 60,
+  lat: 0,
+  lon: 0
 };
 
 /**
@@ -53,7 +55,6 @@ export function initSettingsForm() {
   const rsrpInput = document.getElementById('rsrp-threshold');
   const sinrInput = document.getElementById('sinr-threshold');
   const tempInput = document.getElementById('temp-threshold');
-  
   if (!rsrpInput || !sinrInput || !tempInput) {
     console.warn('[Settings] Form elements not found, will initialize on tab switch');
     return;
@@ -89,7 +90,7 @@ export function initSettingsForm() {
     tempInput.setAttribute('data-listener-attached', 'true');
   }
   
-  console.log('[Settings] Form initialized with values:', { rsrp: rsrpInput.value, sinr: sinrInput.value, temp: tempInput.value });
+  console.log('[Settings] Form initialized with values:', { rsrp: rsrpInput.value, sinr: sinrInput.value, temp: tempInput.value, lat: 0, lon: 0 });
 }
 
 /**
@@ -113,7 +114,7 @@ export function handleSettingsSave() {
   const sinr = parseFloat(document.getElementById('sinr-threshold').value);
   const temp = parseFloat(document.getElementById('temp-threshold').value);
   
-  const thresholds = { rsrp, sinr, temp };
+  const thresholds = { rsrp, sinr, temp, lat: 0, lon: 0 };
   console.log('[Settings] Saving thresholds:', thresholds);
   saveThresholds(thresholds);
   updateThresholdDisplays(thresholds);
@@ -183,6 +184,12 @@ export function isInAlarm(kpi, value) {
     case 'temp':
       result = numValue >= thresholds.temp;
       break;
+    case 'lat':
+      result = numValue === 0;
+      break;
+    case 'lon':
+      result = numValue === 0;
+      break;
     default:
       return false;
   }
@@ -201,5 +208,7 @@ export function getActiveAlarms(kpiValues) {
   if (isInAlarm('rsrp', kpiValues.rsrp)) alarms.push('rsrp');
   if (isInAlarm('sinr', kpiValues.sinr)) alarms.push('sinr');
   if (isInAlarm('temp', kpiValues.temp)) alarms.push('temp');
+  if (isInAlarm('lat', kpiValues.lat)) alarms.push('lat');
+  if (isInAlarm('lon', kpiValues.lon)) alarms.push('lon');
   return alarms;
 }
