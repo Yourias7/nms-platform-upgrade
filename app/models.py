@@ -1,6 +1,6 @@
 # models.py
 from sqlalchemy import Column, Integer, Float, String, DateTime
-from database import Base
+from .database import Base
 
 class Measurement(Base):
     __tablename__ = "LiveSheet$"

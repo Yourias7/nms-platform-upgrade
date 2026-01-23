@@ -1,6 +1,6 @@
 import logging
-from database import SessionLocal
-from models import Measurement
+from .database import SessionLocal
+from .models import Measurement
 import csv
 import io
 
