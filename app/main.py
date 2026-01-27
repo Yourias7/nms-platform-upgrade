@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Request, Response
 import logging
-from app.data_source import list_serials, get_records_by_serial, export_csv, serials_with_locations
+from app.data_source import get_historic_records_by_serial, get_live_records_by_serial, list_live_serials, list_historic_serials, export_live_csv, export_historic_csv, live_serials_with_locations, historic_serials_with_locations
 from fastapi.responses import StreamingResponse, FileResponse
 import io
 import mimetypes
@@ -25,19 +25,33 @@ app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="stat
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
 
-@app.get("/Systems/{serial}")
+@app.get("/Systems/Live/{serial}")
 def get_system(serial: str):
-    data = get_records_by_serial(serial)
+    data = get_live_records_by_serial(serial)
+    logger.info(f"Retrieved {len(data)} records for SERIAL: {serial}")
+    return data
+
+@app.get("/Systems/Historic/{serial}")
+def get_system(serial: str):
+    data = get_historic_records_by_serial(serial)
     logger.info(f"Retrieved {len(data)} records for SERIAL: {serial}")
     return data
 
 
-@app.get("/systems/serials")
-def list_serials_endpoint():
+@app.get("/systems/Live/serials")
+def list_live_serials_endpoint():
     """Return a list of all distinct SERIAL values."""
-    serials = list_serials()
+    serials = list_live_serials()
     logger.info(f"Returning {len(serials)} distinct serials")
     return serials
+
+@app.get("/systems/Historic/serials")
+def list_historic_serials_endpoint():
+    """Return a list of all distinct SERIAL values."""
+    serials = list_historic_serials()
+    logger.info(f"Returning {len(serials)} distinct serials")
+    return serials
+
 
 
 @app.get("/")
@@ -52,15 +66,28 @@ def dashboard(request: Request):
     return templates.TemplateResponse("dashboard.html", {"request": request})
 
 
-@app.get("/export/{serial}")
+@app.get("/export/Live/{serial}")
 def export_serial(serial: str):
     """Export records for a serial as CSV."""
     filename = f"{serial}.csv"
-    csv_text = export_csv(serial)
+    csv_text = export_live_csv(serial)
     return Response(content=csv_text, media_type="text/csv", headers={"Content-Disposition": f"attachment; filename=\"{filename}\""})
 
 
-@app.get("/systems/locations")
+@app.get("/export/Historic/{serial}")
+def export_historic_serial(serial: str):
+    """Export records for a serial as CSV."""
+    filename = f"{serial}.csv"
+    csv_text = export_historic_csv(serial)
+    return Response(content=csv_text, media_type="text/csv", headers={"Content-Disposition": f"attachment; filename=\"{filename}\""})
+
+
+@app.get("/systems/Live/locations")
 def systems_locations():
     """Return list of {serial, latitude, longitude} for serials with coordinates."""
-    return serials_with_locations()
+    return live_serials_with_locations()
+
+@app.get("/systems/Historic/locations")
+def systems_locations():
+    """Return list of {serial, latitude, longitude} for serials with coordinates."""
+    return historic_serials_with_locations()

@@ -4,10 +4,10 @@
 export const CONFIG = {
   // API Endpoints
   API: {
-    SERIALS: '/systems/serials',
-    SYSTEMS: '/Systems',
-    EXPORT: '/export',
-    LOCATIONS: '/systems/locations'
+    SERIALS: '/systems/Live/serials',
+    SYSTEMS: '/Systems/Live',
+    EXPORT: '/export/Live',
+    LOCATIONS: '/systems/Live/locations'
   },
 
   // Map settings
