@@ -52,6 +52,18 @@ def dashboard(request: Request):
     return templates.TemplateResponse("dashboard.html", {"request": request})
 
 
+@app.get("/alarms")
+def alarms(request: Request):
+    """Render the alarms page."""
+    return templates.TemplateResponse("alarms.html", {"request": request})
+
+
+@app.get("/settings")
+def settings(request: Request):
+    """Render the settings page."""
+    return templates.TemplateResponse("settings.html", {"request": request})
+
+
 @app.get("/export/{serial}")
 def export_serial(serial: str):
     """Export records for a serial as CSV."""

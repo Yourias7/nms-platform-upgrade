@@ -1,9 +1,9 @@
 // static/js/app.js
-// Main orchestrator for NMS Platform - coordinates all modules
+// Main orchestrator for NMS Dashboard - coordinates dashboard modules
 
 import { CONFIG } from './config.js';
 import { fetchSerialsList, fetchSerialData } from './api.js';
-import { debounce, initTabs } from './utils.js';
+import { debounce } from './utils.js';
 import { initMap, preloadCustomIcon, updateMapMarkers, getMarkers, getMap } from './map.js';
 import { 
   getSerials, 
@@ -19,8 +19,6 @@ import {
   filterSerials 
 } from './serials.js';
 import { loadSerialDetails, clearDetails } from './details.js';
-import { initSettingsForm, handleSettingsSave, handleSettingsReset } from './settings.js';
-import { refreshAlarms, renderAlarmsTable } from './alarms.js';
 
 // DOM elements
 const filterEl = document.getElementById('filter');
@@ -341,38 +339,11 @@ async function loadMultipleSerialDetails(serials) {
  * Initialize application
  */
 function init() {
-  // Initialize tab navigation
-  initTabs();
+  console.log('[App] Dashboard page initializing...');
   
   // Initialize map and load custom icon
   preloadCustomIcon();
   initMap();
-  
-  // Initialize settings form
-  initSettingsForm();
-  
-  // Setup settings form handlers
-  const settingsForm = document.getElementById('settings-form');
-  const resetBtn = document.getElementById('reset-settings');
-  
-  if (settingsForm) {
-    settingsForm.addEventListener('submit', (e) => {
-      e.preventDefault();
-      console.log('[App] Settings form submitted');
-      handleSettingsSave();
-    });
-  } else {
-    console.warn('[App] Settings form not found at init');
-  }
-  
-  if (resetBtn) {
-    resetBtn.addEventListener('click', () => {
-      console.log('[App] Reset button clicked');
-      handleSettingsReset();
-    });
-  } else {
-    console.warn('[App] Reset button not found at init');
-  }
   
   // Listen for threshold updates to refresh LED indicators
   window.addEventListener('thresholds-updated', () => {
@@ -380,38 +351,21 @@ function init() {
     fetchAndRenderSerials();
   });
   
-  // Listen for tab changes to initialize settings form
-  window.addEventListener('tab-changed', (e) => {
-    if (e.detail.tabId === 'settings') {
-      console.log('[App] Settings tab opened, initializing form...');
-      initSettingsForm();
-    } else if (e.detail.tabId === 'alarms') {
-      console.log('[App] Alarms tab opened, refreshing alarms...');
-      refreshAlarms();
-    }
-  });
-  
   // Fetch initial data
   fetchAndRenderSerials();
-  
-  // Initial alarm check
-  refreshAlarms();
   
   // Setup filter input listener
   filterEl.addEventListener('input', debounce(handleFilter, CONFIG.UI.FILTER_DEBOUNCE_MS));
   
   // Setup auto-refresh
   setInterval(() => {
-    console.log('[app] auto-refreshing data...');
+    console.log('[App] auto-refreshing data...');
     fetchAndRenderSerials().catch(err => {
       console.error('Auto-refresh error:', err);
     });
-    
-    // Also refresh alarms
-    refreshAlarms().catch(err => {
-      console.error('Alarm refresh error:', err);
-    });
   }, CONFIG.UI.AUTO_REFRESH_MS);
+  
+  console.log('[App] Dashboard page initialized');
 }
 
 // Start application when DOM is ready

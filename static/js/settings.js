@@ -212,3 +212,27 @@ export function getActiveAlarms(kpiValues) {
   if (isInAlarm('lon', kpiValues.lon)) alarms.push('lon');
   return alarms;
 }
+
+// Auto-initialize if on settings page
+const settingsForm = document.getElementById('settings-form');
+if (settingsForm) {
+  console.log('[Settings] Settings page detected, initializing...');
+  
+  const initPage = () => {
+    initSettingsForm();
+    
+    // Setup form handlers
+    settingsForm.addEventListener('submit', handleSettingsSave);
+    
+    const resetBtn = document.getElementById('reset-settings');
+    if (resetBtn) {
+      resetBtn.addEventListener('click', handleSettingsReset);
+    }
+  };
+  
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initPage);
+  } else {
+    initPage();
+  }
+}
