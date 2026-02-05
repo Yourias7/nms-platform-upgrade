@@ -49,7 +49,7 @@ export async function fetchCommunicationAlarms() {
           for (const [key, val] of Object.entries(latest)) {
             const lower = key.toLowerCase();
             if (lower === 'datetime' || lower === 'timestamp' || lower === 'time') {
-              timestamp = val;
+              timestamp = val.replace('T', ' ');
             }
             if (lower === 'site') {
               site = val;
@@ -57,7 +57,7 @@ export async function fetchCommunicationAlarms() {
           }
           
           if (isCommunicationAlarm(timestamp)) {
-            const lastUpdate = timestamp ? new Date(timestamp) : null;
+            const lastUpdate = timestamp ? new Date(timestamp.replace('T',' ')) : null;
             const now = new Date();
             const hoursAgo = lastUpdate 
               ? ((now - lastUpdate) / (1000 * 60 * 60)).toFixed(1)

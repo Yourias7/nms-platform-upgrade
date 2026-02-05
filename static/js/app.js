@@ -314,10 +314,22 @@ async function loadMultipleSerialDetails(serials) {
         const td = document.createElement('td');
         let v = row[c];
         if (v === null || v === undefined) v = '';
+
+        const colName = String(c).trim().toUpperCase();
+
+        // Format DATETIME values if present
+        if (colName === 'DATETIME' && v !== '') {
+          if (typeof v === 'string') {
+            v = v.replace(/T/g, ' ');
+          } else {
+            v = String(v).replace(/T/g, ' ');
+          }
+        }
+
         td.textContent = v;
         
         // Highlight RSRP values under -120 in red
-        if (c.toUpperCase() === 'RSRP' && v !== '' && parseFloat(v) < -120) {
+        if (colName === 'RSRP' && v !== '' && parseFloat(v) < -120) {
           td.style.color = 'red';
           td.style.fontWeight = 'bold';
         }

@@ -169,16 +169,36 @@ export function renderDetailsTable(serial, data) {
       const td = document.createElement('td');
       let v = row[c];
       if (v === null || v === undefined) v = '';
+      
+      // Normalize column name for comparisons
+      const colName = String(c).trim().toUpperCase();
+      
+      // Format DATETIME values for better readability and handle non-string values
+      if (colName === 'DATETIME' && v !== '') {
+        if (typeof v === 'string') {
+          v = v.replace(/T/g, ' ');
+        } else if (v instanceof Date) {
+          v = v.toISOString().replace(/T/g, ' ');
+        } else {
+          v = String(v).replace(/T/g, ' ');
+        }
+      }
+      
       td.textContent = v;
       
       // Highlight RSRP values under -120 in red
-      if (c.toUpperCase() === 'RSRP' && v !== '' && parseFloat(v) <= -120) {
+      if (colName === 'RSRP' && v !== '' && parseFloat(v) <= -120) {
         td.style.color = 'red';
         td.style.fontWeight = 'bold';
       }
 
-      // Highlight RSRP values under -120 in red
-      if (c.toUpperCase() === 'SINR' && v !== '' && parseFloat(v) <= 0) {
+      // Highlight SINR values under 0 in red
+      if (colName === 'SINR' && v !== '' && parseFloat(v) <= 0) {
+        td.style.color = 'red';
+        td.style.fontWeight = 'bold';
+      }
+
+      if (colName === 'TEMP' && v !== '' && parseFloat(v) >= 85) {
         td.style.color = 'red';
         td.style.fontWeight = 'bold';
       }
