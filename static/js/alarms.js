@@ -49,15 +49,15 @@ export async function fetchCommunicationAlarms() {
           for (const [key, val] of Object.entries(latest)) {
             const lower = key.toLowerCase();
             if (lower === 'datetime' || lower === 'timestamp' || lower === 'time') {
-              timestamp = val.replace('T', ' ');
+              timestamp = val;
             }
-            if (lower === 'site') {
+            if (lower === 'site' || lower === 'name') {
               site = val;
             }
           }
           
           if (isCommunicationAlarm(timestamp)) {
-            const lastUpdate = timestamp ? new Date(timestamp.replace('T',' ')) : null;
+            const lastUpdate = timestamp ? new Date(timestamp) : null;
             const now = new Date();
             const hoursAgo = lastUpdate 
               ? ((now - lastUpdate) / (1000 * 60 * 60)).toFixed(1)
@@ -187,9 +187,9 @@ export async function refreshAlarms() {
   // Update badge
   updateAlarmBadge(alarms.length);
   
-  // If on alarms tab, render table
-  const alarmsContent = document.getElementById('content-alarms');
-  if (alarmsContent && alarmsContent.style.display !== 'none') {
+  // If on alarms page (check for alarmsArea element), render table
+  const alarmsArea = document.getElementById('alarmsArea');
+  if (alarmsArea) {
     renderAlarmsTable(alarms);
   }
   
