@@ -1,10 +1,19 @@
 import logging
+import threading
+from sqlalchemy.sql import func, text
+import time
+from datetime import datetime, timedelta
 from .database import SessionLocal
 from .models import HistoricMeasurement, LiveMeasurement
 import csv
 import io
 
 logger = logging.getLogger(__name__)
+
+_historic_serials_cache = None
+_historic_serials_cache_ts = 0.0
+_historic_serials_lock = threading.Lock()
+_HISTORIC_SERIALS_CACHE_TTL_SEC = 300
 
 
 def get_db():
@@ -29,11 +38,32 @@ def list_live_serials():
 
 def list_historic_serials():
     """Return list of all distinct SERIAL values from database."""
+    global _historic_serials_cache, _historic_serials_cache_ts
+
+    now = time.monotonic()
+    with _historic_serials_lock:
+        if _historic_serials_cache is not None and (now - _historic_serials_cache_ts) < _HISTORIC_SERIALS_CACHE_TTL_SEC:
+            logger.info("Returning cached historic serials")
+            return list(_historic_serials_cache)
+
     db = SessionLocal()
     try:
-        rows = db.query(HistoricMeasurement.SERIAL).distinct().all()
+        cutoff = datetime.utcnow() - timedelta(days=15)
+        rows = (
+            db.query(HistoricMeasurement.SERIAL)
+            .filter(
+                HistoricMeasurement.DATETIME >= func.dateadd(
+                    text("DAY"), -15, func.sysutcdatetime()
+                )
+            )
+            .distinct()
+            .all()
+        )
         serials = [r[0] for r in rows if r[0] is not None]
-        logger.info(f"Retrieved {len(serials)} distinct serials from database")
+        logger.info(f"Retrieved {len(serials)} distinct serials from database (last 15 days)")
+        with _historic_serials_lock:
+            _historic_serials_cache = list(serials)
+            _historic_serials_cache_ts = time.monotonic()
         return serials
     finally:
         db.close()
@@ -43,7 +73,23 @@ def get_historic_records_by_serial(serial: str):
     db = SessionLocal()
     try:
         ser = str(serial).strip()
-        rows = db.query(HistoricMeasurement).filter(HistoricMeasurement.SERIAL == ser).all()
+        cutoff = datetime.utcnow() - timedelta(days=15)
+        rows = (
+            db.query(
+                HistoricMeasurement.SERIAL.label("SERIAL"),
+                HistoricMeasurement.LATITUDE.label("LATITUDE"),
+                HistoricMeasurement.LONGITUDE.label("LONGITUDE"),
+                HistoricMeasurement.DATETIME.label("DATETIME"),
+                HistoricMeasurement.HEADING.label("HEADING"),
+                HistoricMeasurement.RSRP.label("RSRP"),
+                HistoricMeasurement.SINR.label("SINR"),
+                HistoricMeasurement.TEMP.label("TEMP"),
+            )
+            .filter(HistoricMeasurement.SERIAL == ser)
+            .filter(HistoricMeasurement.DATETIME >= cutoff)
+            .order_by(HistoricMeasurement.DATETIME.asc())
+            .all()
+        )
         
         # Convert SQLAlchemy objects to list of dicts
         result = []
@@ -60,7 +106,7 @@ def get_historic_records_by_serial(serial: str):
             }
             result.append(rec)
         
-        logger.info(f"Retrieved {len(result)} records for SERIAL: {ser} from database")
+        logger.info(f"Retrieved {len(result)} records for SERIAL: {ser} from database (last 15 days)")
         return result
     finally:
         db.close()

@@ -7,7 +7,11 @@ export const CONFIG = {
     SERIALS: '/systems/Live/serials',
     SYSTEMS: '/Systems/Live',
     EXPORT: '/export/Live',
-    LOCATIONS: '/systems/Live/locations'
+    LOCATIONS: '/systems/Live/locations',
+    HISTORIC_SERIALS: '/systems/Historic/serials',
+    HISTORIC_SYSTEMS: '/Systems/Historic',
+    HISTORIC_EXPORT: '/export/Historic',
+    HISTORIC_LOCATIONS: '/systems/Historic/locations'
   },
 
   // Map settings

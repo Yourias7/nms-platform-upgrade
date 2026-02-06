@@ -1,25 +1,32 @@
 // static/js/playback.js
 // Playback page - RSRP time-series visualization
 
-/**
- * Generate sample RSRP data for demonstration
- * Replace with API call to fetch actual historical data
- * @returns {Object} Chart data with labels and datasets
- */
-function generateSampleData() {
-  const now = new Date();
+import { fetchHistoricSerialsList, fetchHistoricSerialData } from './api.js';
+
+let chartInstance = null;
+
+function getSelectedSerial() {
+  const params = new URLSearchParams(window.location.search);
+  const serial = params.get('serial');
+  return serial ? serial.trim() : '';
+}
+
+function sortByDatetime(records) {
+  return records
+    .filter((rec) => rec && rec.DATETIME)
+    .sort((a, b) => new Date(a.DATETIME) - new Date(b.DATETIME));
+}
+
+function buildChartData(records) {
   const labels = [];
   const rsrpValues = [];
-  
-  // Generate 24 data points (hourly for the last 24 hours)
-  for (let i = 23; i >= 0; i--) {
-    const time = new Date(now.getTime() - i * 60 * 60 * 1000);
-    labels.push(time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }));
-    
-    // Simulate RSRP values between -140 and -80 dBm with some variation
-    rsrpValues.push(Math.floor(Math.random() * 50) - 110);
-  }
-  
+
+  records.forEach((rec) => {
+    const dt = new Date(rec.DATETIME);
+    labels.push(dt.toLocaleString('en-US', { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' }));
+    rsrpValues.push(rec.RSRP);
+  });
+
   return {
     labels,
     datasets: [
@@ -41,22 +48,103 @@ function generateSampleData() {
   };
 }
 
+function computeYAxisBounds(values) {
+  if (!values || values.length === 0) {
+    return { min: -140, max: -60 };
+  }
+
+  const minValue = Math.min(...values.filter((v) => v !== null && v !== undefined));
+  const maxValue = Math.max(...values.filter((v) => v !== null && v !== undefined));
+  const padding = 5;
+
+  const min = Math.floor(minValue - padding);
+  const max = Math.ceil(maxValue + padding);
+
+  return {
+    min: Math.max(-160, min),
+    max: Math.min(-40, max)
+  };
+}
+
+function setPlaybackMessage(message, tone = 'muted') {
+  const el = document.getElementById('playbackMessage');
+  if (!el) return;
+  el.className = `text-${tone} small`;
+  el.textContent = message;
+}
+
+function populateSerialOptions(serials) {
+  const datalist = document.getElementById('serialOptions');
+  if (!datalist) return;
+  datalist.innerHTML = '';
+
+  serials.forEach((serial) => {
+    const option = document.createElement('option');
+    option.value = serial;
+    datalist.appendChild(option);
+  });
+}
+
+function getSerialInputValue() {
+  const input = document.getElementById('serialInput');
+  return input ? input.value.trim() : '';
+}
+
+function setSerialInputValue(serial) {
+  const input = document.getElementById('serialInput');
+  if (input) {
+    input.value = serial;
+  }
+}
+
+function updateSerialInUrl(serial) {
+  const params = new URLSearchParams(window.location.search);
+  if (serial) {
+    params.set('serial', serial);
+  } else {
+    params.delete('serial');
+  }
+  const query = params.toString();
+  const url = query ? `${window.location.pathname}?${query}` : window.location.pathname;
+  window.history.replaceState({}, '', url);
+}
+
+async function loadHistoricData(serial) {
+  console.log('[Playback Page] Loading historic data for selected serial:', serial);
+
+  if (!serial) {
+    return { serial: '', records: [] };
+  }
+
+  const records = await fetchHistoricSerialData(serial);
+  return { serial, records: sortByDatetime(records || []) };
+}
+
 /**
  * Initialize the playback chart
  */
-function initChart() {
-  const ctx = document.getElementById('rsrpChart');
-  
-  if (!ctx) {
-    console.warn('[Playback] Chart canvas not found');
-    return;
-  }
-  
-  const chartData = generateSampleData();
-  
-  const chart = new Chart(ctx, {
+function buildEmptyChart(ctx) {
+  return new Chart(ctx, {
     type: 'line',
-    data: chartData,
+    data: {
+      labels: [],
+      datasets: [
+        {
+          label: 'RSRP (dBm)',
+          data: [],
+          borderColor: '#0d6efd',
+          backgroundColor: 'rgba(13, 110, 253, 0.1)',
+          borderWidth: 2,
+          fill: true,
+          pointRadius: 3,
+          pointBackgroundColor: '#0d6efd',
+          pointBorderColor: '#fff',
+          pointBorderWidth: 1,
+          tension: 0.4,
+          spanGaps: false
+        }
+      ]
+    },
     options: {
       responsive: true,
       maintainAspectRatio: false,
@@ -115,17 +203,94 @@ function initChart() {
       }
     }
   });
+}
+
+async function renderChartForSerial(serial) {
+  if (!serial) {
+    setPlaybackMessage('Select a serial to load data.', 'muted');
+    return;
+  }
+
+  setPlaybackMessage('Loading data...', 'muted');
+  const { records } = await loadHistoricData(serial);
+
+  if (!records || records.length === 0) {
+    setPlaybackMessage('No historic records found.', 'muted');
+    return;
+  }
+
+  const chartData = buildChartData(records);
+  const yBounds = computeYAxisBounds(chartData.datasets[0].data);
+
+  if (chartInstance) {
+    chartInstance.data.labels = chartData.labels;
+    chartInstance.data.datasets[0].data = chartData.datasets[0].data;
+    chartInstance.options.scales.y.min = yBounds.min;
+    chartInstance.options.scales.y.max = yBounds.max;
+    chartInstance.update();
+  }
+
+  setPlaybackMessage('', 'muted');
+  console.log('[Playback] Chart updated', serial ? `for ${serial}` : '');
+}
+
+async function initChart() {
+  const ctx = document.getElementById('rsrpChart');
+  console.log('[Playback Page] Initializing chart with canvas:', ctx);
   
-  console.log('[Playback] Chart initialized');
-  return chart;
+  if (!ctx) {
+    console.warn('[Playback] Chart canvas not found');
+    return;
+  }
+
+  chartInstance = buildEmptyChart(ctx);
 }
 
 /**
  * Initialize the playback page
  */
-function init() {
+async function init() {
   console.log('[Playback Page] Initializing');
-  initChart();
+  await initChart();
+
+  setPlaybackMessage('Loading serials...', 'muted');
+  try {
+    const serials = await fetchHistoricSerialsList();
+    populateSerialOptions(serials || []);
+    setPlaybackMessage(serials && serials.length > 0 ? '' : 'No serials available.', 'muted');
+  } catch (err) {
+    console.error('[Playback] Failed to load serials', err);
+    setPlaybackMessage('Failed to load serials.', 'danger');
+  }
+
+  const serialFromUrl = getSelectedSerial();
+  if (serialFromUrl) {
+    setSerialInputValue(serialFromUrl);
+    await renderChartForSerial(serialFromUrl);
+  } else {
+    setPlaybackMessage('Select a serial to load data.', 'muted');
+  }
+
+  const loadBtn = document.getElementById('serialLoadBtn');
+  if (loadBtn) {
+    loadBtn.addEventListener('click', async () => {
+      const serial = getSerialInputValue();
+      updateSerialInUrl(serial);
+      await renderChartForSerial(serial);
+    });
+  }
+
+  const serialInput = document.getElementById('serialInput');
+  if (serialInput) {
+    serialInput.addEventListener('keydown', async (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        const serial = getSerialInputValue();
+        updateSerialInUrl(serial);
+        await renderChartForSerial(serial);
+      }
+    });
+  }
   console.log('[Playback Page] Initialized');
 }
 

@@ -23,12 +23,33 @@ export async function fetchSerialsList() {
 }
 
 /**
+ * Fetch list of all historic serial numbers
+ * @returns {Promise<string[]>} Array of historic serial numbers
+ */
+export async function fetchHistoricSerialsList() {
+  console.log('[Playback Page] Fetching historic serials list from API:', CONFIG.API.HISTORIC_SERIALS);
+  const res = await fetch(CONFIG.API.HISTORIC_SERIALS);
+  console.log('[Playback Page] Received response for historic serials list:', res);
+  return await res.json();
+}
+
+/**
  * Fetch all records for a specific serial
  * @param {string} serial - Serial number to fetch
  * @returns {Promise<Object[]>} Array of record objects
  */
 export async function fetchSerialData(serial) {
   const res = await fetch(`${CONFIG.API.SYSTEMS}/${encodeURIComponent(serial)}`);
+  return await res.json();
+}
+
+/**
+ * Fetch all historic records for a specific serial
+ * @param {string} serial - Serial number to fetch
+ * @returns {Promise<Object[]>} Array of record objects
+ */
+export async function fetchHistoricSerialData(serial) {
+  const res = await fetch(`${CONFIG.API.HISTORIC_SYSTEMS}/${encodeURIComponent(serial)}`);
   return await res.json();
 }
 
@@ -72,4 +93,13 @@ export async function fetchLEDStatus(serial) {
  */
 export function getExportUrl(serial) {
   return `${CONFIG.API.EXPORT}/${encodeURIComponent(serial)}`;
+}
+
+/**
+ * Get historic export URL for a serial
+ * @param {string} serial - Serial number to export
+ * @returns {string} Export URL
+ */
+export function getHistoricExportUrl(serial) {
+  return `${CONFIG.API.HISTORIC_EXPORT}/${encodeURIComponent(serial)}`;
 }
