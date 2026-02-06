@@ -22,6 +22,7 @@ import { loadSerialDetails, clearDetails } from './details.js';
 
 // DOM elements
 const filterEl = document.getElementById('filter');
+let autoRefreshTimer = null;
 
 /**
  * Fetch and render all serials
@@ -363,13 +364,35 @@ function init() {
   // Setup filter input listener
   filterEl.addEventListener('input', debounce(handleFilter, CONFIG.UI.FILTER_DEBOUNCE_MS));
   
-  // Setup auto-refresh
-  setInterval(() => {
+  const runAutoRefresh = () => {
     console.log('[Dashboard] Auto-refreshing data...');
     fetchAndRenderSerials().catch(err => {
       console.error('Auto-refresh error:', err);
     });
-  }, CONFIG.UI.AUTO_REFRESH_MS);
+  };
+
+  const startAutoRefresh = () => {
+    if (autoRefreshTimer !== null) return;
+    if (document.visibilityState !== 'visible') return;
+    autoRefreshTimer = setInterval(runAutoRefresh, CONFIG.UI.AUTO_REFRESH_MS);
+  };
+
+  const stopAutoRefresh = () => {
+    if (autoRefreshTimer === null) return;
+    clearInterval(autoRefreshTimer);
+    autoRefreshTimer = null;
+  };
+
+  // Setup auto-refresh only when page is visible
+  startAutoRefresh();
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      startAutoRefresh();
+    } else {
+      stopAutoRefresh();
+    }
+  });
+  window.addEventListener('pagehide', stopAutoRefresh);
   
   console.log('[Dashboard] Initialization complete');
 }
