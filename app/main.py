@@ -60,15 +60,20 @@ def home(request: Request):
     return templates.TemplateResponse("home.html", {"request": request})
 
 
-@app.get("/dashboard")
-def dashboard(request: Request):
-    """Render the dashboard UI."""
-    return templates.TemplateResponse("dashboard.html", {"request": request})
+@app.get("/liveview")
+def liveview(request: Request):
+    """Render the live view UI."""
+    return templates.TemplateResponse("liveview.html", {"request": request})
 
 @app.get("/alarms")
 def alarms(request: Request):
     """Render the alarms UI."""
     return templates.TemplateResponse("alarms.html", {"request": request})
+
+@app.get("/playback")
+def playback(request: Request):
+    """Render the playback UI."""
+    return templates.TemplateResponse("playback.html", {"request": request})
 
 @app.get("/settings")
 def settings(request: Request):
