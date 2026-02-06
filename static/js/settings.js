@@ -1,6 +1,8 @@
 // static/js/settings.js
 // Settings management for alarm thresholds
 
+console.log('[Settings] settings.js loaded');
+
 const STORAGE_KEY = 'nms_alarm_thresholds';
 
 // Default thresholds
@@ -109,7 +111,10 @@ function updateThresholdDisplays(thresholds) {
 /**
  * Handle settings form submission
  */
-export function handleSettingsSave() {
+export function handleSettingsSave(event) {
+  if (event) {
+    event.preventDefault();
+  }
   const rsrp = parseFloat(document.getElementById('rsrp-threshold').value);
   const sinr = parseFloat(document.getElementById('sinr-threshold').value);
   const temp = parseFloat(document.getElementById('temp-threshold').value);
@@ -130,7 +135,10 @@ export function handleSettingsSave() {
 /**
  * Handle reset button
  */
-export function handleSettingsReset() {
+export function handleSettingsReset(event) {
+  if (event) {
+    event.preventDefault();
+  }
   const thresholds = resetThresholds();
   
   // Update form
@@ -213,31 +221,51 @@ export function getActiveAlarms(kpiValues) {
   return alarms;
 }
 
-// Entry point for the settings page (merged from settings-app.js)
-function init() {
-  console.log('[Settings Page] Initializing');
-  
-  // Initialize the form with current values
-  initSettingsForm();
-  
-  // Attach form handlers
-  const form = document.getElementById('settings-form');
-  const resetBtn = document.getElementById('reset-settings');
-  
-  if (form) {
-    form.addEventListener('submit', handleSettingsSave);
+function bindRangeLabel(inputId, labelId) {
+  const input = document.getElementById(inputId);
+  const label = document.getElementById(labelId);
+
+  if (!input || !label) return;
+
+  const updateLabel = () => {
+    label.textContent = input.value;
+  };
+
+  if (!input.hasAttribute('data-label-bound')) {
+    input.addEventListener('input', updateLabel);
+    input.addEventListener('change', updateLabel);
+    input.setAttribute('data-label-bound', 'true');
   }
-  
+
+  updateLabel();
+}
+
+function initPage() {
+  const settingsForm = document.getElementById('settings-form');
+  if (!settingsForm) {
+    return;
+  }
+
+  console.log('[Settings] Settings page detected, initializing...');
+
+  initSettingsForm();
+
+  settingsForm.addEventListener('submit', handleSettingsSave);
+
+  const resetBtn = document.getElementById('reset-settings');
   if (resetBtn) {
     resetBtn.addEventListener('click', handleSettingsReset);
   }
-  
-  console.log('[Settings Page] Initialized');
+
+  bindRangeLabel('rsrp-threshold', 'rsrp-value');
+  bindRangeLabel('sinr-threshold', 'sinr-value');
+  bindRangeLabel('temp-threshold', 'temp-value');
 }
 
-// Start the app on DOM ready
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', init);
+  document.addEventListener('DOMContentLoaded', initPage);
 } else {
-  init();
+  initPage();
 }
+
+window.addEventListener('pageshow', initPage);
