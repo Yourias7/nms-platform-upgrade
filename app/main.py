@@ -65,6 +65,15 @@ def dashboard(request: Request):
     """Render the dashboard UI."""
     return templates.TemplateResponse("dashboard.html", {"request": request})
 
+@app.get("/alarms")
+def alarms(request: Request):
+    """Render the alarms UI."""
+    return templates.TemplateResponse("alarms.html", {"request": request})
+
+@app.get("/settings")
+def settings(request: Request):
+    """Render the settings UI."""
+    return templates.TemplateResponse("settings.html", {"request": request})
 
 @app.get("/export/Live/{serial}")
 def export_serial(serial: str):
