@@ -122,7 +122,7 @@ export function renderAlarmsTable(alarms) {
       <th>Site</th>
       <th>Status</th>
       <th>Last Update</th>
-      <th>Hours Ago</th>
+      <th>Time Ago</th>
     </tr>
   `;
   table.appendChild(thead);
@@ -137,8 +137,12 @@ export function renderAlarmsTable(alarms) {
       <td>${alarm.site}</td>
       <td><span class="badge bg-danger">${alarm.status}</span></td>
       <td>${alarm.lastUpdate}</td>
-      <td>${alarm.hoursAgo}h</td>
-    `;
+      <td>
+      ${alarm.hoursAgo >= 24 
+        ? `${Math.floor(alarm.hoursAgo / 24)}d ${(alarm.hoursAgo % 24).toFixed(1)}h` 
+        : `${alarm.hoursAgo}h`}
+      </td>
+          `;
     tbody.appendChild(row);
   });
   
