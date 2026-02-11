@@ -5,6 +5,8 @@ import { CONFIG } from './config.js';
 import { fetchLEDStatus } from './api.js';
 import { clearMapMarkers, updateMapMarkers } from './map.js';
 import { getThresholds, isInAlarm } from './settings.js';
+// import { fetchCommunicationAlarms } from './alarms.js';
+// import { isCommunicationAlarm,result } from './alarms.js';
 
 // Module state
 let serials = [];
@@ -94,6 +96,17 @@ export function clearSelectedSerials() {
   selectedSerials = [];
 }
 
+const THREE_HOURS_MS = 3 * 60 * 60 * 1000;
+
+function parseBackendDate(value) {
+  if (!value) return null;
+  const s = String(value).trim();
+  const isoish = (s.includes(' ') && !s.includes('T')) ? s.replace(' ', 'T') : s;
+  const d = new Date(isoish);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+
 /**
  * Determine LED color based on RSRP/SINR/TEMP thresholds
  * @param {number|null} rsrp
@@ -149,9 +162,54 @@ export async function renderSerials(data, onSelectSerial) {
     }
     
     // Serial text
+    // const text = document.createElement('div');
+    // text.className = 'serial-card-text';
+    // text.textContent = s;
+
+    // 3. Logic for Red Text (Communication Alarm)
+    // const THRESHOLD_HOURS = 3; //
+    // let isAlarm = false;
+
+    // if (!timestamp) {
+    //   isAlarm = true; // Αν δεν υπάρχει timestamp = Alarm
+    // } else {
+    //   try {
+    //     const lastUpdate = new Date(timestamp);
+    //     const now = new Date();
+    //     const diffHours = (now - lastUpdate) / (1000 * 60 * 60); //
+        
+    //     if (diffHours > THRESHOLD_HOURS) {
+    //       isAlarm = true; //
+    //     }
+    //   } catch (e) {
+    //     isAlarm = true; // Σε σφάλμα parsing = Alarm
+    //   }
+    // }
+    // if (isAlarm) {
+    //   text.classList.add('serial-card-text_red');
+    // }
+    // // edw αλλαγη color text if
+    // if (isCommunicationAlarm(timestamp)) {
+    //   text.classList.add('serial-card-text_red');
+    // }
+
     const text = document.createElement('div');
     text.className = 'serial-card-text';
     text.textContent = s;
+
+    try {
+      const { rsrp, sinr, temp, lat, lon, datetime } = await fetchLEDStatus(s);
+      led.className = `serial-card-led ${getLEDClass(rsrp, sinr, temp, lat, lon)}`;
+
+      const last = parseBackendDate(datetime);
+      if (last && (Date.now() - last.getTime() > THREE_HOURS_MS)) {
+        text.className = 'serial-card-text_red';
+        card.title = `Last update: ${last.toLocaleString()}`;
+      }
+    } catch (err) {
+      console.warn(`Failed to fetch LED status for ${s}:`, err);
+    }
+
     
     // Click handler for entire card
     card.onclick = () => onSelectSerial(s, card);

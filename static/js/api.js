@@ -65,7 +65,7 @@ export async function fetchLEDStatus(serial) {
     
     if (records && records.length > 0) {
       const latest = records[0];
-      let rsrp = null, sinr = null, temp = null, lat = null, lon = null;
+      let rsrp = null, sinr = null, temp = null, lat = null, lon = null, datetime = null;
       
       // Case-insensitive field matching
       for (const [key, val] of Object.entries(latest)) {
@@ -75,15 +75,16 @@ export async function fetchLEDStatus(serial) {
         if (lower === 'temp') temp = val;
         if (lower === 'latitude' || lower === 'lat') lat = val;
         if (lower === 'longitude' || lower === 'lon') lon = val;
+        if (lower === 'datetime') datetime = val;
       }
       
-      return { rsrp, sinr, temp, lat, lon };
+      return { rsrp, sinr, temp, lat, lon, datetime };
     }
   } catch (err) {
     console.warn(`Failed to fetch LED status for ${serial}:`, err);
   }
 
-  return { rsrp: null, sinr: null, temp: null, lat: null, lon: null };
+  return { rsrp: null, sinr: null, temp: null, lat: null, lon: null, datetime: null };
 }
 
 /**
