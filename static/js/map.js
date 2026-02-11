@@ -148,6 +148,11 @@ export async function updateMapMarkers(serialList) {
         const rsrp = getFieldCaseInsensitive(row, ['rsrp', 'RSRP']);
         const sinr = getFieldCaseInsensitive(row, ['sinr', 'SINR']);
         const temp = getFieldCaseInsensitive(row, ['temp', 'TEMP', 'temperature']);
+        const name = getFieldCaseInsensitive(row, ['name', 'NAME']);
+        const earfcn = getFieldCaseInsensitive(row, ['earfcn', 'EARFCN']);
+        const pci = getFieldCaseInsensitive(row, ['pci', 'PCI']);
+        const antenna_used = getFieldCaseInsensitive(row, ['a_used', 'A_USED']);
+        const cid= getFieldCaseInsensitive(row, ['cid', 'CID']);
         
         if (lat !== null && lon !== null && !isNaN(lat) && !isNaN(lon) && (lat !== 0 || lon !== 0)) {
           const latf = safeParseFloat(lat);
@@ -178,7 +183,9 @@ export async function updateMapMarkers(serialList) {
             marker = L.marker([latf, lonf]).addTo(map);
           }
           
-          const tooltipContent = `<b>${serial}</b><br>Lat: ${latf}, Lon: ${lonf}<br>Azimuth: ${headingDeg}°<br>RSRP: ${rsrpVal} dBm<br>SINR: ${sinrVal} dB<br>TEMP: ${tempVal}°C`;
+          const tooltipContent = `<b>${serial}</b><br>${name}<br>Lat: ${latf}, Lon: ${lonf}<br>Azimuth: ${headingDeg}°<br>RSRP: ${rsrpVal} dBm<br>SINR: ${sinrVal} dB<br>TEMP: ${tempVal}°C
+          <br>EARFCN: ${earfcn}<br>PCI: ${pci}<br>Antenna Used: ${antenna_used}<br>CID: ${cid}
+          `;
           
           // Bind popup for click interaction
           marker.bindPopup(tooltipContent);

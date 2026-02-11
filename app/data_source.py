@@ -123,13 +123,18 @@ def get_live_records_by_serial(serial: str):
         for row in rows:
             rec = {
                 "SERIAL": row.SERIAL,
+                "NAME": row.NAME,
                 "LATITUDE": row.LATITUDE,
                 "LONGITUDE": row.LONGITUDE,
                 "DATETIME": row.DATETIME.isoformat() if row.DATETIME else None,
                 "HEADING": row.HEADING,
+                "EARFCN": row.EARFCN,
+                "PCI": row.PCI, 
+                "A_USED": row.A_USED,
                 "RSRP": row.RSRP,
                 "SINR": row.SINR,
                 "TEMP": row.TEMP,
+                "CID": row.CID,
             }
             result.append(rec)
         
@@ -234,6 +239,7 @@ def export_live_csv(serial: str) -> str:
         # Write data rows
         for row in rows:
             writer.writerow([
+                # row.NAME,
                 row.SERIAL,
                 row.LATITUDE,
                 row.LONGITUDE,
@@ -267,6 +273,7 @@ def export_historic_csv(serial: str) -> str:
         for row in rows:
             writer.writerow([
                 row.SERIAL,
+                # row.NAME,
                 row.LATITUDE,
                 row.LONGITUDE,
                 row.DATETIME.isoformat() if row.DATETIME else "",

@@ -7,6 +7,7 @@ class LiveMeasurement(Base):
     __tablename__ = "LiveSheet$"
 
     SERIAL = Column(String(255), primary_key=True, index=True)
+    NAME = Column(String(255))
     LATITUDE = Column(Float)
     LONGITUDE = Column(Float)
     DATETIME = Column(DateTime)
@@ -14,6 +15,10 @@ class LiveMeasurement(Base):
     RSRP = Column(Float, name="BESTS.RSRP")
     SINR = Column(Float, name="BESTS.SNR")
     TEMP = Column(Float, name="BESTS.TEMP.")
+    EARFCN = Column(Integer, name="BESTS.EARFCN")
+    PCI = Column(Integer, name="BESTS.PCI")
+    A_USED= Column(Integer, name="DNR1.ACT_SECTOR")
+    CID= Column(Integer, name="BESTS.CID_dec")
 
 
 ############################# SAMPLE OF ANOTHER MODEL #############################
@@ -35,6 +40,7 @@ class HistoricMeasurement(Base):
     __tablename__ = "HistoricNewConfiguration$"
 
     SERIAL = Column(String(255), primary_key=True, index=True)
+    NAME = Column(String(255))
     LATITUDE = Column(Float)
     LONGITUDE = Column(Float)
     DATETIME = Column(DateTime)
@@ -42,3 +48,4 @@ class HistoricMeasurement(Base):
     RSRP = Column(Float, name="BESTS.RSRP")
     SINR = Column(Float, name="BESTS.SNR")
     TEMP = Column(Float, name="BESTS.TEMP.")
+    
