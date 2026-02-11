@@ -178,6 +178,15 @@ body::after {
 .led-green { background: #28a745; box-shadow: 0 0 6px rgba(40,167,69,0.6); }
 .led-red { background: #dc3545; box-shadow: 0 0 6px rgba(220,53,69,0.6); }
 
+
+.serial-card-text_red {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #dc3545;
+  text-align: center;
+  word-break: break-word;
+}
+
 /* Map tooltips for snapshot export */
 .map-label-tooltip {
   background-color: white !important;
