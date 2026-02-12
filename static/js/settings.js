@@ -11,7 +11,9 @@ const DEFAULT_THRESHOLDS = {
   sinr: 0,
   temp: 60,
   lat: 0,
-  lon: 0
+  lon: 0,
+  // COMMUNICATION_ALARM_THRESHOLD_HOURS: 3
+  // best temp
 };
 
 /**

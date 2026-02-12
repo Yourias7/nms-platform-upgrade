@@ -4,6 +4,7 @@
 import { fetchHistoricSerialsList, fetchHistoricSerialData } from './api.js';
 
 let chartInstance = null;
+let chartInstance2 = null;
 
 function getSelectedSerial() {
   const params = new URLSearchParams(window.location.search);
@@ -17,7 +18,7 @@ function sortByDatetime(records) {
     .sort((a, b) => new Date(a.DATETIME) - new Date(b.DATETIME));
 }
 
-function buildChartData(records) {
+function buildRSRPChartData(records) {
   const labels = [];
   const rsrpValues = [];
 
@@ -48,7 +49,38 @@ function buildChartData(records) {
   };
 }
 
-function computeYAxisBounds(values) {
+function buildSINRChartData(records) {
+  const labels = [];
+  const sinrValues = [];
+
+  records.forEach((rec) => {
+    const dt = new Date(rec.DATETIME);
+    labels.push(dt.toLocaleString('en-US', { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' }));
+    sinrValues.push(rec.SINR);
+  });
+  console.log('Built SINR chart data with %d points', sinrValues.length);
+  return {
+    labels,
+    datasets: [
+      {
+        label: 'SINR (dB)',
+        data: sinrValues,
+        borderColor: '#0d6efd',
+        backgroundColor: 'rgba(13, 110, 253, 0.1)',
+        borderWidth: 2,
+        fill: true,
+        pointRadius: 3,
+        pointBackgroundColor: '#0d6efd',
+        pointBorderColor: '#fff',
+        pointBorderWidth: 1,
+        tension: 0.4,
+        spanGaps: false
+      }
+    ]
+  };
+}
+
+function computeRSRPYAxisBounds(values) {
   if (!values || values.length === 0) {
     return { min: -140, max: -60 };
   }
@@ -63,6 +95,24 @@ function computeYAxisBounds(values) {
   return {
     min: Math.max(-160, min),
     max: Math.min(-40, max)
+  };
+}
+
+function computeSINRYAxisBounds(values) {
+  if (!values || values.length === 0) {
+    return { min: -20, max: 40 };
+  }
+
+  const minValue = Math.min(...values.filter((v) => v !== null && v !== undefined));
+  const maxValue = Math.max(...values.filter((v) => v !== null && v !== undefined));
+  const padding = 5;
+
+  const min = Math.floor(minValue - padding);
+  const max = Math.ceil(maxValue + padding);
+
+  return {
+    min: Math.max(40, min),
+    max: Math.min(-20, max)
   };
 }
 
@@ -124,85 +174,168 @@ async function loadHistoricData(serial) {
  * Initialize the playback chart
  */
 function buildEmptyChart(ctx) {
-  return new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels: [],
-      datasets: [
-        {
-          label: 'RSRP (dBm)',
-          data: [],
-          borderColor: '#0d6efd',
-          backgroundColor: 'rgba(13, 110, 253, 0.1)',
-          borderWidth: 2,
-          fill: true,
-          pointRadius: 3,
-          pointBackgroundColor: '#0d6efd',
-          pointBorderColor: '#fff',
-          pointBorderWidth: 1,
-          tension: 0.4,
-          spanGaps: false
-        }
-      ]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: {
-          position: 'top',
-          labels: {
-            usePointStyle: true,
-            padding: 15,
-            font: {
-              size: 14
+  switch (ctx.id) {
+    case 'rsrpChart':
+      return new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: [],
+          datasets: [
+            {
+              label: 'RSRP (dBm)',
+              data: [],
+              borderColor: '#0d6efd',
+              backgroundColor: 'rgba(13, 110, 253, 0.1)',
+              borderWidth: 2,
+              fill: true,
+              pointRadius: 3,
+              pointBackgroundColor: '#0d6efd',
+              pointBorderColor: '#fff',
+              pointBorderWidth: 1,
+              tension: 0.4,
+              spanGaps: false
             }
-          }
+          ]
         },
-        title: {
-          display: false
-        }
-      },
-      scales: {
-        x: {
-          grid: {
-            display: true,
-            color: 'rgba(0, 0, 0, 0.05)'
-          },
-          ticks: {
-            font: {
-              size: 11
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'top',
+              labels: {
+                usePointStyle: true,
+                padding: 15,
+                font: {
+                  size: 14
+                }
+              }
+            },
+            title: {
+              display: false
             }
+          },
+          scales: {
+            x: {
+              grid: {
+                display: true,
+                color: 'rgba(0, 0, 0, 0.05)'
+              },
+              ticks: {
+                font: {
+                  size: 11
+                }
+              }
+            },
+            y: {
+              beginAtZero: false,
+              min: -140,
+              max: -60,
+              title: {
+                display: true,
+                text: 'RSRP (dBm)',
+                font: {
+                  size: 12,
+                  weight: 'bold'
+                }
+              },
+              grid: {
+                color: 'rgba(0, 0, 0, 0.1)'
+              },
+              ticks: {
+                font: {
+                  size: 11
+                }
+              }
+            }
+          },
+          interaction: {
+            intersect: false,
+            mode: 'index'
           }
+        }
+      });
+    case 'sinrChart':
+      return new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: [],
+          datasets: [
+            {
+              label: 'SINR (dB)',
+              data: [],
+              borderColor: '#0d6efd',
+              backgroundColor: 'rgba(13, 110, 253, 0.1)',
+              borderWidth: 2,
+              fill: true,
+              pointRadius: 3,
+              pointBackgroundColor: '#0d6efd',
+              pointBorderColor: '#fff',
+              pointBorderWidth: 1,
+              tension: 0.4,
+              spanGaps: false
+            }
+          ]
         },
-        y: {
-          beginAtZero: false,
-          min: -140,
-          max: -60,
-          title: {
-            display: true,
-            text: 'RSRP (dBm)',
-            font: {
-              size: 12,
-              weight: 'bold'
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'top',
+              labels: {
+                usePointStyle: true,
+                padding: 15,
+                font: {
+                  size: 14
+                }
+              }
+            },
+            title: {
+              display: false
             }
           },
-          grid: {
-            color: 'rgba(0, 0, 0, 0.1)'
-          },
-          ticks: {
-            font: {
-              size: 11
+          scales: {
+            x: {
+              grid: {
+                display: true,
+                color: 'rgba(0, 0, 0, 0.05)'
+              },
+              ticks: {
+                font: {
+                  size: 11
+                }
+              }
+            },
+            y: {
+              beginAtZero: false,
+              min: -20,
+              max: 40,
+              title: {
+                display: true,
+                text: 'SINR (dB)',
+                font: {
+                  size: 12,
+                  weight: 'bold'
+                }
+              },
+              grid: {
+                color: 'rgba(0, 0, 0, 0.1)'
+              },
+              ticks: {
+                font: {
+                  size: 11
+                }
+              }
             }
+          },
+          interaction: {
+            intersect: false,
+            mode: 'index'
           }
         }
-      },
-      interaction: {
-        intersect: false,
-        mode: 'index'
-      }
+      });
     }
-  });
 }
 
 async function renderChartForSerial(serial) {
@@ -219,15 +352,26 @@ async function renderChartForSerial(serial) {
     return;
   }
 
-  const chartData = buildChartData(records);
-  const yBounds = computeYAxisBounds(chartData.datasets[0].data);
+  const rsrpChartData = buildRSRPChartData(records);
+  const yBounds = computeRSRPYAxisBounds(rsrpChartData.datasets[0].data);
 
   if (chartInstance) {
-    chartInstance.data.labels = chartData.labels;
-    chartInstance.data.datasets[0].data = chartData.datasets[0].data;
+    chartInstance.data.labels = rsrpChartData.labels;
+    chartInstance.data.datasets[0].data = rsrpChartData.datasets[0].data;
     chartInstance.options.scales.y.min = yBounds.min;
     chartInstance.options.scales.y.max = yBounds.max;
     chartInstance.update();
+  }
+
+  const sinrChartData = buildSINRChartData(records);
+  const yBoundsSINR = computeSINRYAxisBounds(sinrChartData.datasets[0].data);
+
+  if (chartInstance2) {
+    chartInstance2.data.labels = sinrChartData.labels;
+    chartInstance2.data.datasets[0].data = sinrChartData.datasets[0].data;
+    chartInstance2.options.scales.y.min = yBoundsSINR.min;
+    chartInstance2.options.scales.y.max = yBoundsSINR.max;
+    chartInstance2.update();
   }
 
   setPlaybackMessage('', 'muted');
@@ -236,14 +380,17 @@ async function renderChartForSerial(serial) {
 
 async function initChart() {
   const ctx = document.getElementById('rsrpChart');
+  const ctx2 = document.getElementById('sinrChart');
   console.log('[Playback Page] Initializing chart with canvas:', ctx);
+  console.log('[Playback Page] Initializing chart with canvas:', ctx2);
   
-  if (!ctx) {
+  if (!ctx || !ctx2) {
     console.warn('[Playback] Chart canvas not found');
     return;
   }
 
   chartInstance = buildEmptyChart(ctx);
+  chartInstance2 = buildEmptyChart(ctx2);
 }
 
 /**
