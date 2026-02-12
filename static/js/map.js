@@ -151,7 +151,7 @@ export async function updateMapMarkers(serialList) {
         const name = getFieldCaseInsensitive(row, ['name', 'NAME']);
         const earfcn = getFieldCaseInsensitive(row, ['earfcn', 'EARFCN']);
         const pci = getFieldCaseInsensitive(row, ['pci', 'PCI']);
-        const antenna_used = getFieldCaseInsensitive(row, ['a_used', 'A_USED']);
+        const antenna_used = getFieldCaseInsensitive(row, ['antenna used', 'ANTENNA USED']);
         const cid= getFieldCaseInsensitive(row, ['cid', 'CID']);
         
         if (lat !== null && lon !== null && !isNaN(lat) && !isNaN(lon) && (lat !== 0 || lon !== 0)) {

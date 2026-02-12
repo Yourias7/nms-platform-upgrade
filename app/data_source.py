@@ -130,7 +130,7 @@ def get_live_records_by_serial(serial: str):
                 "HEADING": row.HEADING,
                 "EARFCN": row.EARFCN,
                 "PCI": row.PCI, 
-                "A_USED": row.A_USED,
+                "ANTENNA USED": row.A_USED,
                 "RSRP": row.RSRP,
                 "SINR": row.SINR,
                 "TEMP": row.TEMP,

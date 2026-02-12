@@ -17,7 +17,7 @@ class LiveMeasurement(Base):
     TEMP = Column(Float, name="BESTS.TEMP.")
     EARFCN = Column(Integer, name="BESTS.EARFCN")
     PCI = Column(Integer, name="BESTS.PCI")
-    A_USED= Column(Integer, name="DNR1.ACT_SECTOR")
+    A_USED= Column(Integer, name="BESTS.SECT#")
     CID= Column(Integer, name="BESTS.CID_dec")
 
 
