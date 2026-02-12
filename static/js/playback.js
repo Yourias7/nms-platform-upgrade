@@ -184,13 +184,13 @@ function buildEmptyChart(ctx) {
             {
               label: 'RSRP (dBm)',
               data: [],
-              borderColor: '#0d6efd',
+              borderColor: '#85c6f1',
               backgroundColor: 'rgba(13, 110, 253, 0.1)',
               borderWidth: 2,
               fill: true,
               pointRadius: 3,
-              pointBackgroundColor: '#0d6efd',
-              pointBorderColor: '#fff',
+              pointBackgroundColor: '#85c6f1',
+              pointBorderColor: '#85c6f1',
               pointBorderWidth: 1,
               tension: 0.4,
               spanGaps: false
@@ -264,13 +264,13 @@ function buildEmptyChart(ctx) {
             {
               label: 'SINR (dB)',
               data: [],
-              borderColor: '#0d6efd',
+              borderColor: '#85c6f1',
               backgroundColor: 'rgba(13, 110, 253, 0.1)',
               borderWidth: 2,
               fill: true,
               pointRadius: 3,
-              pointBackgroundColor: '#0d6efd',
-              pointBorderColor: '#fff',
+              pointBackgroundColor: '#85c6f1',
+              pointBorderColor: '#85c6f1',
               pointBorderWidth: 1,
               tension: 0.4,
               spanGaps: false
