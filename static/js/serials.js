@@ -96,9 +96,9 @@ export function clearSelectedSerials() {
   selectedSerials = [];
 }
 
-const THREE_HOURS_MS = 3 * 60 * 60 * 1000;
+const THREE_HOURS_MS = 3 * 60 * 60 * 1000;//3 hours in milliseconds
 
-function parseBackendDate(value) {
+function parseBackendDate(value) {// Parses date string from backend, handling both ISO and space-separated formats
   if (!value) return null;
   const s = String(value).trim();
   const isoish = (s.includes(' ') && !s.includes('T')) ? s.replace(' ', 'T') : s;
@@ -150,9 +150,29 @@ export async function renderSerials(data, onSelectSerial) {
     card.className = 'serial-card';
     
     // LED indicator: default to green
-    const led = document.createElement('div');
+    const led = document.createElement('span');
     led.className = 'serial-card-led led-green';
     
+
+    // ICON δίπλα στο LED
+    const icon = document.createElement('span');
+    icon.className = 'serial-plug-icon';
+    icon.innerHTML = `
+      <svg id="disconnect-svg" viewBox="0 0 100 100">
+            <g transform="rotate(-45 50 50)">
+                <path d="M50,5 L50,20" /> <path d="M35,20 A15,15 0 0 1 65,20 L65,35 L35,35 Z" /> 
+                <line x1="42" y1="35" x2="42" y2="45" /> <line x1="58" y1="35" x2="58" y2="45" /> 
+                <line x1="42" y1="55" x2="42" y2="65" /> <line x1="58" y1="55" x2="58" y2="65" /> 
+                <path d="M35,80 A15,15 0 0 0 65,80 L65,65 L35,65 Z" /> 
+                <path d="M50,80 L50,95" /> </g>
+        </svg>
+    `;
+    // Wrap LED + plug icon on the same row
+    const ledRow = document.createElement('div');
+    ledRow.className = 'serial-led-plug-row';
+    ledRow.appendChild(led);
+    ledRow.appendChild(icon);
+
     // Fetch RSRP/SINR/TEMP to determine LED color
     try {
       const { rsrp, sinr, temp, lat, lon } = await fetchLEDStatus(s);
@@ -161,37 +181,6 @@ export async function renderSerials(data, onSelectSerial) {
       console.warn(`Failed to fetch LED status for ${s}:`, err);
     }
     
-    // Serial text
-    // const text = document.createElement('div');
-    // text.className = 'serial-card-text';
-    // text.textContent = s;
-
-    // 3. Logic for Red Text (Communication Alarm)
-    // const THRESHOLD_HOURS = 3; //
-    // let isAlarm = false;
-
-    // if (!timestamp) {
-    //   isAlarm = true; // Αν δεν υπάρχει timestamp = Alarm
-    // } else {
-    //   try {
-    //     const lastUpdate = new Date(timestamp);
-    //     const now = new Date();
-    //     const diffHours = (now - lastUpdate) / (1000 * 60 * 60); //
-        
-    //     if (diffHours > THRESHOLD_HOURS) {
-    //       isAlarm = true; //
-    //     }
-    //   } catch (e) {
-    //     isAlarm = true; // Σε σφάλμα parsing = Alarm
-    //   }
-    // }
-    // if (isAlarm) {
-    //   text.classList.add('serial-card-text_red');
-    // }
-    // // edw αλλαγη color text if
-    // if (isCommunicationAlarm(timestamp)) {
-    //   text.classList.add('serial-card-text_red');
-    // }
 
     const text = document.createElement('div');
     text.className = 'serial-card-text';
@@ -203,6 +192,8 @@ export async function renderSerials(data, onSelectSerial) {
 
       const last = parseBackendDate(datetime);
       if (last && (Date.now() - last.getTime() > THREE_HOURS_MS)) {
+        // icon.className = 'serial-card-led led-red';
+        icon.style.color = '#dc3545';
         text.className = 'serial-card-text_red';
         card.title = `Last update: ${last.toLocaleString()}`;
       }
@@ -214,7 +205,11 @@ export async function renderSerials(data, onSelectSerial) {
     // Click handler for entire card
     card.onclick = () => onSelectSerial(s, card);
     
-    card.appendChild(led);
+    // card.appendChild(led);
+    // card.appendChild(icon);
+    // card.appendChild(text);
+    // serialListEl.appendChild(card);
+    card.appendChild(ledRow);
     card.appendChild(text);
     serialListEl.appendChild(card);
     
