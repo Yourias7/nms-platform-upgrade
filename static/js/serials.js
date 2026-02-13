@@ -194,7 +194,7 @@ export async function renderSerials(data, onSelectSerial) {
       if (last && (Date.now() - last.getTime() > THREE_HOURS_MS)) {
         // icon.className = 'serial-card-led led-red';
         icon.style.color = '#dc3545';
-        text.className = 'serial-card-text_red';
+        // text.className = 'serial-card-text_red';
         card.title = `Last update: ${last.toLocaleString()}`;
       }
     } catch (err) {

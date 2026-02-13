@@ -135,6 +135,10 @@ def get_live_records_by_serial(serial: str):
                 "SINR": row.SINR,
                 "TEMP": row.TEMP,
                 "CID": row.CID,
+                "RSRQ": row.RSRQ,
+                "NODE_ID": row.NODE_ID,
+                "SECTOR_ID": row.SECTOR_ID
+                
             }
             result.append(rec)
         

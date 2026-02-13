@@ -111,9 +111,10 @@ body::after {
 /* Serial card grid layout */
 .serial-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 12px;
-  height: 60vh;
+  width: 100%;
+  height: 55vh;
   max-height: 60vh;
   overflow-y: auto;
   padding: 4px;
@@ -176,7 +177,7 @@ body::after {
 
 #map {
   width: 100%;
-  height: 72vh;
+  height: 65vh;
   max-height: 80vh;
   border-radius: 12px;
   border: 2px solid rgba(102, 126, 234, 0.3);

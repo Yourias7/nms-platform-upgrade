@@ -153,6 +153,9 @@ export async function updateMapMarkers(serialList) {
         const pci = getFieldCaseInsensitive(row, ['pci', 'PCI']);
         const antenna_used = getFieldCaseInsensitive(row, ['antenna used', 'ANTENNA USED']);
         const cid= getFieldCaseInsensitive(row, ['cid', 'CID']);
+        const date= getFieldCaseInsensitive(row, ['datetime', 'DATETIME']);
+
+        
         
         if (lat !== null && lon !== null && !isNaN(lat) && !isNaN(lon) && (lat !== 0 || lon !== 0)) {
           const latf = safeParseFloat(lat);
@@ -182,9 +185,25 @@ export async function updateMapMarkers(serialList) {
           } else {
             marker = L.marker([latf, lonf]).addTo(map);
           }
+
+          const lastUpdate = new Date(date);
+const now = new Date();
+const diffInSeconds = Math.floor((now - lastUpdate) / 1000);
+
+let timeDiffText = "";
+
+if (diffInSeconds < 60) {
+    timeDiffText = `${diffInSeconds}s ago`;
+} else if (diffInSeconds < 3600) {
+    timeDiffText = `${Math.floor(diffInSeconds / 60)}m ago`;
+} else if (diffInSeconds < 86400) {
+    timeDiffText = `${Math.floor(diffInSeconds / 3600)}h ago`;
+} else {
+    timeDiffText = `${Math.floor(diffInSeconds / 86400)}d ago`;
+}
           
-          const tooltipContent = `<b>${serial}</b><br>${name}<br>Lat: ${latf}, Lon: ${lonf}<br>Azimuth: ${headingDeg}°<br>RSRP: ${rsrpVal} dBm<br>SINR: ${sinrVal} dB<br>TEMP: ${tempVal}°C
-          <br>EARFCN: ${earfcn}<br>PCI: ${pci}<br>Antenna Used: ${antenna_used}<br>CID: ${cid}
+          const tooltipContent = `<b>${name}</b><br>${serial}<br>Lat: ${latf}, Lon: ${lonf}<br>RSRP: ${rsrpVal} dBm<br>SINR: ${sinrVal} dB<br>TEMP: ${tempVal}°C
+          <br>EARFCN: ${earfcn}<br>PCI: ${pci}<br>Antenna Used: ${antenna_used}<br>CID: ${cid}<br>Last Updated: ${timeDiffText}
           `;
           
           // Bind popup for click interaction

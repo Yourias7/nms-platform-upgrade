@@ -124,6 +124,8 @@ async function exportSerialAsZip(serial) {
 
 /**
  * Render data table for selected serial
+ /**
+ * Render data table for selected serial
  * @param {string} serial - Serial number
  * @param {Object[]} data - Array of data records
  */
@@ -136,8 +138,19 @@ export function renderDetailsTable(serial, data) {
     exportBtn.style.display = 'none';
     return;
   }
+
+  // Ορισμός των στηλών που επιτρέπουμε
+  const allowedCols = ['SERIAL', 'NAME', 'LATITUDE', 'LONGITUDE', 'DATETIME', 'EARFCN', 'PCI', 'ANTENNA USED', 'RSRP','RSRQ', 'SINR', 'TEMP','NODE_ID', 'CID', 'SECTOR_ID'];
   
-  // Show export button with custom click handler for map snapshot
+  // Ορισμός labels για τις κεφαλίδες (αν θες να αλλάξεις το κείμενο που φαίνεται)
+  const colLabels = {
+    'DATETIME': 'Date/Time',
+    'ANTENNA USED': 'Antenna',
+    'RSRP': 'RSRP (dBm)',
+    'TEMP': 'Temp (°C)'
+  };
+
+  // Εμφάνιση κουμπιού export
   exportBtn.style.display = 'inline-block';
   exportBtn.textContent = 'Export ZIP';
   exportBtn.onclick = async (e) => {
@@ -145,54 +158,47 @@ export function renderDetailsTable(serial, data) {
     await exportSerialAsZip(serial);
   };
   
-  // Build table
-  const cols = Object.keys(data[0]);
   const table = document.createElement('table');
   table.className = 'table table-sm table-striped';
   
-  // Table header
+  // Δημιουργία Header
   const thead = document.createElement('thead');
   const trh = document.createElement('tr');
-  cols.forEach(c => {
+  allowedCols.forEach(colKey => {
     const th = document.createElement('th');
-    th.textContent = c;
+    // Χρήση label αν υπάρχει, αλλιώς το όνομα της στήλης
+    th.textContent = colLabels[colKey] || colKey; 
     trh.appendChild(th);
   });
   thead.appendChild(trh);
   table.appendChild(thead);
   
-  // Table body
+  // Δημιουργία Body
   const tbody = document.createElement('tbody');
   data.forEach(row => {
     const tr = document.createElement('tr');
-    cols.forEach(c => {
+    
+    allowedCols.forEach(colKey => {
       const td = document.createElement('td');
-      let v = row[c];
+      let v = row[colKey]; 
       if (v === null || v === undefined) v = '';
       
-      // Normalize column name for comparisons
-      const colName = String(c).trim().toUpperCase();
+      // ΔΙΟΡΘΩΣΗ: Χρήση του colKey αντί για το ανύπαρκτο c
+      const colName = String(colKey).trim().toUpperCase();
       
-      // Format DATETIME values for better readability and handle non-string values
+      // Μορφοποίηση Ημερομηνίας
       if (colName === 'DATETIME' && v !== '') {
-        if (typeof v === 'string') {
-          v = v.replace(/T/g, ' ');
-        } else if (v instanceof Date) {
-          v = v.toISOString().replace(/T/g, ' ');
-        } else {
-          v = String(v).replace(/T/g, ' ');
-        }
+        v = String(v).replace(/T/g, ' ');
       }
       
       td.textContent = v;
       
-      // Highlight RSRP values under -120 in red
+      // Highlights (Κόκκινο χρώμα σε κακές τιμές)
       if (colName === 'RSRP' && v !== '' && parseFloat(v) <= -120) {
         td.style.color = 'red';
         td.style.fontWeight = 'bold';
       }
 
-      // Highlight SINR values under 0 in red
       if (colName === 'SINR' && v !== '' && parseFloat(v) <= 0) {
         td.style.color = 'red';
         td.style.fontWeight = 'bold';
@@ -209,7 +215,7 @@ export function renderDetailsTable(serial, data) {
   });
   table.appendChild(tbody);
   
-  // Clear and append
+  // Καθαρισμός και προσθήκη του πίνακα στο UI
   detailsEl.innerHTML = '';
   detailsEl.appendChild(table);
 }
