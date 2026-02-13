@@ -124,16 +124,71 @@ function setPlaybackMessage(message, tone = 'muted') {
 }
 
 function populateSerialOptions(serials) {
-  const datalist = document.getElementById('serialOptions');
-  if (!datalist) return;
-  datalist.innerHTML = '';
-
-  serials.forEach((serial) => {
-    const option = document.createElement('option');
-    option.value = serial;
-    datalist.appendChild(option);
-  });
+  const dropdown = document.getElementById('serialOptions');
+  if (!dropdown) return;
+  
+  // Store original serials for filtering
+  dropdown.dataset.serials = JSON.stringify(serials);
+  
+  // Render initial options
+  renderDropdownOptions(serials);
+  
+  // Setup input event listener for filtering
+  const input = document.getElementById('serialInput');
+  if (input) {
+    input.addEventListener('input', (e) => {
+      const filterValue = e.target.value.toLowerCase();
+      const filtered = serials.filter(serial =>
+        serial.toLowerCase().includes(filterValue)
+      );
+      renderDropdownOptions(filtered);
+      if (dropdown.style.display === 'block') {
+        dropdown.style.display = filtered.length > 0 ? 'block' : 'none';
+      }
+    });
+    
+    input.addEventListener('click', () => {
+      const filterValue = input.value.toLowerCase();
+      const filtered = serials.filter(serial =>
+        serial.toLowerCase().includes(filterValue)
+      );
+      renderDropdownOptions(filtered);
+      dropdown.style.display = filtered.length > 0 ? 'block' : 'none';
+    });
+  }
 }
+
+function renderDropdownOptions(serials) {
+  const dropdown = document.getElementById('serialOptions');
+  if (!dropdown) return;
+  dropdown.innerHTML = '';
+  
+  serials.forEach((serial) => {
+    const option = document.createElement('button');
+    option.type = 'button';
+    option.className = 'dropdown-item';
+    option.textContent = serial;
+    option.addEventListener('click', (e) => {
+      e.preventDefault();
+      const input = document.getElementById('serialInput');
+      if (input) {
+        input.value = serial;
+        dropdown.style.display = 'none';
+      }
+    });
+    dropdown.appendChild(option);
+  });
+  serials.sort();
+}
+
+// Close dropdown when clicking outside
+document.addEventListener('click', (e) => {
+  const input = document.getElementById('serialInput');
+  const dropdown = document.getElementById('serialOptions');
+  if (input && dropdown && e.target !== input && e.target !== dropdown && !dropdown.contains(e.target)) {
+    dropdown.style.display = 'none';
+  }
+});
 
 function getSerialInputValue() {
   const input = document.getElementById('serialInput');
