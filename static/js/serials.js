@@ -152,7 +152,7 @@ export async function renderSerials(data, onSelectSerial) {
     // LED indicator: default to green
     const led = document.createElement('span');
     led.className = 'serial-card-led led-green';
-    
+
 
     // ICON δίπλα στο LED
     const icon = document.createElement('span');
@@ -189,7 +189,7 @@ export async function renderSerials(data, onSelectSerial) {
     try {
       const { rsrp, sinr, temp, lat, lon, datetime } = await fetchLEDStatus(s);
       led.className = `serial-card-led ${getLEDClass(rsrp, sinr, temp, lat, lon)}`;
-
+      
       const last = parseBackendDate(datetime);
       if (last && (Date.now() - last.getTime() > THREE_HOURS_MS)) {
         // icon.className = 'serial-card-led led-red';
