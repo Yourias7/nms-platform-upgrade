@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Request, Response
 import logging
-from app.data_source import get_historic_records_by_serial, get_live_records_by_serial, list_live_serials, list_historic_serials, export_live_csv, export_historic_csv, live_serials_with_locations, historic_serials_with_locations
+from app.data_source import get_historic_records_by_serial, get_live_records_by_serial, list_live_serials, list_historic_serials, export_live_csv, export_historic_csv, live_serials_with_locations, historic_serials_with_locations,list_live_names
 from fastapi.responses import StreamingResponse, FileResponse
 import io
 import mimetypes
@@ -44,6 +44,13 @@ def list_live_serials_endpoint():
     serials = list_live_serials()
     logger.info(f"Returning {len(serials)} distinct serials")
     return serials
+
+@app.get("/systems/Live/names")
+def list_live_names_endpoint():
+    """Return a list of all distinct NAME values."""
+    names = list_live_names()
+    logger.info(f"Returning {len(names)} distinct names")
+    return names
 
 @app.get("/systems/Historic/serials")
 def list_historic_serials_endpoint():

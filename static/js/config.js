@@ -6,12 +6,13 @@ export const CONFIG = {
   API: {
     SERIALS: '/systems/Live/serials',
     SYSTEMS: '/Systems/Live',
+    SERIAL_NAME_MAP: '/systems/Live/serial_name_map',
     EXPORT: '/export/Live',
     LOCATIONS: '/systems/Live/locations',
     HISTORIC_SERIALS: '/systems/Historic/serials',
     HISTORIC_SYSTEMS: '/Systems/Historic',
     HISTORIC_EXPORT: '/export/Historic',
-    HISTORIC_LOCATIONS: '/systems/Historic/locations'
+    HISTORIC_LOCATIONS: '/systems/Historic/locations',
   },
 
   // Map settings
