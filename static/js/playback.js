@@ -525,7 +525,8 @@ function updateMapWithData(records) {
     const marker = L.circleMarker([lat, lon], {
       radius: 6,
       fillColor: getColorForRSRP(rec.RSRP),
-      color: '#fff',
+      // color: '#fff',
+      color: getColorForRSRP(rec.RSRP),
       weight: 1,
       opacity: 1,
       fillOpacity: 0.8
@@ -546,16 +547,16 @@ function updateMapWithData(records) {
   });
 
   // Create polyline connecting points
-  const latLngs = validRecords.map(rec => [rec.LAT || rec.LATITUDE, rec.LON || rec.LONGITUDE]);
-  const polyline = L.polyline(latLngs, {
-    color: '#667eea',
-    weight: 2,
-    opacity: 0.7
-  }).addTo(mapInstance);
-  mapMarkers.push(polyline);
+  // const latLngs = validRecords.map(rec => [rec.LAT || rec.LATITUDE, rec.LON || rec.LONGITUDE]);
+  // const polyline = L.polyline(latLngs, {
+  //   color: '#667eea',
+  //   weight: 2,
+  //   opacity: 0.7
+  // }).addTo(mapInstance);
+  // mapMarkers.push(polyline);
 
-  // Fit map to show all points
-  mapInstance.fitBounds(polyline.getBounds(), { padding: [50, 50] });
+  // // Fit map to show all points
+  // mapInstance.fitBounds(polyline.getBounds(), { padding: [50, 50] });
 }
 
 /**
