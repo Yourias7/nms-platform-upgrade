@@ -6,6 +6,10 @@
     <title>Playback - NMS Platform</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <!-- favicon (ICO) -->
     <link rel="icon" href="/static/img/favicon.ico" type="image/x-icon">
 
@@ -51,7 +55,7 @@
       </div>
     </nav>
 
-    <main class="container">
+    <main class="container-fluid">
       <!-- Playback Content -->
       <div class="row g-2 align-items-end mb-3">
         <div class="col-12 col-md-6" style="width: auto; position: relative;">
@@ -65,8 +69,12 @@
         <div class="col-12 col-md-3">
           <div id="playbackMessage" class="text-muted small"></div>
         </div>
-        <div class="col-12" style="margin-top: 20px;">
-          <div class="card">
+      </div>
+      
+      <div class="row">
+        <!-- Left side: Charts -->
+        <div class="col-12 col-lg-6">
+          <div class="card mb-3">
             <div class="card-body">
               <h5 class="card-title">RSRP Data Playback</h5>
               <p class="text-muted mb-3">Historical RSRP signal strength over time</p>
@@ -75,13 +83,23 @@
               </div>
             </div>
           </div>
-          <div class="card" style="margin-top: 20px;">
+          <div class="card">
             <div class="card-body">
               <h5 class="card-title">SINR Data Playback</h5>
               <p class="text-muted mb-3">Historical SINR signal-to-noise ratio over time</p>
               <div id="playbackSINRChartContainer" style="position: relative; height: 400px;">
                 <canvas id="sinrChart"></canvas>
               </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Right side: Map -->
+        <div class="col-12 col-lg-6">
+          <div class="card" style="height: calc(100% - 0px);">
+            <div class="card-body">
+              <h5 class="card-title">Location Map</h5>
+              <div id="playbackMap" style="height: calc(100% - 50px); min-height: 820px;"></div>
             </div>
           </div>
         </div>

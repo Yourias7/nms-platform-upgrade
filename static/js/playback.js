@@ -1,10 +1,13 @@
 // static/js/playback.js
 // Playback page - RSRP time-series visualization
-
+import { CONFIG } from './config.js';
+import { fetchSerialData } from './api.js';
 import { fetchHistoricSerialsList, fetchHistoricSerialData } from './api.js';
 
 let chartInstance = null;
 let chartInstance2 = null;
+let mapInstance = null;
+let mapMarkers = [];
 
 function getSelectedSerial() {
   const params = new URLSearchParams(window.location.search);
@@ -429,6 +432,9 @@ async function renderChartForSerial(serial) {
     chartInstance2.update();
   }
 
+  // Update map with data points
+  updateMapWithData(records);
+
   setPlaybackMessage('', 'muted');
   console.log('[Playback] Chart updated', serial ? `for ${serial}` : '');
 }
@@ -449,11 +455,126 @@ async function initChart() {
 }
 
 /**
+ * Get the map instance
+ * @returns {L.Map|null}
+ */
+export function getMap() {
+  return mapInstance;
+}
+
+/**
+ * Initialize the map
+ */
+function initMap() {
+  const mapDiv = document.getElementById('playbackMap');
+  if (!mapDiv) {
+    console.warn('[Playback] Map div not found');
+    return;
+  }
+
+  // Initialize Leaflet map
+  mapInstance = L.map('playbackMap').setView(
+    [CONFIG.MAP.INITIAL_LAT, CONFIG.MAP.INITIAL_LON],
+    CONFIG.MAP.INITIAL_ZOOM
+  );
+  
+  // Add OpenStreetMap tiles
+  L.tileLayer(CONFIG.MAP.TILE_URL, {
+    maxZoom: CONFIG.MAP.MAX_ZOOM,
+    attribution: CONFIG.MAP.TILE_ATTRIBUTION
+  }).addTo(mapInstance);
+
+  console.log('[Playback] Map initialized');
+  return mapInstance;
+}
+
+/**
+ * Update map with data points
+ */
+function updateMapWithData(records) {
+  if (!mapInstance) return;
+
+  // Clear existing markers
+  mapMarkers.forEach(marker => mapInstance.removeLayer(marker));
+  mapMarkers = [];
+
+  // Debug: Log first record to see available fields
+  if (records.length > 0) {
+    console.log('[Playback] First record fields:', Object.keys(records[0]));
+    console.log('[Playback] First record:', records[0]);
+  }
+
+  // Filter records with valid coordinates - try both field name variations
+  const validRecords = records.filter(rec => 
+    (rec.LAT && rec.LON) || (rec.LATITUDE && rec.LONGITUDE)
+  );
+  
+  if (validRecords.length === 0) {
+    console.warn('[Playback] No records with valid coordinates');
+    console.warn('[Playback] Total records:', records.length);
+    return;
+  }
+
+  console.log('[Playback] Valid records with coordinates:', validRecords.length);
+
+  // Add markers for each data point
+  validRecords.forEach((rec, index) => {
+    const lat = rec.LAT || rec.LATITUDE;
+    const lon = rec.LON || rec.LONGITUDE;
+    
+    const marker = L.circleMarker([lat, lon], {
+      radius: 6,
+      fillColor: getColorForRSRP(rec.RSRP),
+      color: '#fff',
+      weight: 1,
+      opacity: 1,
+      fillOpacity: 0.8
+    });
+
+    const dt = new Date(rec.DATETIME);
+    marker.bindPopup(`
+      <strong>Point ${index + 1}</strong><br>
+      Time: ${dt.toLocaleString()}<br>
+      RSRP: ${rec.RSRP} dBm<br>
+      SINR: ${rec.SINR} dB<br>
+      Lat: ${lat}<br>
+      Lon: ${lon}
+    `);
+
+    marker.addTo(mapInstance);
+    mapMarkers.push(marker);
+  });
+
+  // Create polyline connecting points
+  const latLngs = validRecords.map(rec => [rec.LAT || rec.LATITUDE, rec.LON || rec.LONGITUDE]);
+  const polyline = L.polyline(latLngs, {
+    color: '#667eea',
+    weight: 2,
+    opacity: 0.7
+  }).addTo(mapInstance);
+  mapMarkers.push(polyline);
+
+  // Fit map to show all points
+  mapInstance.fitBounds(polyline.getBounds(), { padding: [50, 50] });
+}
+
+/**
+ * Get color based on RSRP value
+ */
+function getColorForRSRP(rsrp) {
+  if (rsrp >= -80) return '#28a745'; // Good - green
+  if (rsrp >= -95) return '#ffc107'; // Fair - yellow
+  if (rsrp >= -110) return '#fd7e14'; // Poor - orange
+  return '#dc3545'; // Bad - red
+}
+
+/**
  * Initialize the playback page
  */
 async function init() {
   console.log('[Playback Page] Initializing');
   await initChart();
+  initMap();
 
   setPlaybackMessage('Loading serials...', 'muted');
   try {
