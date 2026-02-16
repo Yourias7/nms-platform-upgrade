@@ -129,35 +129,38 @@ function setPlaybackMessage(message, tone = 'muted') {
 function populateSerialOptions(serials) {
   const dropdown = document.getElementById('serialOptions');
   if (!dropdown) return;
-  
+
   // Store original serials for filtering
   dropdown.dataset.serials = JSON.stringify(serials);
-  
-  // Render initial options
+
+  // Render initial options (keep hidden until user interacts)
   renderDropdownOptions(serials);
-  
+  dropdown.style.display = 'none';
+
   // Setup input event listener for filtering
   const input = document.getElementById('serialInput');
   if (input) {
-    input.addEventListener('input', (e) => {
-      const filterValue = e.target.value.toLowerCase();
-      const filtered = serials.filter(serial =>
-        serial.toLowerCase().includes(filterValue)
-      );
+    const updateDropdown = () => {
+      const filterValue = input.value.toLowerCase().trim();
+      const filtered = filterValue === ''
+        ? serials
+        : serials.filter((serial) => serial.toLowerCase().includes(filterValue));
+      
       renderDropdownOptions(filtered);
-      if (dropdown.style.display === 'block') {
-        dropdown.style.display = filtered.length > 0 ? 'block' : 'none';
+      
+      // Use Bootstrap's 'show' class for dropdown visibility
+      if (filtered.length > 0) {
+        dropdown.classList.add('show');
+        dropdown.style.display = 'block';
+      } else {
+        dropdown.classList.remove('show');
+        dropdown.style.display = 'none';
       }
-    });
-    
-    input.addEventListener('click', () => {
-      const filterValue = input.value.toLowerCase();
-      const filtered = serials.filter(serial =>
-        serial.toLowerCase().includes(filterValue)
-      );
-      renderDropdownOptions(filtered);
-      dropdown.style.display = filtered.length > 0 ? 'block' : 'none';
-    });
+    };
+
+    input.addEventListener('input', updateDropdown);
+    input.addEventListener('focus', updateDropdown);
+    input.addEventListener('click', updateDropdown);
   }
 }
 
@@ -166,7 +169,10 @@ function renderDropdownOptions(serials) {
   if (!dropdown) return;
   dropdown.innerHTML = '';
   
-  serials.forEach((serial) => {
+  // Sort serials before rendering
+  const sortedSerials = [...serials].sort();
+  
+  sortedSerials.forEach((serial) => {
     const option = document.createElement('button');
     option.type = 'button';
     option.className = 'dropdown-item';
@@ -176,12 +182,12 @@ function renderDropdownOptions(serials) {
       const input = document.getElementById('serialInput');
       if (input) {
         input.value = serial;
+        dropdown.classList.remove('show');
         dropdown.style.display = 'none';
       }
     });
     dropdown.appendChild(option);
   });
-  serials.sort();
 }
 
 // Close dropdown when clicking outside
@@ -189,6 +195,7 @@ document.addEventListener('click', (e) => {
   const input = document.getElementById('serialInput');
   const dropdown = document.getElementById('serialOptions');
   if (input && dropdown && e.target !== input && e.target !== dropdown && !dropdown.contains(e.target)) {
+    dropdown.classList.remove('show');
     dropdown.style.display = 'none';
   }
 });
