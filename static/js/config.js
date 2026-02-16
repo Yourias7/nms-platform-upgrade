@@ -20,7 +20,7 @@ export const CONFIG = {
   MAP: {
     INITIAL_LAT: 38.241804,
     INITIAL_LON: 24.584192,
-    INITIAL_ZOOM: 7,
+    INITIAL_ZOOM: 9,
     MAX_ZOOM: 10,
     TILE_URL: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
     TILE_ATTRIBUTION: '&copy; OpenStreetMap contributors',
