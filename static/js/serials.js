@@ -136,6 +136,45 @@ function maxLen(str, n = 20) {
   return str.length > n ? str.slice(0, n - 1) + "…" : str;
 }
 
+function showClearBtn(show) {
+  const btn = document.getElementById('clearSelectedBtn');
+  if (!btn) return;
+  btn.style.display = show ? 'inline-block' : 'none';
+}
+
+function bindClearButton(onSelectSerial) {
+  const btn = document.getElementById('clearSelectedBtn');
+  if (!btn) return;
+
+  // μην ξαναδένεις handler πολλές φορές
+  if (btn.dataset.bound === '1') return;
+  btn.dataset.bound = '1';
+
+  btn.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    // 1) clear selected state (από το module)
+    clearSelectedSerials();
+
+    // 2) βγάλε highlight από cards
+    document.querySelectorAll('.serial-card.selected')
+      .forEach(el => el.classList.remove('selected'));
+
+    // 3) κρύψε το κουμπί
+    showClearBtn(false);
+
+    // 4) δείξε πάλι όλα τα serials στον χάρτη (το τρέχον filtered list)
+    // Αν έχεις currentFilter, χρησιμοποίησε το data που είδες τελευταία.
+    // Εδώ απλά δείχνουμε όλα τα serials που έχει το module.
+    updateMapMarkers(serials, { fit: true });
+
+    // 5) προαιρετικά ενημέρωσε UI/Details (αν το onSelectSerial το χειρίζεται)
+    try { onSelectSerial(null, null); } catch (_) {}
+  });
+}
+
+
 
 /**
  * Render serial list with LED indicators
@@ -146,11 +185,15 @@ export async function renderSerials(data, onSelectSerial) {
   const serialListEl = document.getElementById('serialList');
   const serialCountEl = document.getElementById('serialCount');
   serialListEl.innerHTML = '';
+
+  bindClearButton(onSelectSerial);
+  showClearBtn(selectedSerials.length > 0);
   
   if (!data || data.length === 0) {
     serialListEl.innerHTML = '<div class="text-muted text-center p-3">No serials found</div>';
     if (serialCountEl) serialCountEl.textContent = `0`;
     clearMapMarkers();
+    showClearBtn(false);
     return;
   }
   try {
@@ -225,7 +268,7 @@ export async function renderSerials(data, onSelectSerial) {
 
     
     // Click handler for entire card
-    card.onclick = () => onSelectSerial(s, card);
+    card.onclick = () => {onSelectSerial(s, card);  showClearBtn(true);};
     
     // card.appendChild(led);
     // card.appendChild(icon);
@@ -248,6 +291,7 @@ export async function renderSerials(data, onSelectSerial) {
   } else {
     updateMapMarkers(data);
   }
+
 }
 
 /**
