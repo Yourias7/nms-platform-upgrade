@@ -15,6 +15,12 @@ function getSelectedSerial() {
   return serial ? serial.trim() : '';
 }
 
+function getSelectedDate() {
+  const params = new URLSearchParams(window.location.search);
+  const date = params.get('date');
+  return date ? date.trim() : '';
+}
+
 function sortByDatetime(records) {
   return records
     .filter((rec) => rec && rec.DATETIME)
@@ -205,10 +211,22 @@ function getSerialInputValue() {
   return input ? input.value.trim() : '';
 }
 
+function getDateInputValue() {
+  const input = document.getElementById('dateInput');
+  return input ? input.value.trim() : '';
+}
+
 function setSerialInputValue(serial) {
   const input = document.getElementById('serialInput');
   if (input) {
     input.value = serial;
+  }
+}
+
+function setDateInputValue(date) {
+  const input = document.getElementById('dateInput');
+  if (input) {
+    input.value = date;
   }
 }
 
@@ -218,6 +236,18 @@ function updateSerialInUrl(serial) {
     params.set('serial', serial);
   } else {
     params.delete('serial');
+  }
+  const query = params.toString();
+  const url = query ? `${window.location.pathname}?${query}` : window.location.pathname;
+  window.history.replaceState({}, '', url);
+}
+
+function updateDateInUrl(date) {
+  const params = new URLSearchParams(window.location.search);
+  if (date) {
+    params.set('date', date);
+  } else {
+    params.delete('date');
   }
   const query = params.toString();
   const url = query ? `${window.location.pathname}?${query}` : window.location.pathname;
