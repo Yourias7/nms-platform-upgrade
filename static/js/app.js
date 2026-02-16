@@ -180,7 +180,7 @@ async function exportCombinedCSV(data, serials) {
   // const cols = Object.keys(data[0]);
   const allowedCols = ['SERIAL', 'NAME', 'LATITUDE', 'LONGITUDE', 'DATETIME', 'EARFCN', 'PCI', 'ANTENNA USED', 'RSRP','RSRQ', 'SINR', 'TEMP','NODE_ID', 'SECTOR_ID'];
   const cols = allowedCols;
-
+  
   const rows = [cols.join(',')];
   
   data.forEach(row => {
@@ -298,51 +298,119 @@ async function loadMultipleSerialDetails(serials) {
     const cols = allowedCols;
     const table = document.createElement('table');
     table.className = 'table table-sm table-striped';
+
+      // Ορισμός labels για τις κεφαλίδες (αν θες να αλλάξεις το κείμενο που φαίνεται)
+  const colLabels = {
+    'DATETIME': 'Date/Time',
+    'ANTENNA USED': 'Antenna',
+    'RSRP': 'RSRP (dBm)',
+    'TEMP': 'Temp (°C)'
+  };
+
     
     // Table header
+    // const thead = document.createElement('thead');
+    // const trh = document.createElement('tr');
+    // cols.forEach(c => {
+    //   const th = document.createElement('th');
+    //   th.textContent = c;
+    //   trh.appendChild(th);
+    // });
+    // thead.appendChild(trh);
+    // table.appendChild(thead);
+      // Δημιουργία Header
     const thead = document.createElement('thead');
     const trh = document.createElement('tr');
-    cols.forEach(c => {
+    allowedCols.forEach(colKey => {
       const th = document.createElement('th');
-      th.textContent = c;
+      // Χρήση label αν υπάρχει, αλλιώς το όνομα της στήλης
+      th.textContent = colLabels[colKey] || colKey; 
       trh.appendChild(th);
     });
     thead.appendChild(trh);
     table.appendChild(thead);
     
-    // Table body
-    const tbody = document.createElement('tbody');
-    allData.forEach(row => {
-      const tr = document.createElement('tr');
-      cols.forEach(c => {
-        const td = document.createElement('td');
-        let v = row[c];
-        if (v === null || v === undefined) v = '';
+    // // Table body
+    // const tbody = document.createElement('tbody');
+    // allData.forEach(row => {
+    //   const tr = document.createElement('tr');
+    //   cols.forEach(c => {
+    //     const td = document.createElement('td');
+    //     let v = row[c];
+    //     if (v === null || v === undefined) v = '';
 
-        const colName = String(c).trim().toUpperCase();
+    //     const colName = String(c).trim().toUpperCase();
 
-        // Format DATETIME values if present
-        if (colName === 'DATETIME' && v !== '') {
-          if (typeof v === 'string') {
-            v = v.replace(/T/g, ' ');
-          } else {
-            v = String(v).replace(/T/g, ' ');
-          }
-        }
+    //     // Format DATETIME values if present
+    //     if (colName === 'DATETIME' && v !== '') {
+    //       if (typeof v === 'string') {
+    //         v = v.replace(/T/g, ' ');
+    //       } else {
+    //         v = String(v).replace(/T/g, ' ');
+    //       }
+    //     }
 
-        td.textContent = v;
+    //     td.textContent = v;
+// Table body (MULTI) - only allowedCols + case-insensitive keys
+const tbody = document.createElement('tbody');
+
+allData.forEach(row => {
+  const tr = document.createElement('tr');
+
+  // normalize keys once per row (case-insensitive)
+  const rowU = {};
+  for (const [k, v] of Object.entries(row || {})) {
+    rowU[String(k).trim().toUpperCase()] = v;
+  }
+
+  allowedCols.forEach(colKey => {
+    const td = document.createElement('td');
+    const colName = String(colKey).trim().toUpperCase();
+
+    let v = rowU[colName];
+    if (v === null || v === undefined) v = '';
+
+    // DATETIME formatting
+    if (colName === 'DATETIME' && v !== '') {
+      v = String(v).replace(/T/g, ' ');
+    }
+
+    td.textContent = v;
+
+
+
+    //     // Highlight RSRP values under -120 in red
+    //     if (colName === 'RSRP' && v !== '' && parseFloat(v) < -120) {
+    //       td.style.color = 'red';
+    //       td.style.fontWeight = 'bold';
+    //     }
         
-        // Highlight RSRP values under -120 in red
-        if (colName === 'RSRP' && v !== '' && parseFloat(v) < -120) {
-          td.style.color = 'red';
-          td.style.fontWeight = 'bold';
-        }
-        
-        tr.appendChild(td);
-      });
-      tbody.appendChild(tr);
-    });
-    table.appendChild(tbody);
+    //     tr.appendChild(td);
+    //   });
+    //   tbody.appendChild(tr);
+    // });
+    // table.appendChild(tbody);
+        // Highlight rules (βάλε όσους θες)
+    if (colName === 'RSRP' && v !== '' && parseFloat(v) < -120) {
+      td.style.color = 'red';
+      td.style.fontWeight = 'bold';
+    }
+    if (colName === 'SINR' && v !== '' && parseFloat(v) <= 0) {
+      td.style.color = 'red';
+      td.style.fontWeight = 'bold';
+    }
+    if (colName === 'TEMP' && v !== '' && parseFloat(v) >= 85) {
+      td.style.color = 'red';
+      td.style.fontWeight = 'bold';
+    }
+
+    tr.appendChild(td);
+  });
+
+  tbody.appendChild(tr);
+});
+
+table.appendChild(tbody);
     
     detailsEl.innerHTML = '';
     detailsEl.appendChild(table);
