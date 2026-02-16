@@ -132,6 +132,11 @@ function getLEDClass(rsrp, sinr, temp, lat, lon) {
   return 'led-green';
 }
 
+function maxLen(str, n = 20) {
+  return str.length > n ? str.slice(0, n - 1) + "…" : str;
+}
+
+
 /**
  * Render serial list with LED indicators
  * @param {string[]} data - Array of serial numbers to render
@@ -198,7 +203,7 @@ export async function renderSerials(data, onSelectSerial) {
 
     const text = document.createElement('div');
     text.className = 'serial-card-text';
-    text.textContent = serialNameMap[s] || s;
+    text.textContent = maxLen(serialNameMap[s] || s, 20);
 
 
     // text.textContent = s;
