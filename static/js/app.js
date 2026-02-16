@@ -177,7 +177,10 @@ async function exportCombinedCSV(data, serials) {
   if (!data || data.length === 0) return;
   
   // Create CSV content
-  const cols = Object.keys(data[0]);
+  // const cols = Object.keys(data[0]);
+  const allowedCols = ['SERIAL', 'NAME', 'LATITUDE', 'LONGITUDE', 'DATETIME', 'EARFCN', 'PCI', 'ANTENNA USED', 'RSRP','RSRQ', 'SINR', 'TEMP','NODE_ID', 'SECTOR_ID'];
+  const cols = allowedCols;
+
   const rows = [cols.join(',')];
   
   data.forEach(row => {
@@ -290,7 +293,9 @@ async function loadMultipleSerialDetails(serials) {
     };
     
     // Render combined table
-    const cols = Object.keys(allData[0]);
+    // const cols = Object.keys(allData[0]);
+    const allowedCols = ['SERIAL', 'NAME', 'LATITUDE', 'LONGITUDE', 'DATETIME', 'EARFCN', 'PCI', 'ANTENNA USED', 'RSRP','RSRQ', 'SINR', 'TEMP','NODE_ID', 'SECTOR_ID'];
+    const cols = allowedCols;
     const table = document.createElement('table');
     table.className = 'table table-sm table-striped';
     
