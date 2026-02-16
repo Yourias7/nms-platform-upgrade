@@ -7,6 +7,8 @@ import { fetchLEDStatus, fetchSerialNameMap } from './api.js';
 
 import { clearMapMarkers, updateMapMarkers } from './map.js';
 import { getThresholds, isInAlarm } from './settings.js';
+import { clearDetails } from './details.js';
+
 // import { fetchCommunicationAlarms } from './alarms.js';
 // import { isCommunicationAlarm,result } from './alarms.js';
 
@@ -156,7 +158,7 @@ function bindClearButton(onSelectSerial) {
 
     // 1) clear selected state (από το module)
     clearSelectedSerials();
-
+    clearDetails();
     // 2) βγάλε highlight από cards
     document.querySelectorAll('.serial-card.selected')
       .forEach(el => el.classList.remove('selected'));
