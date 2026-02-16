@@ -2,7 +2,9 @@
 // Serial list rendering and LED indicator logic
 
 import { CONFIG } from './config.js';
-import { fetchLEDStatus } from './api.js';
+// import { fetchLEDStatus } from './api.js';
+import { fetchLEDStatus, fetchSerialNameMap } from './api.js';
+
 import { clearMapMarkers, updateMapMarkers } from './map.js';
 import { getThresholds, isInAlarm } from './settings.js';
 // import { fetchCommunicationAlarms } from './alarms.js';
@@ -12,6 +14,7 @@ import { getThresholds, isInAlarm } from './settings.js';
 let serials = [];
 let currentFilter = '';
 let selectedSerials = [];
+let serialNameMap = {};
 
 /**
  * Get all serials
@@ -106,6 +109,11 @@ function parseBackendDate(value) {// Parses date string from backend, handling b
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
+function getDisplayName(serial) {
+  return serialNameMap?.[serial] || serial;
+}
+
+
 
 /**
  * Determine LED color based on RSRP/SINR/TEMP thresholds
@@ -140,7 +148,13 @@ export async function renderSerials(data, onSelectSerial) {
     clearMapMarkers();
     return;
   }
-  
+  try {
+  serialNameMap = await fetchSerialNameMap();
+} catch (e) {
+  console.warn('Failed to fetch serial->name map:', e);
+  serialNameMap = {};
+}
+
   // Update counter with filtered / total
   if (serialCountEl) serialCountEl.textContent = `${data.length}`;
   
@@ -184,7 +198,10 @@ export async function renderSerials(data, onSelectSerial) {
 
     const text = document.createElement('div');
     text.className = 'serial-card-text';
-    text.textContent = s;
+    text.textContent = serialNameMap[s] || s;
+
+
+    // text.textContent = s;
 
     try {
       const { rsrp, sinr, temp, lat, lon, datetime } = await fetchLEDStatus(s);

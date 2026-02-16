@@ -6,7 +6,7 @@ export const CONFIG = {
   API: {
     SERIALS: '/systems/Live/serials',
     SYSTEMS: '/Systems/Live',
-    SERIAL_NAME_MAP: '/systems/Live/serial_name_map',
+    SERIAL_NAME_MAP: '/systems/Live/names',
     EXPORT: '/export/Live',
     LOCATIONS: '/systems/Live/locations',
     HISTORIC_SERIALS: '/systems/Historic/serials',
