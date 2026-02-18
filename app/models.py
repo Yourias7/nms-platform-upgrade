@@ -19,6 +19,9 @@ class LiveMeasurement(Base):
     PCI = Column(Integer, name="BESTS.PCI")
     A_USED= Column(Integer, name="BESTS.SECT#")
     CID= Column(Integer, name="BESTS.CID_dec")
+    RSRQ= Column(Integer, name="BESTS.RSRQ")
+    NODE_ID= Column(Integer, name="BESTS_NODEB_dec")
+    SECTOR_ID= Column(Integer, name="SECTORID")
 
 
 ############################# SAMPLE OF ANOTHER MODEL #############################

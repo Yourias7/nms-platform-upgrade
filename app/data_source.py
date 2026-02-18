@@ -35,6 +35,31 @@ def list_live_serials():
         return serials
     finally:
         db.close()
+        
+# def list_live_names():
+#     """Return list of all distinct SERIAL values from database."""
+#     db = SessionLocal()
+#     try:
+#         rows = db.query(LiveMeasurement.NAME).distinct().all()
+#         names = [r[0] for r in rows if r[0] is not None]
+#         logger.info(f"Retrieved {len(names)} distinct serials from database")
+#         return names
+#     finally:
+#         db.close()
+def list_live_serial_name_pairs():
+    db = SessionLocal()
+    try:
+        rows = (
+            db.query(LiveMeasurement.SERIAL, LiveMeasurement.NAME)
+            .distinct()
+            .all()
+        )
+        # κρατάμε μόνο όσα έχουν serial
+        pairs = [{"SERIAL": s, "NAME": n} for (s, n) in rows if s is not None]
+        return pairs
+    finally:
+        db.close()
+
 
 def list_historic_serials():
     """Return list of all distinct SERIAL values from database."""
@@ -135,6 +160,10 @@ def get_live_records_by_serial(serial: str):
                 "SINR": row.SINR,
                 "TEMP": row.TEMP,
                 "CID": row.CID,
+                "RSRQ": row.RSRQ,
+                "NODE_ID": row.NODE_ID,
+                "SECTOR_ID": row.SECTOR_ID
+                
             }
             result.append(rec)
         

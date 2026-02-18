@@ -71,6 +71,13 @@ body::after {
 }
 
 /* Cards (Bootstrap) */
+#selectedSerialBar {
+  display: none;              /* θα το ανοίγει το JS όταν υπάρχει selection */
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
 .card {
   background: rgba(30, 41, 59, 0.6);
   backdrop-filter: blur(10px);
