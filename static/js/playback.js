@@ -8,6 +8,8 @@ let chartInstance = null;
 let chartInstance2 = null;
 let mapInstance = null;
 let mapMarkers = [];
+let currentRecords = [];
+let useRSRPColoring = false;
 
 function getSelectedSerial() {
   const params = new URLSearchParams(window.location.search);
@@ -141,7 +143,7 @@ function populateSerialOptions(serials) {
 
   // Render initial options (keep hidden until user interacts)
   renderDropdownOptions(serials);
-  dropdown.style.display = 'none';
+  dropdown.style.display = 'show';
 
   // Setup input event listener for filtering
   const input = document.getElementById('serialInput');
@@ -167,6 +169,11 @@ function populateSerialOptions(serials) {
     input.addEventListener('input', updateDropdown);
     input.addEventListener('focus', updateDropdown);
     input.addEventListener('click', updateDropdown);
+    
+    // Show dropdown on initial focus before any typing
+    input.addEventListener('focus', () => {
+      dropdown.style.display = serials.length > 0 ? 'block' : 'none';
+    });
   }
 }
 
@@ -470,6 +477,7 @@ async function renderChartForSerial(serial) {
   }
 
   // Update map with data points
+  currentRecords = records;
   updateMapWithData(records);
 
   setPlaybackMessage('', 'muted');
@@ -517,7 +525,7 @@ function initMap() {
   
   // Add OpenStreetMap tiles
   L.tileLayer(CONFIG.MAP.TILE_URL, {
-    maxZoom: CONFIG.MAP.MAX_ZOOM,
+    // maxZoom: CONFIG.MAP.MAX_ZOOM,
     attribution: CONFIG.MAP.TILE_ATTRIBUTION
   }).addTo(mapInstance);
 
@@ -559,11 +567,13 @@ function updateMapWithData(records) {
     const lat = rec.LAT || rec.LATITUDE;
     const lon = rec.LON || rec.LONGITUDE;
     
+    // Determine color based on useRSRPColoring state
+    const markerColor = useRSRPColoring ? getColorForRSRP(rec.RSRP) : '#000000';
+    
     const marker = L.circleMarker([lat, lon], {
       radius: 6,
-      fillColor: getColorForRSRP(rec.RSRP),
-      // color: '#fff',
-      color: getColorForRSRP(rec.RSRP),
+      fillColor: markerColor,
+      color: markerColor,
       weight: 1,
       opacity: 1,
       fillOpacity: 0.8
@@ -604,6 +614,26 @@ function getColorForRSRP(rsrp) {
   if (rsrp >= -95) return '#ffc107'; // Fair - yellow
   if (rsrp >= -110) return '#fd7e14'; // Poor - orange
   return '#dc3545'; // Bad - red
+}
+
+/**
+ * Toggle map marker coloring between RSRP and black
+ */
+function toggleMapColoring() {
+  useRSRPColoring = !useRSRPColoring;
+  
+  // Redraw markers with new colors
+  if (currentRecords.length > 0) {
+    updateMapWithData(currentRecords);
+  }
+  
+  // Update button text or state
+  const mapBtn = document.getElementById('mapBtn');
+  if (mapBtn) {
+    mapBtn.textContent = useRSRPColoring ? 'Coverage (by Signal)' : 'Coverage (Uniform)';
+  }
+  
+  console.log('[Playback] Map coloring toggled to:', useRSRPColoring ? 'RSRP' : 'Black');
 }
 
 /**
@@ -652,6 +682,13 @@ async function init() {
       }
     });
   }
+
+  // Add event listener for map button
+  const mapBtn = document.getElementById('mapBtn');
+  if (mapBtn) {
+    mapBtn.addEventListener('click', toggleMapColoring);
+  }
+
   console.log('[Playback Page] Initialized');
 }
 

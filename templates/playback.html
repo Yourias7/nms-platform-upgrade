@@ -58,10 +58,10 @@
     <main class="container-fluid">
       <!-- Playback Content -->
       <div class="row g-2 align-items-end mb-3">
-        <div class="col-12 col-md-6" style="width: auto; position: relative;">
+        <div class="col-12 col-md-6" style="position: relative;">
           <label for="serialInput" class="form-label">Serial</label>
-          <input id="serialInput" class="form-control" placeholder="Select or type a serial" style="width: auto; position: relative; z-index: 10;"/>
-          <div id="serialOptions" class="dropdown-menu" style="position: absolute; top: 100%; left: 0; width: 100%; display: none; z-index: 11; max-height: 300px; overflow-y: auto; box-shadow: 0 2px 8px rgba(0,0,0,0.15);"></div>
+          <input id="serialInput" class="form-control" placeholder="Select or type a serial"/>
+          <div id="serialOptions" class="dropdown-menu" style="position: absolute; top: 100%; left: 0; right: 0; display: none; z-index: 11; max-height: 300px; overflow-y: auto; box-shadow: 0 2px 8px rgba(0,0,0,0.15); background: rgba(10, 14, 39, 0.95); border: 1px solid rgba(102, 126, 234, 0.3);"></div>
         </div>
         <div class="col-12 col-md-6" style="width: auto; position: relative;">
           <label for="dateInput" class="form-label">Date</label>
@@ -103,8 +103,11 @@
         <div class="col-12 col-lg-6">
           <div class="card" style="height: calc(100% - 0px);">
             <div class="card-body">
+              <div class="button-container" style="position: absolute; top: 10px; right: 10px; bottom: 10px; z-index: 20;">
+                <button id="mapBtn" class="btn btn-primary">Radio coverage</button>
+              </div>
               <h5 class="card-title">Location Map</h5>
-              <div id="playbackMap" style="height: calc(100% - 50px); min-height: 820px;"></div>
+              <div id="playbackMap" style="height: calc(100% - 50px); min-height: 820px; margin-top: 30px;"></div>
             </div>
           </div>
         </div>
