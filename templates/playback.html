@@ -6,6 +6,10 @@
     <title>Playback - NMS Platform</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <!-- favicon (ICO) -->
     <link rel="icon" href="/static/img/favicon.ico" type="image/x-icon">
 
@@ -51,27 +55,34 @@
       </div>
     </nav>
 
-    <main class="container">
+    <main class="container-fluid">
       <!-- Playback Content -->
+      <div class="row g-2 align-items-end mb-3">
+        <div class="col-12 col-md-6" style="position: relative;">
+          <label for="serialInput" class="form-label">Serial</label>
+          <input id="serialInput" class="form-control" placeholder="Select or type a serial"/>
+          <div id="serialOptions" class="dropdown-menu" style="position: absolute; top: 100%; left: 0; right: 0; display: none; z-index: 11; max-height: 300px; overflow-y: auto; box-shadow: 0 2px 8px rgba(0,0,0,0.15); background: rgba(10, 14, 39, 0.95); border: 1px solid rgba(102, 126, 234, 0.3);"></div>
+        </div>
+        <div class="col-12 col-md-6" style="width: auto; position: relative;">
+          <label for="dateInput" class="form-label">Date</label>
+          <input id="dateInput" class="form-control" placeholder="Select or type a date" style="width: auto; position: relative; z-index: 10;"/>
+          <div id="dateOptions" class="dropdown-menu" style="position: absolute; top: 100%; left: 0; width: 100%; display: none; z-index: 11; max-height: 300px; overflow-y: auto; box-shadow: 0 2px 8px rgba(0,0,0,0.15);"></div>
+        </div>
+        <div class="col-12 col-md-3" style="width: auto;">
+          <button id="serialLoadBtn" class="btn btn-primary w-100" type="button">Load</button>
+        </div>
+        <div class="col-12 col-md-3">
+          <div id="playbackMessage" class="text-muted small"></div>
+        </div>
+      </div>
+      
       <div class="row">
-        <div class="col-12">
-          <div class="card">
+        <!-- Left side: Charts -->
+        <div class="col-12 col-lg-6">
+          <div class="card mb-3">
             <div class="card-body">
               <h5 class="card-title">RSRP Data Playback</h5>
               <p class="text-muted mb-3">Historical RSRP signal strength over time</p>
-              <div class="row g-2 align-items-end mb-3">
-                <div class="col-12 col-md-6">
-                  <label for="serialInput" class="form-label">Serial</label>
-                  <input id="serialInput" class="form-control" list="serialOptions" placeholder="Select or type a serial" />
-                  <datalist id="serialOptions"></datalist>
-                </div>
-                <div class="col-12 col-md-3">
-                  <button id="serialLoadBtn" class="btn btn-primary w-100" type="button">Load</button>
-                </div>
-                <div class="col-12 col-md-3">
-                  <div id="playbackMessage" class="text-muted small"></div>
-                </div>
-              </div>
               <div id="playbackRSRPChartContainer" style="position: relative; height: 400px;">
                 <canvas id="rsrpChart"></canvas>
               </div>
@@ -84,6 +95,19 @@
               <div id="playbackSINRChartContainer" style="position: relative; height: 400px;">
                 <canvas id="sinrChart"></canvas>
               </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Right side: Map -->
+        <div class="col-12 col-lg-6">
+          <div class="card" style="height: calc(100% - 0px);">
+            <div class="card-body">
+              <div class="button-container" style="position: absolute; top: 10px; right: 10px; bottom: 10px; z-index: 20;">
+                <button id="mapBtn" class="btn btn-primary">Radio coverage</button>
+              </div>
+              <h5 class="card-title">Location Map</h5>
+              <div id="playbackMap" style="height: calc(100% - 50px); min-height: 820px; margin-top: 30px;"></div>
             </div>
           </div>
         </div>

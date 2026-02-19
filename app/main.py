@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Request, Response
 import logging
-from app.data_source import get_historic_records_by_serial, get_live_records_by_serial, list_live_serials, list_historic_serials, export_live_csv, export_historic_csv, live_serials_with_locations, historic_serials_with_locations,list_live_serial_name_pairs
+from app.data_source import get_historic_records_by_serial, get_live_records_by_serial, list_live_serials, list_historic_serials, export_live_csv, export_historic_csv, live_serials_with_locations, historic_serials_with_locations
 from fastapi.responses import StreamingResponse, FileResponse
 import io
 import mimetypes

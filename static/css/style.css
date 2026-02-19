@@ -1,3 +1,4 @@
+/* Global styles and theme for the NMS Platform Upgrade UI */
 /* Modern gradient background with animations */
 :root {
   --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -14,6 +15,13 @@ body {
   position: relative;
   min-height: 100vh;
   overflow-x: hidden;
+  color: #e5e7eb;
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 body::before {
@@ -44,6 +52,96 @@ body::after {
   pointer-events: none;
 }
 
+/* Text utilities */
+.text-muted {
+  color: #94a3b8 !important;
+}
+
+.text-danger {
+  color: #f87171 !important;
+}
+
+.container {
+  position: relative;
+  z-index: 1;
+}
+
+* {
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+/* Cards (Bootstrap) */
+#selectedSerialBar {
+  display: none;              /* θα το ανοίγει το JS όταν υπάρχει selection */
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.card {
+  background: rgba(30, 41, 59, 0.6);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(102, 126, 234, 0.3);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.card-body {
+  color: #e5e7eb;
+}
+
+.card-title {
+  color: #e5e7eb;
+  font-weight: 600;
+}
+
+/* Form controls */
+.form-control {
+  background-color: rgba(10, 14, 39, 0.6);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(102, 126, 234, 0.3);
+  color: #e5e7eb;
+}
+
+.form-control::placeholder {
+  color: #94a3b8;
+}
+
+.form-control:focus {
+  background-color: rgba(30, 41, 59, 0.7);
+  border-color: #667eea;
+  color: #e5e7eb;
+  box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+}
+
+/* Navbar */
+.navbar {
+  background: rgba(10, 14, 39, 0.95) !important;
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(102, 126, 234, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.navbar-brand {
+  color: #e5e7eb !important;
+  font-weight: 600;
+}
+
+.nav-link {
+  color: #94a3b8 !important;
+  transition: all 0.3s ease;
+  border-radius: 8px;
+}
+
+.nav-link:hover {
+  color: #e5e7eb !important;
+  background: rgba(102, 126, 234, 0.2);
+}
+
+.nav-link.active {
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.3), rgba(118, 75, 162, 0.3)) !important;
+  color: #e5e7eb !important;
+}
+
 @keyframes gridMove {
   0% {
     transform: translate(0, 0);
@@ -52,6 +150,11 @@ body::after {
   100% {
     transform: translate(50px, 50px);
   }
+}
+
+/* Scrollbar styles */
+::-webkit-scrollbar {
+  width: 8px;
 }
 
 /* Glowing orbs in background */
@@ -108,6 +211,7 @@ body::after {
   }
 }
 
+/* ==============================================LiveView Styles============================================== */
 /* Serial card grid layout */
 .serial-grid {
   display: grid;
@@ -197,13 +301,53 @@ body::after {
   box-shadow: 0 0 6px rgba(220, 53, 69, 0.6);
 }
 
+.serial-led-plug-row{
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 
-.serial-card-text_red {
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: #dc3545;
-  text-align: center;
-  word-break: break-word;
+.serial-plug-icon{
+  width: 25px;
+  height: 25px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.serial-plug-icon svg{
+  width: 25px;
+  height: 25px;
+  fill: currentColor;
+  opacity: 0.9;
+}
+
+/* 2. SVG Styling */
+#disconnect-svg {
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: currentColor;
+  /* Matches the parent's text color */
+  stroke-width: 6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Details area styles */
+#detailsArea {
+  max-height: 60vh;
+  overflow: auto;
+}
+
+/* Map container styles */
+#map {
+  width: 100%;
+  height: 72vh;
+  max-height: 80vh;
+  border-radius: 12px;
+  border: 2px solid rgba(102, 126, 234, 0.3);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
 }
 
 /* Map tooltips for snapshot export */
@@ -222,6 +366,12 @@ body::after {
 .map-label-tooltip::before {
   border-top-color: #333 !important;
 }
+
+
+
+/* ==============================================AlarmView Styles============================================== */
+
+
 
 /* Base Table Styles */
 .table {
@@ -255,127 +405,6 @@ body::after {
 
 .table tbody tr:hover {
   background-color: rgba(102, 126, 234, 0.2) !important;
-}
-
-/* Cards (Bootstrap) */
-.card {
-  background: rgba(30, 41, 59, 0.6);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(102, 126, 234, 0.3);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
-}
-
-.card-body {
-  color: #e5e7eb;
-}
-
-.card-title {
-  color: #e5e7eb;
-  font-weight: 600;
-}
-
-
-
-/* 2. SVG Styling */
-#disconnect-svg {
-  width: 100%;
-  height: 100%;
-  fill: none;
-  stroke: currentColor;
-  /* Matches the parent's text color */
-  stroke-width: 6;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.serial-led-plug-row{
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.serial-plug-icon{
-  width: 25px;
-  height: 25px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.serial-plug-icon svg{
-  width: 25px;
-  height: 25px;
-  fill: currentColor;
-  opacity: 0.9;
-}
-
-
-/* Form controls */
-.form-control {
-  background-color: rgba(10, 14, 39, 0.6);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(102, 126, 234, 0.3);
-  color: #e5e7eb;
-}
-
-.form-control::placeholder {
-  color: #94a3b8;
-}
-
-.form-control:focus {
-  background-color: rgba(30, 41, 59, 0.7);
-  border-color: #667eea;
-  color: #e5e7eb;
-  box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
-}
-
-/* Text utilities */
-.text-muted {
-  color: #94a3b8 !important;
-}
-
-.text-danger {
-  color: #f87171 !important;
-}
-
-/* Global styles */
-body {
-  color: #e5e7eb;
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-/* Navbar */
-.navbar {
-  background: rgba(10, 14, 39, 0.95) !important;
-  backdrop-filter: blur(10px);
-  border-bottom: 1px solid rgba(102, 126, 234, 0.3);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-}
-
-.navbar-brand {
-  color: #e5e7eb !important;
-  font-weight: 600;
-}
-
-.nav-link {
-  color: #94a3b8 !important;
-  transition: all 0.3s ease;
-  border-radius: 8px;
-}
-
-.nav-link:hover {
-  color: #e5e7eb !important;
-  background: rgba(102, 126, 234, 0.2);
-}
-
-.nav-link.active {
-  background: linear-gradient(135deg, rgba(102, 126, 234, 0.3), rgba(118, 75, 162, 0.3)) !important;
-  color: #e5e7eb !important;
 }
 
 /* Alarm badge on navbar */
@@ -419,13 +448,36 @@ body {
   color: #dc3545;
 }
 
-.container {
-  position: relative;
-  z-index: 1;
+/* ==============================================Playback Styles============================================== */
+
+/* Serial Dropdown menu styles */
+#serialOptions {
+  border: 1px solid rgba(102, 126, 234, 0.3);
+  background: rgba(10, 14, 39, 0.95);
+  backdrop-filter: blur(10px);
+  border-radius: 0.375rem;
 }
 
-* {
-  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+#serialOptions .dropdown-item {
+  color: #d1d5db;
+  padding: 0.75rem 1rem;
+  border: none;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  font-size: 0.95rem;
+  transition: all 0.2s ease;
+}
+
+#serialOptions .dropdown-item:hover {
+  background: rgba(102, 126, 234, 0.2);
+  color: #ffffff;
+  padding-left: 1.25rem;
+}
+
+#serialOptions .dropdown-item:active {
+  background: rgba(102, 126, 234, 0.3);
 }
 
 #selectedSerialBar {

@@ -1,15 +1,27 @@
 // static/js/playback.js
 // Playback page - RSRP time-series visualization
-
+import { CONFIG } from './config.js';
+import { fetchSerialData, fetchSerialNameMap } from './api.js';
 import { fetchHistoricSerialsList, fetchHistoricSerialData } from './api.js';
 
 let chartInstance = null;
 let chartInstance2 = null;
+let mapInstance = null;
+let mapMarkers = [];
+let currentRecords = [];
+let useRSRPColoring = false;
+let serialNameMap = {};
 
 function getSelectedSerial() {
   const params = new URLSearchParams(window.location.search);
   const serial = params.get('serial');
   return serial ? serial.trim() : '';
+}
+
+function getSelectedDate() {
+  const params = new URLSearchParams(window.location.search);
+  const date = params.get('date');
+  return date ? date.trim() : '';
 }
 
 function sortByDatetime(records) {
@@ -123,27 +135,136 @@ function setPlaybackMessage(message, tone = 'muted') {
   el.textContent = message;
 }
 
-function populateSerialOptions(serials) {
-  const datalist = document.getElementById('serialOptions');
-  if (!datalist) return;
-  datalist.innerHTML = '';
+async function populateSerialOptions(serials) {
+  const dropdown = document.getElementById('serialOptions');
+  if (!dropdown) return;
 
-  serials.forEach((serial) => {
-    const option = document.createElement('option');
-    option.value = serial;
-    datalist.appendChild(option);
+  // Fetch mapping of serial -> display name
+  try {
+    serialNameMap = await fetchSerialNameMap();
+  } catch (err) {
+    console.warn('[Playback] Failed to fetch serial name map', err);
+    serialNameMap = {};
+  }
+
+  // Store original serials for filtering
+  dropdown.dataset.serials = JSON.stringify(serials);
+
+  // Render initial options (keep hidden until user interacts)
+  renderDropdownOptions(serials, serialNameMap);
+  dropdown.style.display = 'show';
+
+  // Setup input event listener for filtering
+  const input = document.getElementById('serialInput');
+  if (input) {
+    const updateDropdown = () => {
+      // clear any previously selected serial when user types/filters
+      if (input.dataset && input.dataset.selectedSerial) delete input.dataset.selectedSerial;
+      const filterValue = input.value.toLowerCase().trim();
+      const filtered = filterValue === ''
+        ? serials
+        : serials.filter((serial) => {
+            const name = (serialNameMap && serialNameMap[serial]) ? String(serialNameMap[serial]).toLowerCase() : '';
+            return serial.toLowerCase().includes(filterValue) || name.includes(filterValue);
+          });
+
+      renderDropdownOptions(filtered, serialNameMap);
+
+      // Use Bootstrap's 'show' class for dropdown visibility
+      if (filtered.length > 0) {
+        dropdown.classList.add('show');
+        dropdown.style.display = 'block';
+      } else {
+        dropdown.classList.remove('show');
+        dropdown.style.display = 'none';
+      }
+    };
+
+    input.addEventListener('input', updateDropdown);
+    input.addEventListener('focus', updateDropdown);
+    input.addEventListener('click', updateDropdown);
+    
+    // Show dropdown on initial focus before any typing
+    input.addEventListener('focus', () => {
+      dropdown.style.display = serials.length > 0 ? 'block' : 'none';
+    });
+  }
+}
+
+function renderDropdownOptions(serials, nameMap = {}) {
+  const dropdown = document.getElementById('serialOptions');
+  if (!dropdown) return;
+  dropdown.innerHTML = '';
+  
+  // Sort serials before rendering
+  const sortedSerials = [...serials].sort();
+  
+  sortedSerials.forEach((serial) => {
+    const option = document.createElement('button');
+    option.type = 'button';
+    option.className = 'dropdown-item';
+    const displayName = nameMap && nameMap[serial] ? nameMap[serial] : serial;
+    option.textContent = displayName;
+    option.dataset.serial = serial;
+    option.addEventListener('click', (e) => {
+      e.preventDefault();
+      const input = document.getElementById('serialInput');
+      if (input) {
+        input.value = displayName;
+        input.dataset.selectedSerial = serial;
+        dropdown.classList.remove('show');
+        dropdown.style.display = 'none';
+      }
+    });
+    dropdown.appendChild(option);
   });
 }
 
+// Close dropdown when clicking outside
+document.addEventListener('click', (e) => {
+  const input = document.getElementById('serialInput');
+  const dropdown = document.getElementById('serialOptions');
+  if (input && dropdown && e.target !== input && e.target !== dropdown && !dropdown.contains(e.target)) {
+    dropdown.classList.remove('show');
+    dropdown.style.display = 'none';
+  }
+});
+
 function getSerialInputValue() {
   const input = document.getElementById('serialInput');
+  if (!input) return '';
+  // Prefer explicit selected serial stored on the input
+  if (input.dataset && input.dataset.selectedSerial) {
+    return input.dataset.selectedSerial.trim();
+  }
+  const raw = input.value ? input.value.trim() : '';
+  if (!raw) return '';
+  // Try to reverse-lookup name -> serial
+  for (const [serial, name] of Object.entries(serialNameMap || {})) {
+    if (String(name).trim() === raw) return serial;
+  }
+  // Fallback to raw value (user may have typed a serial)
+  return raw;
+}
+
+function getDateInputValue() {
+  const input = document.getElementById('dateInput');
   return input ? input.value.trim() : '';
 }
 
 function setSerialInputValue(serial) {
   const input = document.getElementById('serialInput');
   if (input) {
-    input.value = serial;
+    const display = serialNameMap && serialNameMap[serial] ? serialNameMap[serial] : serial;
+    input.value = display;
+    if (serial) input.dataset.selectedSerial = serial;
+  }
+}
+
+function setDateInputValue(date) {
+  const input = document.getElementById('dateInput');
+  if (input) {
+    input.value = date;
   }
 }
 
@@ -153,6 +274,18 @@ function updateSerialInUrl(serial) {
     params.set('serial', serial);
   } else {
     params.delete('serial');
+  }
+  const query = params.toString();
+  const url = query ? `${window.location.pathname}?${query}` : window.location.pathname;
+  window.history.replaceState({}, '', url);
+}
+
+function updateDateInUrl(date) {
+  const params = new URLSearchParams(window.location.search);
+  if (date) {
+    params.set('date', date);
+  } else {
+    params.delete('date');
   }
   const query = params.toString();
   const url = query ? `${window.location.pathname}?${query}` : window.location.pathname;
@@ -184,13 +317,13 @@ function buildEmptyChart(ctx) {
             {
               label: 'RSRP (dBm)',
               data: [],
-              borderColor: '#0d6efd',
+              borderColor: '#85c6f1',
               backgroundColor: 'rgba(13, 110, 253, 0.1)',
               borderWidth: 2,
               fill: true,
               pointRadius: 3,
-              pointBackgroundColor: '#0d6efd',
-              pointBorderColor: '#fff',
+              pointBackgroundColor: '#85c6f1',
+              pointBorderColor: '#85c6f1',
               pointBorderWidth: 1,
               tension: 0.4,
               spanGaps: false
@@ -264,13 +397,13 @@ function buildEmptyChart(ctx) {
             {
               label: 'SINR (dB)',
               data: [],
-              borderColor: '#0d6efd',
+              borderColor: '#85c6f1',
               backgroundColor: 'rgba(13, 110, 253, 0.1)',
               borderWidth: 2,
               fill: true,
               pointRadius: 3,
-              pointBackgroundColor: '#0d6efd',
-              pointBorderColor: '#fff',
+              pointBackgroundColor: '#85c6f1',
+              pointBorderColor: '#85c6f1',
               pointBorderWidth: 1,
               tension: 0.4,
               spanGaps: false
@@ -374,6 +507,10 @@ async function renderChartForSerial(serial) {
     chartInstance2.update();
   }
 
+  // Update map with data points
+  currentRecords = records;
+  updateMapWithData(records);
+
   setPlaybackMessage('', 'muted');
   console.log('[Playback] Chart updated', serial ? `for ${serial}` : '');
 }
@@ -394,16 +531,154 @@ async function initChart() {
 }
 
 /**
+ * Get the map instance
+ * @returns {L.Map|null}
+ */
+export function getMap() {
+  return mapInstance;
+}
+
+/**
+ * Initialize the map
+ */
+function initMap() {
+  const mapDiv = document.getElementById('playbackMap');
+  if (!mapDiv) {
+    console.warn('[Playback] Map div not found');
+    return;
+  }
+
+  // Initialize Leaflet map
+  mapInstance = L.map('playbackMap').setView(
+    [CONFIG.MAP.INITIAL_LAT, CONFIG.MAP.INITIAL_LON],
+    CONFIG.MAP.INITIAL_ZOOM
+  );
+  
+  // Add OpenStreetMap tiles
+  L.tileLayer(CONFIG.MAP.TILE_URL, {
+    // maxZoom: CONFIG.MAP.MAX_ZOOM,
+    attribution: CONFIG.MAP.TILE_ATTRIBUTION
+  }).addTo(mapInstance);
+
+  console.log('[Playback] Map initialized');
+  return mapInstance;
+}
+
+/**
+ * Update map with data points
+ */
+function updateMapWithData(records) {
+  if (!mapInstance) return;
+
+  // Clear existing markers
+  mapMarkers.forEach(marker => mapInstance.removeLayer(marker));
+  mapMarkers = [];
+
+  // Debug: Log first record to see available fields
+  if (records.length > 0) {
+    console.log('[Playback] First record fields:', Object.keys(records[0]));
+    console.log('[Playback] First record:', records[0]);
+  }
+
+  // Filter records with valid coordinates - try both field name variations
+  const validRecords = records.filter(rec => 
+    (rec.LAT && rec.LON) || (rec.LATITUDE && rec.LONGITUDE)
+  );
+  
+  if (validRecords.length === 0) {
+    console.warn('[Playback] No records with valid coordinates');
+    console.warn('[Playback] Total records:', records.length);
+    return;
+  }
+
+  console.log('[Playback] Valid records with coordinates:', validRecords.length);
+
+  // Add markers for each data point
+  validRecords.forEach((rec, index) => {
+    const lat = rec.LAT || rec.LATITUDE;
+    const lon = rec.LON || rec.LONGITUDE;
+    
+    // Determine color based on useRSRPColoring state
+    const markerColor = useRSRPColoring ? getColorForRSRP(rec.RSRP) : '#000000';
+    
+    const marker = L.circleMarker([lat, lon], {
+      radius: 6,
+      fillColor: markerColor,
+      color: markerColor,
+      weight: 1,
+      opacity: 1,
+      fillOpacity: 0.8
+    });
+
+    const dt = new Date(rec.DATETIME);
+    marker.bindPopup(`
+      <strong>Point ${index + 1}</strong><br>
+      Time: ${dt.toLocaleString()}<br>
+      RSRP: ${rec.RSRP} dBm<br>
+      SINR: ${rec.SINR} dB<br>
+      Lat: ${lat}<br>
+      Lon: ${lon}
+    `);
+
+    marker.addTo(mapInstance);
+    mapMarkers.push(marker);
+  });
+
+  // Create polyline connecting points
+  // const latLngs = validRecords.map(rec => [rec.LAT || rec.LATITUDE, rec.LON || rec.LONGITUDE]);
+  // const polyline = L.polyline(latLngs, {
+  //   color: '#667eea',
+  //   weight: 2,
+  //   opacity: 0.7
+  // }).addTo(mapInstance);
+  // mapMarkers.push(polyline);
+
+  // // Fit map to show all points
+  // mapInstance.fitBounds(polyline.getBounds(), { padding: [50, 50] });
+}
+
+/**
+ * Get color based on RSRP value
+ */
+function getColorForRSRP(rsrp) {
+  if (rsrp >= -80) return '#28a745'; // Good - green
+  if (rsrp >= -95) return '#ffc107'; // Fair - yellow
+  if (rsrp >= -110) return '#fd7e14'; // Poor - orange
+  return '#dc3545'; // Bad - red
+}
+
+/**
+ * Toggle map marker coloring between RSRP and black
+ */
+function toggleMapColoring() {
+  useRSRPColoring = !useRSRPColoring;
+  
+  // Redraw markers with new colors
+  if (currentRecords.length > 0) {
+    updateMapWithData(currentRecords);
+  }
+  
+  // Update button text or state
+  const mapBtn = document.getElementById('mapBtn');
+  if (mapBtn) {
+    mapBtn.textContent = useRSRPColoring ? 'Coverage (by Signal)' : 'Coverage (Uniform)';
+  }
+  
+  console.log('[Playback] Map coloring toggled to:', useRSRPColoring ? 'RSRP' : 'Black');
+}
+
+/**
  * Initialize the playback page
  */
 async function init() {
   console.log('[Playback Page] Initializing');
   await initChart();
+  initMap();
 
   setPlaybackMessage('Loading serials...', 'muted');
   try {
     const serials = await fetchHistoricSerialsList();
-    populateSerialOptions(serials || []);
+    await populateSerialOptions(serials || []);
     setPlaybackMessage(serials && serials.length > 0 ? '' : 'No serials available.', 'muted');
   } catch (err) {
     console.error('[Playback] Failed to load serials', err);
@@ -438,6 +713,13 @@ async function init() {
       }
     });
   }
+
+  // Add event listener for map button
+  const mapBtn = document.getElementById('mapBtn');
+  if (mapBtn) {
+    mapBtn.addEventListener('click', toggleMapColoring);
+  }
+
   console.log('[Playback Page] Initialized');
 }
 
