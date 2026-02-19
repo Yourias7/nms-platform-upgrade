@@ -1,7 +1,7 @@
 // static/js/playback.js
 // Playback page - RSRP time-series visualization
 import { CONFIG } from './config.js';
-import { fetchSerialData } from './api.js';
+import { fetchSerialData, fetchSerialNameMap } from './api.js';
 import { fetchHistoricSerialsList, fetchHistoricSerialData } from './api.js';
 
 let chartInstance = null;
@@ -10,6 +10,7 @@ let mapInstance = null;
 let mapMarkers = [];
 let currentRecords = [];
 let useRSRPColoring = false;
+let serialNameMap = {};
 
 function getSelectedSerial() {
   const params = new URLSearchParams(window.location.search);
@@ -134,28 +135,41 @@ function setPlaybackMessage(message, tone = 'muted') {
   el.textContent = message;
 }
 
-function populateSerialOptions(serials) {
+async function populateSerialOptions(serials) {
   const dropdown = document.getElementById('serialOptions');
   if (!dropdown) return;
+
+  // Fetch mapping of serial -> display name
+  try {
+    serialNameMap = await fetchSerialNameMap();
+  } catch (err) {
+    console.warn('[Playback] Failed to fetch serial name map', err);
+    serialNameMap = {};
+  }
 
   // Store original serials for filtering
   dropdown.dataset.serials = JSON.stringify(serials);
 
   // Render initial options (keep hidden until user interacts)
-  renderDropdownOptions(serials);
+  renderDropdownOptions(serials, serialNameMap);
   dropdown.style.display = 'show';
 
   // Setup input event listener for filtering
   const input = document.getElementById('serialInput');
   if (input) {
     const updateDropdown = () => {
+      // clear any previously selected serial when user types/filters
+      if (input.dataset && input.dataset.selectedSerial) delete input.dataset.selectedSerial;
       const filterValue = input.value.toLowerCase().trim();
       const filtered = filterValue === ''
         ? serials
-        : serials.filter((serial) => serial.toLowerCase().includes(filterValue));
-      
-      renderDropdownOptions(filtered);
-      
+        : serials.filter((serial) => {
+            const name = (serialNameMap && serialNameMap[serial]) ? String(serialNameMap[serial]).toLowerCase() : '';
+            return serial.toLowerCase().includes(filterValue) || name.includes(filterValue);
+          });
+
+      renderDropdownOptions(filtered, serialNameMap);
+
       // Use Bootstrap's 'show' class for dropdown visibility
       if (filtered.length > 0) {
         dropdown.classList.add('show');
@@ -177,7 +191,7 @@ function populateSerialOptions(serials) {
   }
 }
 
-function renderDropdownOptions(serials) {
+function renderDropdownOptions(serials, nameMap = {}) {
   const dropdown = document.getElementById('serialOptions');
   if (!dropdown) return;
   dropdown.innerHTML = '';
@@ -189,12 +203,15 @@ function renderDropdownOptions(serials) {
     const option = document.createElement('button');
     option.type = 'button';
     option.className = 'dropdown-item';
-    option.textContent = serial;
+    const displayName = nameMap && nameMap[serial] ? nameMap[serial] : serial;
+    option.textContent = displayName;
+    option.dataset.serial = serial;
     option.addEventListener('click', (e) => {
       e.preventDefault();
       const input = document.getElementById('serialInput');
       if (input) {
-        input.value = serial;
+        input.value = displayName;
+        input.dataset.selectedSerial = serial;
         dropdown.classList.remove('show');
         dropdown.style.display = 'none';
       }
@@ -215,7 +232,19 @@ document.addEventListener('click', (e) => {
 
 function getSerialInputValue() {
   const input = document.getElementById('serialInput');
-  return input ? input.value.trim() : '';
+  if (!input) return '';
+  // Prefer explicit selected serial stored on the input
+  if (input.dataset && input.dataset.selectedSerial) {
+    return input.dataset.selectedSerial.trim();
+  }
+  const raw = input.value ? input.value.trim() : '';
+  if (!raw) return '';
+  // Try to reverse-lookup name -> serial
+  for (const [serial, name] of Object.entries(serialNameMap || {})) {
+    if (String(name).trim() === raw) return serial;
+  }
+  // Fallback to raw value (user may have typed a serial)
+  return raw;
 }
 
 function getDateInputValue() {
@@ -226,7 +255,9 @@ function getDateInputValue() {
 function setSerialInputValue(serial) {
   const input = document.getElementById('serialInput');
   if (input) {
-    input.value = serial;
+    const display = serialNameMap && serialNameMap[serial] ? serialNameMap[serial] : serial;
+    input.value = display;
+    if (serial) input.dataset.selectedSerial = serial;
   }
 }
 
@@ -647,7 +678,7 @@ async function init() {
   setPlaybackMessage('Loading serials...', 'muted');
   try {
     const serials = await fetchHistoricSerialsList();
-    populateSerialOptions(serials || []);
+    await populateSerialOptions(serials || []);
     setPlaybackMessage(serials && serials.length > 0 ? '' : 'No serials available.', 'muted');
   } catch (err) {
     console.error('[Playback] Failed to load serials', err);
