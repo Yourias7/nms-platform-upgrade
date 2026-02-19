@@ -427,3 +427,10 @@ body {
 * {
   transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
 }
+
+#selectedSerialBar {
+  display: none;              /* θα το ανοίγει το JS όταν υπάρχει selection */
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
