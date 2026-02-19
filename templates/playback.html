@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Playback - NMS Platform</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <!-- favicon (ICO) -->
+    <link rel="icon" href="/static/img/favicon.ico" type="image/x-icon">
+
+    <!-- PNG favicons as fallback / modern browsers -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/img/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/static/img/favicon-16x16.png">
+
+    <!-- Apple touch (mobile) -->
+    <link rel="apple-touch-icon" sizes="180x180" href="/static/img/apple-touch-icon.png">
+
+    <!-- optional: theme color for some browsers -->
+    <meta name="theme-color" content="#0d6efd">
+  </head>
+  <body>
+    <!-- Animated glowing orbs -->
+    <div class="glow-orb glow-orb-1"></div>
+    <div class="glow-orb glow-orb-2"></div>
+    <div class="glow-orb glow-orb-3"></div>
+    
+    <nav class="navbar mb-4">
+      <div class="container-fluid">
+        <a class="navbar-brand d-flex align-items-center" href="#">
+          <img src="static\img\New folder\Picture1.png" alt="logo" style="height:24px; width:24px; margin-right:8px;"/>
+          <span>NMS Platform</span>
+        </a>
+        <ul class="nav nav-pills">
+          <li class="nav-item">
+            <a class="nav-link" href="/">Home</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="/liveview">Live View</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" id="tab-alarms" href="/alarms">Alarms</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link active" href="/playback">Playback</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="/settings">Settings</a>
+          </li>
+        </ul>
+      </div>
+    </nav>
+
+    <main class="container-fluid">
+      <!-- Playback Content -->
+      <div class="row g-2 align-items-end mb-3">
+        <div class="col-12 col-md-6" style="position: relative;">
+          <label for="serialInput" class="form-label">Serial</label>
+          <input id="serialInput" class="form-control" placeholder="Select or type a serial"/>
+          <div id="serialOptions" class="dropdown-menu" style="position: absolute; top: 100%; left: 0; right: 0; display: none; z-index: 11; max-height: 300px; overflow-y: auto; box-shadow: 0 2px 8px rgba(0,0,0,0.15); background: rgba(10, 14, 39, 0.95); border: 1px solid rgba(102, 126, 234, 0.3);"></div>
+        </div>
+        <div class="col-12 col-md-6" style="width: auto; position: relative;">
+          <label for="dateInput" class="form-label">Date</label>
+          <input id="dateInput" class="form-control" placeholder="Select or type a date" style="width: auto; position: relative; z-index: 10;"/>
+          <div id="dateOptions" class="dropdown-menu" style="position: absolute; top: 100%; left: 0; width: 100%; display: none; z-index: 11; max-height: 300px; overflow-y: auto; box-shadow: 0 2px 8px rgba(0,0,0,0.15);"></div>
+        </div>
+        <div class="col-12 col-md-3" style="width: auto;">
+          <button id="serialLoadBtn" class="btn btn-primary w-100" type="button">Load</button>
+        </div>
+        <div class="col-12 col-md-3">
+          <div id="playbackMessage" class="text-muted small"></div>
+        </div>
+      </div>
+      
+      <div class="row">
+        <!-- Left side: Charts -->
+        <div class="col-12 col-lg-6">
+          <div class="card mb-3">
+            <div class="card-body">
+              <h5 class="card-title">RSRP Data Playback</h5>
+              <p class="text-muted mb-3">Historical RSRP signal strength over time</p>
+              <div id="playbackRSRPChartContainer" style="position: relative; height: 400px;">
+                <canvas id="rsrpChart"></canvas>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-body">
+              <h5 class="card-title">SINR Data Playback</h5>
+              <p class="text-muted mb-3">Historical SINR signal-to-noise ratio over time</p>
+              <div id="playbackSINRChartContainer" style="position: relative; height: 400px;">
+                <canvas id="sinrChart"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Right side: Map -->
+        <div class="col-12 col-lg-6">
+          <div class="card" style="height: calc(100% - 0px);">
+            <div class="card-body">
+              <div class="button-container" style="position: absolute; top: 10px; right: 10px; bottom: 10px; z-index: 20;">
+                <button id="mapBtn" class="btn btn-primary">Radio coverage</button>
+              </div>
+              <h5 class="card-title">Location Map</h5>
+              <div id="playbackMap" style="height: calc(100% - 50px); min-height: 820px; margin-top: 30px;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Load alarm badge (runs on all pages) -->
+    <script type="module" src="/static/js/alarm-badge.js"></script>
+    
+    <!-- Chart.js library -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    
+    <!-- Load playback module -->
+    <script type="module" src="/static/js/playback.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  </body>
+</html>

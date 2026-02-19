@@ -1,13 +1,19 @@
 // static/js/settings.js
 // Settings management for alarm thresholds
 
+console.log('[Settings] settings.js loaded');
+
 const STORAGE_KEY = 'nms_alarm_thresholds';
 
 // Default thresholds
 const DEFAULT_THRESHOLDS = {
   rsrp: -120,
   sinr: 0,
-  temp: 60
+  temp: 60,
+  lat: 0,
+  lon: 0,
+  // COMMUNICATION_ALARM_THRESHOLD_HOURS: 3
+  // best temp
 };
 
 /**
@@ -53,7 +59,6 @@ export function initSettingsForm() {
   const rsrpInput = document.getElementById('rsrp-threshold');
   const sinrInput = document.getElementById('sinr-threshold');
   const tempInput = document.getElementById('temp-threshold');
-  
   if (!rsrpInput || !sinrInput || !tempInput) {
     console.warn('[Settings] Form elements not found, will initialize on tab switch');
     return;
@@ -89,7 +94,7 @@ export function initSettingsForm() {
     tempInput.setAttribute('data-listener-attached', 'true');
   }
   
-  console.log('[Settings] Form initialized with values:', { rsrp: rsrpInput.value, sinr: sinrInput.value, temp: tempInput.value });
+  console.log('[Settings] Form initialized with values:', { rsrp: rsrpInput.value, sinr: sinrInput.value, temp: tempInput.value, lat: 0, lon: 0 });
 }
 
 /**
@@ -108,12 +113,15 @@ function updateThresholdDisplays(thresholds) {
 /**
  * Handle settings form submission
  */
-export function handleSettingsSave() {
+export function handleSettingsSave(event) {
+  if (event) {
+    event.preventDefault();
+  }
   const rsrp = parseFloat(document.getElementById('rsrp-threshold').value);
   const sinr = parseFloat(document.getElementById('sinr-threshold').value);
   const temp = parseFloat(document.getElementById('temp-threshold').value);
   
-  const thresholds = { rsrp, sinr, temp };
+  const thresholds = { rsrp, sinr, temp, lat: 0, lon: 0 };
   console.log('[Settings] Saving thresholds:', thresholds);
   saveThresholds(thresholds);
   updateThresholdDisplays(thresholds);
@@ -129,7 +137,10 @@ export function handleSettingsSave() {
 /**
  * Handle reset button
  */
-export function handleSettingsReset() {
+export function handleSettingsReset(event) {
+  if (event) {
+    event.preventDefault();
+  }
   const thresholds = resetThresholds();
   
   // Update form
@@ -183,6 +194,12 @@ export function isInAlarm(kpi, value) {
     case 'temp':
       result = numValue >= thresholds.temp;
       break;
+    case 'lat':
+      result = numValue === 0;
+      break;
+    case 'lon':
+      result = numValue === 0;
+      break;
     default:
       return false;
   }
@@ -201,5 +218,56 @@ export function getActiveAlarms(kpiValues) {
   if (isInAlarm('rsrp', kpiValues.rsrp)) alarms.push('rsrp');
   if (isInAlarm('sinr', kpiValues.sinr)) alarms.push('sinr');
   if (isInAlarm('temp', kpiValues.temp)) alarms.push('temp');
+  if (isInAlarm('lat', kpiValues.lat)) alarms.push('lat');
+  if (isInAlarm('lon', kpiValues.lon)) alarms.push('lon');
   return alarms;
 }
+
+function bindRangeLabel(inputId, labelId) {
+  const input = document.getElementById(inputId);
+  const label = document.getElementById(labelId);
+
+  if (!input || !label) return;
+
+  const updateLabel = () => {
+    label.textContent = input.value;
+  };
+
+  if (!input.hasAttribute('data-label-bound')) {
+    input.addEventListener('input', updateLabel);
+    input.addEventListener('change', updateLabel);
+    input.setAttribute('data-label-bound', 'true');
+  }
+
+  updateLabel();
+}
+
+function initPage() {
+  const settingsForm = document.getElementById('settings-form');
+  if (!settingsForm) {
+    return;
+  }
+
+  console.log('[Settings] Settings page detected, initializing...');
+
+  initSettingsForm();
+
+  settingsForm.addEventListener('submit', handleSettingsSave);
+
+  const resetBtn = document.getElementById('reset-settings');
+  if (resetBtn) {
+    resetBtn.addEventListener('click', handleSettingsReset);
+  }
+
+  bindRangeLabel('rsrp-threshold', 'rsrp-value');
+  bindRangeLabel('sinr-threshold', 'sinr-value');
+  bindRangeLabel('temp-threshold', 'temp-value');
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initPage);
+} else {
+  initPage();
+}
+
+window.addEventListener('pageshow', initPage);

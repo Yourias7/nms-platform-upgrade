@@ -7,13 +7,13 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
-DB_HOST = os.getenv("DB_HOST", "swissqual-srv")
+DB_HOST = os.getenv("DB_HOST", "SWISSQUAL-SRV")
 DB_NAME = os.getenv("DB_NAME", "3skelion2")
 DB_USER = os.getenv("DB_USER", "sa")
 DB_PASS = os.getenv("DB_PASS", "swissqual")
-DB_PORT = int(os.getenv("DB_PORT", "1433"))
+DB_PORT = os.getenv("DB_PORT", "1433")
 
-# SQL Server connection string
+# MSSQL connection string with ODBC 17 driver
 DATABASE_URL = (
     f"mssql+pyodbc://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}?driver=ODBC+Driver+17+for+SQL+Server"
 )

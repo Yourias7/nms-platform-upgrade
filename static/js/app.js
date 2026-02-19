@@ -1,9 +1,9 @@
 // static/js/app.js
-// Main orchestrator for NMS Platform - coordinates all modules
+// Main orchestrator for NMS Dashboard Page
 
 import { CONFIG } from './config.js';
 import { fetchSerialsList, fetchSerialData } from './api.js';
-import { debounce, initTabs } from './utils.js';
+import { debounce } from './utils.js';
 import { initMap, preloadCustomIcon, updateMapMarkers, getMarkers, getMap } from './map.js';
 import { 
   getSerials, 
@@ -19,11 +19,10 @@ import {
   filterSerials 
 } from './serials.js';
 import { loadSerialDetails, clearDetails } from './details.js';
-import { initSettingsForm, handleSettingsSave, handleSettingsReset } from './settings.js';
-import { refreshAlarms, renderAlarmsTable } from './alarms.js';
 
 // DOM elements
 const filterEl = document.getElementById('filter');
+let autoRefreshTimer = null;
 
 /**
  * Fetch and render all serials
@@ -178,7 +177,10 @@ async function exportCombinedCSV(data, serials) {
   if (!data || data.length === 0) return;
   
   // Create CSV content
-  const cols = Object.keys(data[0]);
+  // const cols = Object.keys(data[0]);
+  const allowedCols = ['SERIAL', 'NAME', 'LATITUDE', 'LONGITUDE', 'DATETIME', 'EARFCN', 'PCI', 'ANTENNA USED', 'RSRP','RSRQ', 'SINR', 'TEMP','NODE_ID', 'SECTOR_ID'];
+  const cols = allowedCols;
+  
   const rows = [cols.join(',')];
   
   data.forEach(row => {
@@ -291,42 +293,124 @@ async function loadMultipleSerialDetails(serials) {
     };
     
     // Render combined table
-    const cols = Object.keys(allData[0]);
+    // const cols = Object.keys(allData[0]);
+    const allowedCols = ['SERIAL', 'NAME', 'LATITUDE', 'LONGITUDE', 'DATETIME', 'EARFCN', 'PCI', 'ANTENNA USED', 'RSRP','RSRQ', 'SINR', 'TEMP','NODE_ID', 'SECTOR_ID'];
+    const cols = allowedCols;
     const table = document.createElement('table');
     table.className = 'table table-sm table-striped';
+
+      // Ορισμός labels για τις κεφαλίδες (αν θες να αλλάξεις το κείμενο που φαίνεται)
+  const colLabels = {
+    'DATETIME': 'Date/Time',
+    'ANTENNA USED': 'Antenna',
+    'RSRP': 'RSRP (dBm)',
+    'TEMP': 'Temp (°C)'
+  };
+
     
     // Table header
+    // const thead = document.createElement('thead');
+    // const trh = document.createElement('tr');
+    // cols.forEach(c => {
+    //   const th = document.createElement('th');
+    //   th.textContent = c;
+    //   trh.appendChild(th);
+    // });
+    // thead.appendChild(trh);
+    // table.appendChild(thead);
+      // Δημιουργία Header
     const thead = document.createElement('thead');
     const trh = document.createElement('tr');
-    cols.forEach(c => {
+    allowedCols.forEach(colKey => {
       const th = document.createElement('th');
-      th.textContent = c;
+      // Χρήση label αν υπάρχει, αλλιώς το όνομα της στήλης
+      th.textContent = colLabels[colKey] || colKey; 
       trh.appendChild(th);
     });
     thead.appendChild(trh);
     table.appendChild(thead);
     
-    // Table body
-    const tbody = document.createElement('tbody');
-    allData.forEach(row => {
-      const tr = document.createElement('tr');
-      cols.forEach(c => {
-        const td = document.createElement('td');
-        let v = row[c];
-        if (v === null || v === undefined) v = '';
-        td.textContent = v;
+    // // Table body
+    // const tbody = document.createElement('tbody');
+    // allData.forEach(row => {
+    //   const tr = document.createElement('tr');
+    //   cols.forEach(c => {
+    //     const td = document.createElement('td');
+    //     let v = row[c];
+    //     if (v === null || v === undefined) v = '';
+
+    //     const colName = String(c).trim().toUpperCase();
+
+    //     // Format DATETIME values if present
+    //     if (colName === 'DATETIME' && v !== '') {
+    //       if (typeof v === 'string') {
+    //         v = v.replace(/T/g, ' ');
+    //       } else {
+    //         v = String(v).replace(/T/g, ' ');
+    //       }
+    //     }
+
+    //     td.textContent = v;
+// Table body (MULTI) - only allowedCols + case-insensitive keys
+const tbody = document.createElement('tbody');
+
+allData.forEach(row => {
+  const tr = document.createElement('tr');
+
+  // normalize keys once per row (case-insensitive)
+  const rowU = {};
+  for (const [k, v] of Object.entries(row || {})) {
+    rowU[String(k).trim().toUpperCase()] = v;
+  }
+
+  allowedCols.forEach(colKey => {
+    const td = document.createElement('td');
+    const colName = String(colKey).trim().toUpperCase();
+
+    let v = rowU[colName];
+    if (v === null || v === undefined) v = '';
+
+    // DATETIME formatting
+    if (colName === 'DATETIME' && v !== '') {
+      v = String(v).replace(/T/g, ' ');
+    }
+
+    td.textContent = v;
+
+
+
+    //     // Highlight RSRP values under -120 in red
+    //     if (colName === 'RSRP' && v !== '' && parseFloat(v) < -120) {
+    //       td.style.color = 'red';
+    //       td.style.fontWeight = 'bold';
+    //     }
         
-        // Highlight RSRP values under -120 in red
-        if (c.toUpperCase() === 'RSRP' && v !== '' && parseFloat(v) < -120) {
-          td.style.color = 'red';
-          td.style.fontWeight = 'bold';
-        }
-        
-        tr.appendChild(td);
-      });
-      tbody.appendChild(tr);
-    });
-    table.appendChild(tbody);
+    //     tr.appendChild(td);
+    //   });
+    //   tbody.appendChild(tr);
+    // });
+    // table.appendChild(tbody);
+        // Highlight rules (βάλε όσους θες)
+    if (colName === 'RSRP' && v !== '' && parseFloat(v) < -120) {
+      td.style.color = 'red';
+      td.style.fontWeight = 'bold';
+    }
+    if (colName === 'SINR' && v !== '' && parseFloat(v) <= 0) {
+      td.style.color = 'red';
+      td.style.fontWeight = 'bold';
+    }
+    if (colName === 'TEMP' && v !== '' && parseFloat(v) >= 85) {
+      td.style.color = 'red';
+      td.style.fontWeight = 'bold';
+    }
+
+    tr.appendChild(td);
+  });
+
+  tbody.appendChild(tr);
+});
+
+table.appendChild(tbody);
     
     detailsEl.innerHTML = '';
     detailsEl.appendChild(table);
@@ -338,80 +422,52 @@ async function loadMultipleSerialDetails(serials) {
 }
 
 /**
- * Initialize application
+ * Initialize dashboard application
  */
 function init() {
-  // Initialize tab navigation
-  initTabs();
+  console.log('[Dashboard] Initializing');
   
   // Initialize map and load custom icon
   preloadCustomIcon();
   initMap();
   
-  // Initialize settings form
-  initSettingsForm();
-  
-  // Setup settings form handlers
-  const settingsForm = document.getElementById('settings-form');
-  const resetBtn = document.getElementById('reset-settings');
-  
-  if (settingsForm) {
-    settingsForm.addEventListener('submit', (e) => {
-      e.preventDefault();
-      console.log('[App] Settings form submitted');
-      handleSettingsSave();
-    });
-  } else {
-    console.warn('[App] Settings form not found at init');
-  }
-  
-  if (resetBtn) {
-    resetBtn.addEventListener('click', () => {
-      console.log('[App] Reset button clicked');
-      handleSettingsReset();
-    });
-  } else {
-    console.warn('[App] Reset button not found at init');
-  }
-  
-  // Listen for threshold updates to refresh LED indicators
-  window.addEventListener('thresholds-updated', () => {
-    console.log('[App] Thresholds updated, refreshing serials...');
-    fetchAndRenderSerials();
-  });
-  
-  // Listen for tab changes to initialize settings form
-  window.addEventListener('tab-changed', (e) => {
-    if (e.detail.tabId === 'settings') {
-      console.log('[App] Settings tab opened, initializing form...');
-      initSettingsForm();
-    } else if (e.detail.tabId === 'alarms') {
-      console.log('[App] Alarms tab opened, refreshing alarms...');
-      refreshAlarms();
-    }
-  });
-  
   // Fetch initial data
   fetchAndRenderSerials();
-  
-  // Initial alarm check
-  refreshAlarms();
   
   // Setup filter input listener
   filterEl.addEventListener('input', debounce(handleFilter, CONFIG.UI.FILTER_DEBOUNCE_MS));
   
-  // Setup auto-refresh
-  setInterval(() => {
-    console.log('[app] auto-refreshing data...');
+  const runAutoRefresh = () => {
+    console.log('[Dashboard] Auto-refreshing data...');
     fetchAndRenderSerials().catch(err => {
       console.error('Auto-refresh error:', err);
     });
-    
-    // Also refresh alarms
-    refreshAlarms().catch(err => {
-      console.error('Alarm refresh error:', err);
-    });
-  }, CONFIG.UI.AUTO_REFRESH_MS);
+  };
+
+  const startAutoRefresh = () => {
+    if (autoRefreshTimer !== null) return;
+    if (document.visibilityState !== 'visible') return;
+    autoRefreshTimer = setInterval(runAutoRefresh, CONFIG.UI.AUTO_REFRESH_MS);
+  };
+
+  const stopAutoRefresh = () => {
+    if (autoRefreshTimer === null) return;
+    clearInterval(autoRefreshTimer);
+    autoRefreshTimer = null;
+  };
+
+  // Setup auto-refresh only when page is visible
+  startAutoRefresh();
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      startAutoRefresh();
+    } else {
+      stopAutoRefresh();
+    }
+  });
+  window.addEventListener('pagehide', stopAutoRefresh);
+  
+  console.log('[Dashboard] Initialization complete');
 }
 
 // Start application when DOM is ready

@@ -23,12 +23,33 @@ export async function fetchSerialsList() {
 }
 
 /**
+ * Fetch list of all historic serial numbers
+ * @returns {Promise<string[]>} Array of historic serial numbers
+ */
+export async function fetchHistoricSerialsList() {
+  console.log('[Playback Page] Fetching historic serials list from API:', CONFIG.API.HISTORIC_SERIALS);
+  const res = await fetch(CONFIG.API.HISTORIC_SERIALS);
+  console.log('[Playback Page] Received response for historic serials list:', res);
+  return await res.json();
+}
+
+/**
  * Fetch all records for a specific serial
  * @param {string} serial - Serial number to fetch
  * @returns {Promise<Object[]>} Array of record objects
  */
 export async function fetchSerialData(serial) {
   const res = await fetch(`${CONFIG.API.SYSTEMS}/${encodeURIComponent(serial)}`);
+  return await res.json();
+}
+
+/**
+ * Fetch all historic records for a specific serial
+ * @param {string} serial - Serial number to fetch
+ * @returns {Promise<Object[]>} Array of record objects
+ */
+export async function fetchHistoricSerialData(serial) {
+  const res = await fetch(`${CONFIG.API.HISTORIC_SYSTEMS}/${encodeURIComponent(serial)}`);
   return await res.json();
 }
 
@@ -44,7 +65,7 @@ export async function fetchLEDStatus(serial) {
     
     if (records && records.length > 0) {
       const latest = records[0];
-      let rsrp = null, sinr = null, temp = null, lat = null, lon = null;
+      let rsrp = null, sinr = null, temp = null, lat = null, lon = null, datetime = null;
       
       // Case-insensitive field matching
       for (const [key, val] of Object.entries(latest)) {
@@ -52,17 +73,39 @@ export async function fetchLEDStatus(serial) {
         if (lower === 'rsrp') rsrp = val;
         if (lower === 'sinr') sinr = val;
         if (lower === 'temp') temp = val;
-        if (lower === 'lat') lat = val;
-        if (lower === 'lon') lon = val;
+        if (lower === 'latitude' || lower === 'lat') lat = val;
+        if (lower === 'longitude' || lower === 'lon') lon = val;
+        if (lower === 'datetime') datetime = val;
       }
       
-      return { rsrp, sinr, temp, lat, lon };
+      return { rsrp, sinr, temp, lat, lon, datetime };
     }
   } catch (err) {
     console.warn(`Failed to fetch LED status for ${serial}:`, err);
   }
 
-  return { rsrp: null, sinr: null, temp: null, lat: null, lon: null };
+  return { rsrp: null, sinr: null, temp: null, lat: null, lon: null, datetime: null };
+}
+/**
+* @returns {Promise<Object>} map like { "123": "BOAT_A", ... }
+ */
+export async function fetchSerialNameMap() {
+  const res = await fetch(CONFIG.API.SERIAL_NAME_MAP);
+  const payload = await res.json();
+
+  // If backend already returns an object map
+  if (payload && !Array.isArray(payload) && typeof payload === 'object') {
+    return payload;
+  }
+
+  // If backend returns array of objects
+  const map = {};
+  (payload || []).forEach((x) => {
+    const serial = x?.SERIAL ?? x?.serial ?? x?.Serial ?? x?.id;
+    const name = x?.NAME ?? x?.name ?? x?.Name ?? x?.label;
+    if (serial) map[String(serial)] = name ?? String(serial);
+  });
+  return map;
 }
 
 /**
@@ -72,4 +115,13 @@ export async function fetchLEDStatus(serial) {
  */
 export function getExportUrl(serial) {
   return `${CONFIG.API.EXPORT}/${encodeURIComponent(serial)}`;
+}
+
+/**
+ * Get historic export URL for a serial
+ * @param {string} serial - Serial number to export
+ * @returns {string} Export URL
+ */
+export function getHistoricExportUrl(serial) {
+  return `${CONFIG.API.HISTORIC_EXPORT}/${encodeURIComponent(serial)}`;
 }

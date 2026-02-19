@@ -51,7 +51,7 @@ export async function fetchCommunicationAlarms() {
             if (lower === 'datetime' || lower === 'timestamp' || lower === 'time') {
               timestamp = val;
             }
-            if (lower === 'site') {
+            if (lower === 'site' || lower === 'name') {
               site = val;
             }
           }
@@ -122,7 +122,7 @@ export function renderAlarmsTable(alarms) {
       <th>Site</th>
       <th>Status</th>
       <th>Last Update</th>
-      <th>Hours Ago</th>
+      <th>Time Ago</th>
     </tr>
   `;
   table.appendChild(thead);
@@ -137,8 +137,12 @@ export function renderAlarmsTable(alarms) {
       <td>${alarm.site}</td>
       <td><span class="badge bg-danger">${alarm.status}</span></td>
       <td>${alarm.lastUpdate}</td>
-      <td>${alarm.hoursAgo}h</td>
-    `;
+      <td>
+      ${alarm.hoursAgo >= 24 
+        ? `${Math.floor(alarm.hoursAgo / 24)}d ${(alarm.hoursAgo % 24).toFixed(1)}h` 
+        : `${alarm.hoursAgo}h`}
+      </td>
+          `;
     tbody.appendChild(row);
   });
   
@@ -187,11 +191,32 @@ export async function refreshAlarms() {
   // Update badge
   updateAlarmBadge(alarms.length);
   
-  // If on alarms tab, render table
-  const alarmsContent = document.getElementById('content-alarms');
-  if (alarmsContent && alarmsContent.style.display !== 'none') {
+  // If on alarms page (check for alarmsArea element), render table
+  const alarmsArea = document.getElementById('alarmsArea');
+  if (alarmsArea) {
     renderAlarmsTable(alarms);
   }
   
   return alarms;
+}
+
+// Entry point for the alarms page (merged from alarms-app.js)
+async function init() {
+  console.log('[Alarms Page] Initializing');
+  
+  // Load alarms immediately
+  await refreshAlarms();
+  
+  // Auto-refresh every 30 seconds
+  setInterval(async () => {
+    console.log('[Alarms Page] Auto-refreshing alarms');
+    await refreshAlarms();
+  }, 30000);
+}
+
+// Start the app on DOM ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
 }
