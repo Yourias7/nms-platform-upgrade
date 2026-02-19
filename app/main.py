@@ -71,10 +71,18 @@ def liveview(request: Request):
     """Render the live view UI."""
     return templates.TemplateResponse("liveview.html", {"request": request})
 
+
 @app.get("/alarms")
 def alarms(request: Request):
-    """Render the alarms UI."""
-    return templates.TemplateResponse("alarms.html", {"request": request})
+    return RedirectResponse(url="/alarms/communication")
+
+@app.get("/alarms/communication")
+def communication_alarms(request: Request):
+    return templates.TemplateResponse("communication_alarm.html", {"request": request})
+
+@app.get("/alarms/performance")
+def performance_alarms(request: Request):
+    return templates.TemplateResponse("performance_alarm.html", {"request": request})
 
 @app.get("/playback")
 def playback(request: Request):
@@ -111,3 +119,9 @@ def systems_locations():
 def systems_locations():
     """Return list of {serial, latitude, longitude} for serials with coordinates."""
     return historic_serials_with_locations()
+
+from fastapi.responses import RedirectResponse
+
+
+
+

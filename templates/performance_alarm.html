@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Performance Alarms - NMS Platform</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link rel="icon" href="/static/img/favicon.ico" type="image/x-icon">
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/img/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/static/img/favicon-16x16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/static/img/apple-touch-icon.png">
+    <meta name="theme-color" content="#0d6efd">
+  </head>
+
+  <body>
+    <!-- Animated glowing orbs -->
+    <div class="glow-orb glow-orb-1"></div>
+    <div class="glow-orb glow-orb-2"></div>
+    <div class="glow-orb glow-orb-3"></div>
+
+    <nav class="navbar mb-4">
+      <div class="container-fluid">
+        <a class="navbar-brand d-flex align-items-center" href="#">
+          <img src="/static/img/New folder/Picture1.png" alt="logo" style="height:24px; width:24px; margin-right:8px;"/>
+          <span>NMS Platform</span>
+        </a>
+
+        <ul class="nav nav-pills">
+          <li class="nav-item"><a class="nav-link" href="/">Home</a></li>
+          <li class="nav-item"><a class="nav-link" href="/liveview">Live View</a></li>
+          <li class="nav-item"><a class="nav-link active" id="tab-alarms" href="/alarms/communication">Alarms</a></li>
+          <li class="nav-item"><a class="nav-link" href="/playback">Playback</a></li>
+          <li class="nav-item"><a class="nav-link" href="/settings">Settings</a></li>
+        </ul>
+      </div>
+    </nav>
+
+    <main class="container">
+      <!-- Sub tabs -->
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="mb-0">Alarms</h4>
+
+        <ul class="nav nav-pills gap-2">
+          <li class="nav-item">
+            <a class="nav-link" href="/alarms/communication">Communication</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link active" href="/alarms/performance">Performance</a>
+          </li>
+        </ul>
+      </div>
+
+      <div class="row">
+        <div class="col-md-7">
+          <div class="card">
+            <div class="card-body">
+              <h5 class="card-title">Performance Alarms</h5>
+              <p class="text-muted mb-3">Threshold / KPI-based alarms (placeholder)</p>
+
+              <div id="performanceAlarmsArea" class="text-center text-muted p-4">
+                No performance alarm rules configured yet.
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-5">
+          <div class="card h-100">
+            <div class="card-body">
+              <h5 class="card-title mb-3">Map</h5>
+              <div id="map" role="region" aria-label="Alarms map"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Alarm badge (runs on all pages) -->
+    <script type="module" src="/static/js/alarm-badge.js"></script>
+
+    <!-- Optional performance alarms logic (create if you want) -->
+    <script type="module" src="/static/js/performance-alarms.js"></script>
+    <script type="module" src="/static/js/app.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  </body>
+</html>

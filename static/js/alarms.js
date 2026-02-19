@@ -64,7 +64,6 @@ export async function fetchCommunicationAlarms() {
               : 'N/A';
             
             alarms.push({
-              serial,
               site,
               lastUpdate: timestamp || 'Never',
               hoursAgo,
@@ -74,7 +73,6 @@ export async function fetchCommunicationAlarms() {
         } else {
           // No records = alarm
           alarms.push({
-            serial,
             site: 'N/A',
             lastUpdate: 'Never',
             hoursAgo: 'N/A',
@@ -116,9 +114,9 @@ export function renderAlarmsTable(alarms) {
   
   // Create header
   const thead = document.createElement('thead');
+
   thead.innerHTML = `
     <tr>
-      <th>Serial</th>
       <th>Site</th>
       <th>Status</th>
       <th>Last Update</th>
@@ -130,13 +128,13 @@ export function renderAlarmsTable(alarms) {
   // Create body
   const tbody = document.createElement('tbody');
   
+  
   alarms.forEach(alarm => {
     const row = document.createElement('tr');
     row.innerHTML = `
-      <td><strong>${alarm.serial}</strong></td>
       <td>${alarm.site}</td>
       <td><span class="badge bg-danger">${alarm.status}</span></td>
-      <td>${alarm.lastUpdate}</td>
+      <td>${alarm.lastUpdate ? new Date(alarm.lastUpdate).toISOString().replace('T', ' ').slice(0, 19) : 'Never'}</td>
       <td>
       ${alarm.hoursAgo >= 24 
         ? `${Math.floor(alarm.hoursAgo / 24)}d ${(alarm.hoursAgo % 24).toFixed(1)}h` 
