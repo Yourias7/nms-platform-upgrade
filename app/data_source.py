@@ -102,6 +102,7 @@ def get_historic_records_by_serial(serial: str):
         rows = (
             db.query(
                 HistoricMeasurement.SERIAL.label("SERIAL"),
+                HistoricMeasurement.NAME.label("NAME"),
                 HistoricMeasurement.LATITUDE.label("LATITUDE"),
                 HistoricMeasurement.LONGITUDE.label("LONGITUDE"),
                 HistoricMeasurement.DATETIME.label("DATETIME"),
@@ -121,6 +122,7 @@ def get_historic_records_by_serial(serial: str):
         for row in rows:
             rec = {
                 "SERIAL": row.SERIAL,
+                "NAME": row.NAME,
                 "LATITUDE": row.LATITUDE,
                 "LONGITUDE": row.LONGITUDE,
                 "DATETIME": row.DATETIME.isoformat() if row.DATETIME else None,
@@ -262,7 +264,7 @@ def export_live_csv(serial: str) -> str:
         writer = csv.writer(output)
         
         # Write header
-        headers = ["SERIAL", "LATITUDE", "LONGITUDE", "DATETIME", "HEADING", "RSRP", "SINR", "TEMP"]
+        headers = ["SERIAL", "NAME", "LATITUDE", "LONGITUDE", "DATETIME", "HEADING", "RSRP", "SINR", "TEMP"]
         writer.writerow(headers)
         
         # Write data rows
@@ -270,6 +272,7 @@ def export_live_csv(serial: str) -> str:
             writer.writerow([
                 # row.NAME,
                 row.SERIAL,
+                row.NAME,
                 row.LATITUDE,
                 row.LONGITUDE,
                 row.DATETIME.isoformat() if row.DATETIME else "",
@@ -295,14 +298,14 @@ def export_historic_csv(serial: str) -> str:
         writer = csv.writer(output)
         
         # Write header
-        headers = ["SERIAL", "LATITUDE", "LONGITUDE", "DATETIME", "HEADING", "RSRP", "SINR", "TEMP"]
+        headers = ["SERIAL", "NAME", "LATITUDE", "LONGITUDE", "DATETIME", "HEADING", "RSRP", "SINR", "TEMP"]
         writer.writerow(headers)
         
         # Write data rows
         for row in rows:
             writer.writerow([
                 row.SERIAL,
-                # row.NAME,
+                row.NAME,
                 row.LATITUDE,
                 row.LONGITUDE,
                 row.DATETIME.isoformat() if row.DATETIME else "",

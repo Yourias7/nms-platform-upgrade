@@ -2,7 +2,7 @@
 // Serial list rendering and LED indicator logic
 
 import { CONFIG } from './config.js';
-import { fetchLEDStatus } from './api.js';
+import { fetchLEDStatus, fetchSerialNameMap } from './api.js';
 import { clearMapMarkers, updateMapMarkers } from './map.js';
 import { getThresholds, isInAlarm } from './settings.js';
 import { clearDetails } from './details.js';
