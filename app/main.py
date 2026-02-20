@@ -74,7 +74,7 @@ def liveview(request: Request):
 
 @app.get("/alarms")
 def alarms(request: Request):
-    return RedirectResponse(url="/alarms/communication")
+    return RedirectResponse(url="/alarms/summary")
 
 @app.get("/alarms/communication")
 def communication_alarms(request: Request):
@@ -83,6 +83,10 @@ def communication_alarms(request: Request):
 @app.get("/alarms/performance")
 def performance_alarms(request: Request):
     return templates.TemplateResponse("performance_alarm.html", {"request": request})
+
+@app.get("/alarms/summary")
+def summary_alarms(request: Request):
+    return templates.TemplateResponse("summary_alarm.html", {"request": request})
 
 @app.get("/playback")
 def playback(request: Request):
