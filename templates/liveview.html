@@ -25,7 +25,7 @@
   <meta name="theme-color" content="#0d6efd">
 </head>
 
-<body>
+<body> 
   <!-- Animated glowing orbs -->
   <div class="glow-orb glow-orb-1"></div>
   <div class="glow-orb glow-orb-2"></div>
@@ -85,7 +85,14 @@
       </div>
       <div class="col-md-6">
         <div class="card mb-3">
-          <div class="card-body">
+          <div class="card-body" style="position: relative;">
+            <!-- Map loading overlay -->
+            <div id="mapLoadingOverlay" class="map-loading-overlay">
+              <div class="loading-spinner">
+                <div class="spinner-circle"></div>
+                <div class="loading-text">Loading systems on map...</div>
+              </div>
+            </div>
             <div id="map"></div>
           </div>
         </div>

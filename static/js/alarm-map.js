@@ -25,6 +25,26 @@ function clearMarkers() {
   if (markersLayer) markersLayer.clearLayers();
 }
 
+/**
+ * Show map loading overlay
+ */
+function showMapLoading() {
+  const overlay = document.getElementById('mapLoadingOverlay');
+  if (overlay) {
+    overlay.classList.remove('hidden');
+  }
+}
+
+/**
+ * Hide map loading overlay
+ */
+function hideMapLoading() {
+  const overlay = document.getElementById('mapLoadingOverlay');
+  if (overlay) {
+    overlay.classList.add('hidden');
+  }
+}
+
 function addMarker(lat, lon, popupHtml) {
   if (!map || !markersLayer) return;
   const m = L.marker([lat, lon]);
@@ -46,6 +66,8 @@ function fitToMarkers() {
 // Try to load vessels (adjust endpoint if your backend is different)
 async function loadVesselsAndPlot() {
   try {
+    // Show loading overlay
+    showMapLoading();
     // change this if your API is different
     const res = await fetch("/api/vessels", { cache: "no-store" });
     if (!res.ok) return;
@@ -81,6 +103,9 @@ async function loadVesselsAndPlot() {
     // Map still works even if API fails
     console.warn("[alarms-map] Failed to load vessels:", e);
   }
+  
+  // Hide loading overlay after markers are loaded
+  hideMapLoading();
 }
 
 // Optional: if your alarms.js dispatches an event with alarm vessels, we can listen:

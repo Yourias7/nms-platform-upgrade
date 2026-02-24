@@ -12,6 +12,26 @@ let currentRecords = [];
 let useRSRPColoring = false;
 let serialNameMap = {};
 
+/**
+ * Show map loading overlay
+ */
+function showMapLoading() {
+  const overlay = document.getElementById('mapLoadingOverlay');
+  if (overlay) {
+    overlay.classList.remove('hidden');
+  }
+}
+
+/**
+ * Hide map loading overlay
+ */
+function hideMapLoading() {
+  const overlay = document.getElementById('mapLoadingOverlay');
+  if (overlay) {
+    overlay.classList.add('hidden');
+  }
+}
+
 function getSelectedSerial() {
   const params = new URLSearchParams(window.location.search);
   const serial = params.get('serial');
@@ -671,6 +691,8 @@ export function getMap() {
  * Initialize the map
  */
 function initMap() {
+  // Show loading overlay
+  showMapLoading();
   const mapDiv = document.getElementById('playbackMap');
   if (!mapDiv) {
     console.warn('[Playback] Map div not found');
@@ -690,6 +712,7 @@ function initMap() {
   }).addTo(mapInstance);
 
   console.log('[Playback] Map initialized');
+  hideMapLoading();
   return mapInstance;
 }
 
@@ -698,6 +721,9 @@ function initMap() {
  */
 function updateMapWithData(records) {
   if (!mapInstance) return;
+
+  // Show loading overlay
+  showMapLoading();
 
   // Clear existing markers
   mapMarkers.forEach(marker => mapInstance.removeLayer(marker));
@@ -758,6 +784,8 @@ function updateMapWithData(records) {
     const group = new L.featureGroup(mapMarkers);
     mapInstance.fitBounds(group.getBounds(), { padding: [20, 20] });
   }
+  // Hide loading overlay after markers are loaded
+  hideMapLoading();
 }
 
 /**
@@ -804,9 +832,21 @@ async function init() {
     const serials = await fetchHistoricSerialsList();
     await populateSerialOptions(serials || []);
     setPlaybackMessage(serials && serials.length > 0 ? '' : 'No serials available.', 'muted');
+    
+    // Hide loading overlay after serials are loaded
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    if (loadingOverlay) {
+      loadingOverlay.classList.add('hidden');
+    }
   } catch (err) {
     console.error('[Playback] Failed to load serials', err);
     setPlaybackMessage('Failed to load serials.', 'danger');
+    
+    // Hide loading overlay even on error
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    if (loadingOverlay) {
+      loadingOverlay.classList.add('hidden');
+    }
   }
 
   const serialFromUrl = getSelectedSerial();

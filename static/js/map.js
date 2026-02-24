@@ -131,11 +131,34 @@ export function getMarkers() {
 }
 
 /**
+ * Show map loading overlay
+ */
+export function showMapLoading() {
+  const overlay = document.getElementById('mapLoadingOverlay');
+  if (overlay) {
+    overlay.classList.remove('hidden');
+  }
+}
+
+/**
+ * Hide map loading overlay
+ */
+export function hideMapLoading() {
+  const overlay = document.getElementById('mapLoadingOverlay');
+  if (overlay) {
+    overlay.classList.add('hidden');
+  }
+}
+
+/**
  * Update map markers for given serial list
  * @param {string[]} serialList - Array of serial numbers to display
  * @param {{fit?: boolean}} options - if fit=false, will NOT change viewport (prevents snap-back after click)
  */
 export async function updateMapMarkers(serialList, { fit = true } = {}) {
+  // Show loading overlay
+  showMapLoading();
+  
   // Cancel any previous in-flight update
   const seq = ++updateSeq;
 
@@ -256,4 +279,7 @@ export async function updateMapMarkers(serialList, { fit = true } = {}) {
       // Ignore fitBounds errors
     }
   }
+  
+  // Hide loading overlay after markers are loaded
+  hideMapLoading();
 }

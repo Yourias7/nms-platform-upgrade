@@ -4,7 +4,7 @@
 import { CONFIG } from './config.js';
 import { fetchSerialsList, fetchSerialData } from './api.js';
 import { debounce } from './utils.js';
-import { initMap, preloadCustomIcon, updateMapMarkers, getMarkers, getMap } from './map.js';
+import { initMap, preloadCustomIcon, updateMapMarkers, getMarkers, getMap, hideMapLoading } from './map.js';
 import { 
   getSerials, 
   setSerials, 
@@ -432,7 +432,14 @@ function init() {
   initMap();
   
   // Fetch initial data
-  fetchAndRenderSerials();
+  fetchAndRenderSerials().then(() => {
+    // Hide map loading overlay after initial fetch completes
+    // (updateMapMarkers will also hide it, but this ensures it's hidden even if no markers)
+    setTimeout(() => hideMapLoading(), 500);
+  }).catch(() => {
+    // Hide on error too
+    hideMapLoading();
+  });
   
   // Setup filter input listener
   filterEl.addEventListener('input', debounce(handleFilter, CONFIG.UI.FILTER_DEBOUNCE_MS));
@@ -456,18 +463,36 @@ function init() {
     autoRefreshTimer = null;
   };
 
-  // Setup auto-refresh only when page is visible
-  startAutoRefresh();
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') {
-      startAutoRefresh();
-    } else {
-      stopAutoRefresh();
+  try {
+
+    // Setup auto-refresh only when page is visible
+    startAutoRefresh();
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        startAutoRefresh();
+      } else {
+        stopAutoRefresh();
+      }
+    });
+    window.addEventListener('pagehide', stopAutoRefresh);
+    
+    // Hide loading overlay after serials are loaded
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    if (loadingOverlay) {
+      loadingOverlay.classList.add('hidden');
     }
-  });
-  window.addEventListener('pagehide', stopAutoRefresh);
-  
-  console.log('[Dashboard] Initialization complete');
+    
+    console.log('[Dashboard] Initialization complete');   
+  } catch (err) {
+    console.error('[Dashboard] Failed to load serials', err);
+    setPlaybackMessage('Failed to load serials.', 'danger');
+    
+    // Hide loading overlay even on error
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    if (loadingOverlay) {
+      loadingOverlay.classList.add('hidden');
+    }
+  }
 }
 
 // Start application when DOM is ready

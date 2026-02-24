@@ -24,6 +24,14 @@
     <meta name="theme-color" content="#0d6efd">
   </head>
   <body>
+    <!-- Loading overlay -->
+    <div id="loadingOverlay" class="loading-overlay">
+      <div class="loading-spinner">
+        <div class="spinner-circle"></div>
+        <div class="loading-text">Loading serials...</div>
+      </div>
+    </div>
+
     <!-- Animated glowing orbs -->
     <div class="glow-orb glow-orb-1"></div>
     <div class="glow-orb glow-orb-2"></div>
@@ -106,6 +114,13 @@
         <div class="col-12 col-lg-6">
           <div class="card" style="height: calc(100% - 0px);">
             <div class="card-body">
+              <!-- Map loading overlay -->
+              <div id="mapLoadingOverlay" class="map-loading-overlay" style="display: hidden;">
+                <div class="loading-spinner">
+                  <div class="spinner-circle"></div>
+                  <div class="loading-text">Loading systems on map...</div>
+                </div>
+              </div>
               <div class="button-container" style="position: absolute; top: 10px; right: 10px; bottom: 10px; z-index: 20;">
                 <button id="mapBtn" class="btn btn-primary">Radio coverage</button>
               </div>
