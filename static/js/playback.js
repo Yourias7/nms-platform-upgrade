@@ -1,7 +1,7 @@
 // static/js/playback.js
 // Playback page - RSRP time-series visualization
 import { CONFIG } from './config.js';
-import { fetchSerialData, fetchSerialNameMap } from './api.js';
+import { fetchSerialData, fetchSerialNameMap, fetchEarliestSerialData, fetchLatestSerialData } from './api.js';
 import { fetchHistoricSerialsList, fetchHistoricSerialData } from './api.js';
 
 let chartInstance = null;
@@ -18,10 +18,64 @@ function getSelectedSerial() {
   return serial ? serial.trim() : '';
 }
 
-function getSelectedDate() {
+function getSelectedStartDate() {
   const params = new URLSearchParams(window.location.search);
-  const date = params.get('date');
+  const date = params.get('startDate');
   return date ? date.trim() : '';
+}
+
+function getSelectedEndDate() {
+  const params = new URLSearchParams(window.location.search);
+  const date = params.get('endDate');
+  return date ? date.trim() : '';
+}
+
+function formatDateForInput(date) {
+  if (!date) return '';
+  const dt = new Date(date);
+  return dt.toISOString().split('T')[0];
+}
+
+function getMinStartDate() {
+  const today = new Date();
+  const minDate = new Date(today);
+  minDate.setDate(today.getDate() - 15);
+  return formatDateForInput(minDate);
+}
+
+function getMaxDate() {
+  const today = new Date();
+  return formatDateForInput(today);
+}
+
+function setDateConstraints() {
+  const startInput = document.getElementById('startDateInput');
+  const endInput = document.getElementById('endDateInput');
+
+  if (startInput) {
+    startInput.min = getMinStartDate();
+    startInput.max = getMaxDate();
+  }
+
+  if (endInput) {
+    endInput.min = startInput ? startInput.value || getMinStartDate() : getMinStartDate();
+    endInput.max = getMaxDate();
+  }
+}
+
+function updateEndDateMin() {
+  const startInput = document.getElementById('startDateInput');
+  const endInput = document.getElementById('endDateInput');
+
+  if (startInput && endInput) {
+    const startValue = startInput.value;
+    endInput.min = startValue || getMinStartDate();
+
+    // If end date is before new min, clear it
+    if (endInput.value && endInput.value < endInput.min) {
+      endInput.value = '';
+    }
+  }
 }
 
 function sortByDatetime(records) {
@@ -247,8 +301,13 @@ function getSerialInputValue() {
   return raw;
 }
 
-function getDateInputValue() {
-  const input = document.getElementById('dateInput');
+function getStartDateInputValue() {
+  const input = document.getElementById('startDateInput');
+  return input ? input.value.trim() : '';
+}
+
+function getEndDateInputValue() {
+  const input = document.getElementById('endDateInput');
   return input ? input.value.trim() : '';
 }
 
@@ -261,10 +320,51 @@ function setSerialInputValue(serial) {
   }
 }
 
-function setDateInputValue(date) {
-  const input = document.getElementById('dateInput');
+function setStartDateInputValue(date) {
+  const input = document.getElementById('startDateInput');
   if (input) {
+    const minDate = getMinStartDate();
+    const maxDate = getMaxDate();
+    if (date < minDate) date = minDate;
+    if (date > maxDate) date = maxDate;
     input.value = date;
+    // Update end date constraints after setting start date
+    updateEndDateMin();
+  }
+}
+
+function setEndDateInputValue(date) {
+  const input = document.getElementById('endDateInput');
+  if (input) {
+    const minDate = input.min || getMinStartDate();
+    const maxDate = getMaxDate();
+    if (date < minDate) date = minDate;
+    if (date > maxDate) date = maxDate;
+    input.value = date;
+  }
+}
+
+async function setDefaultDatesForSerial(serial) {
+  if (!serial) return;
+
+  try {
+    const earliestRecord = await fetchEarliestSerialData(serial);
+    const latestRecord = await fetchLatestSerialData(serial);
+
+    if (earliestRecord && earliestRecord.DATETIME) {
+      const startDate = formatDateForInput(earliestRecord.DATETIME);
+      setStartDateInputValue(startDate);
+    }
+
+    if (latestRecord && latestRecord.DATETIME) {
+      const endDate = formatDateForInput(latestRecord.DATETIME);
+      setEndDateInputValue(endDate);
+    }
+
+    // Update URL with dates
+    updateDatesInUrl(getStartDateInputValue(), getEndDateInputValue());
+  } catch (err) {
+    console.warn('[Playback] Failed to fetch default dates for serial', serial, err);
   }
 }
 
@@ -274,6 +374,23 @@ function updateSerialInUrl(serial) {
     params.set('serial', serial);
   } else {
     params.delete('serial');
+  }
+  const query = params.toString();
+  const url = query ? `${window.location.pathname}?${query}` : window.location.pathname;
+  window.history.replaceState({}, '', url);
+}
+
+function updateDatesInUrl(startDate, endDate) {
+  const params = new URLSearchParams(window.location.search);
+  if (startDate) {
+    params.set('startDate', startDate);
+  } else {
+    params.delete('startDate');
+  }
+  if (endDate) {
+    params.set('endDate', endDate);
+  } else {
+    params.delete('endDate');
   }
   const query = params.toString();
   const url = query ? `${window.location.pathname}?${query}` : window.location.pathname;
@@ -292,14 +409,14 @@ function updateDateInUrl(date) {
   window.history.replaceState({}, '', url);
 }
 
-async function loadHistoricData(serial) {
-  console.log('[Playback Page] Loading historic data for selected serial:', serial);
+async function loadHistoricData(serial, startDate, endDate) {
+  console.log('[Playback Page] Loading historic data for selected serial:', serial, 'from', startDate, 'to', endDate);
 
   if (!serial) {
     return { serial: '', records: [] };
   }
 
-  const records = await fetchHistoricSerialData(serial);
+  const records = await fetchHistoricSerialData(serial, startDate, endDate);
   return { serial, records: sortByDatetime(records || []) };
 }
 
@@ -477,11 +594,23 @@ async function renderChartForSerial(serial) {
     return;
   }
 
+  const startDate = getStartDateInputValue();
+  const endDate = getEndDateInputValue();
+
+  if (!startDate || !endDate) {
+    setPlaybackMessage('Please select start and end dates.', 'warning');
+    return;
+  }
+
+  // Convert date strings to datetime strings
+  const startDateTime = `${startDate}T00:00:00`;
+  const endDateTime = `${endDate}T23:59:59`;
+
   setPlaybackMessage('Loading data...', 'muted');
-  const { records } = await loadHistoricData(serial);
+  const { records } = await loadHistoricData(serial, startDateTime, endDateTime);
 
   if (!records || records.length === 0) {
-    setPlaybackMessage('No historic records found.', 'muted');
+    setPlaybackMessage('No historic records found for the selected date range.', 'muted');
     return;
   }
 
@@ -624,17 +753,11 @@ function updateMapWithData(records) {
     mapMarkers.push(marker);
   });
 
-  // Create polyline connecting points
-  // const latLngs = validRecords.map(rec => [rec.LAT || rec.LATITUDE, rec.LON || rec.LONGITUDE]);
-  // const polyline = L.polyline(latLngs, {
-  //   color: '#667eea',
-  //   weight: 2,
-  //   opacity: 0.7
-  // }).addTo(mapInstance);
-  // mapMarkers.push(polyline);
-
-  // // Fit map to show all points
-  // mapInstance.fitBounds(polyline.getBounds(), { padding: [50, 50] });
+  // Fit map to show all markers
+  if (mapMarkers.length > 0) {
+    const group = new L.featureGroup(mapMarkers);
+    mapInstance.fitBounds(group.getBounds(), { padding: [20, 20] });
+  }
 }
 
 /**
@@ -674,6 +797,7 @@ async function init() {
   console.log('[Playback Page] Initializing');
   await initChart();
   initMap();
+  setDateConstraints();
 
   setPlaybackMessage('Loading serials...', 'muted');
   try {
@@ -686,8 +810,13 @@ async function init() {
   }
 
   const serialFromUrl = getSelectedSerial();
+  const startDateFromUrl = getSelectedStartDate();
+  const endDateFromUrl = getSelectedEndDate();
+
   if (serialFromUrl) {
     setSerialInputValue(serialFromUrl);
+    if (startDateFromUrl) setStartDateInputValue(startDateFromUrl);
+    if (endDateFromUrl) setEndDateInputValue(endDateFromUrl);
     await renderChartForSerial(serialFromUrl);
   } else {
     setPlaybackMessage('Select a serial to load data.', 'muted');
@@ -698,6 +827,26 @@ async function init() {
     loadBtn.addEventListener('click', async () => {
       const serial = getSerialInputValue();
       updateSerialInUrl(serial);
+
+      const startDate = getStartDateInputValue();
+      const endDate = getEndDateInputValue();
+
+      // Handle date logic
+      if (!startDate && !endDate) {
+        // No dates given, default to last 15 days
+        setStartDateInputValue(getMinStartDate());
+        setEndDateInputValue(getMaxDate());
+      } else if (!startDate) {
+        // Only end date given, prompt for start date
+        alert('Please set the Start Date as well.');
+        return;
+      } else if (!endDate) {
+        // Only start date given, prompt for end date
+        alert('Please set the End Date as well.');
+        return;
+      }
+
+      updateDatesInUrl(getStartDateInputValue(), getEndDateInputValue());
       await renderChartForSerial(serial);
     });
   }
@@ -709,9 +858,35 @@ async function init() {
         event.preventDefault();
         const serial = getSerialInputValue();
         updateSerialInUrl(serial);
+
+        const startDate = getStartDateInputValue();
+        const endDate = getEndDateInputValue();
+
+        // Handle date logic
+        if (!startDate && !endDate) {
+          // No dates given, default to last 15 days
+          setStartDateInputValue(getMinStartDate());
+          setEndDateInputValue(getMaxDate());
+        } else if (!startDate) {
+          // Only end date given, prompt for start date
+          alert('Please set the Start Date as well.');
+          return;
+        } else if (!endDate) {
+          // Only start date given, prompt for end date
+          alert('Please set the End Date as well.');
+          return;
+        }
+
+        updateDatesInUrl(getStartDateInputValue(), getEndDateInputValue());
         await renderChartForSerial(serial);
       }
     });
+  }
+
+  // Add event listener for start date change to update end date constraints
+  const startDateInput = document.getElementById('startDateInput');
+  if (startDateInput) {
+    startDateInput.addEventListener('change', updateEndDateMin);
   }
 
   // Add event listener for map button

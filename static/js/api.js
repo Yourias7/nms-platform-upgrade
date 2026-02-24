@@ -43,13 +43,33 @@ export async function fetchSerialData(serial) {
   return await res.json();
 }
 
+export async function fetchSerialDataWithLimit(serial, limit) {
+  const res = await fetch(`${CONFIG.API.SYSTEMS}/${encodeURIComponent(serial)}?limit=${encodeURIComponent(limit)}`);
+  return await res.json();
+}
+
+export async function fetchEarliestSerialData(serial) {
+  const res = await fetch(`${CONFIG.API.SYSTEMS}/${encodeURIComponent(serial)}?limit=1&order=asc`);
+  const data = await res.json();
+  return (data && data.length > 0) ? data[0] : null;
+  
+}
+
+export async function fetchLatestSerialData(serial) {
+  const res = await fetch(`${CONFIG.API.SYSTEMS}/${encodeURIComponent(serial)}?limit=1`);
+  const data = await res.json();
+  return (data && data.length > 0) ? data[0] : null;
+}
+
 /**
  * Fetch all historic records for a specific serial
  * @param {string} serial - Serial number to fetch
+ * @param {string} early - Start datetime (ISO format)
+ * @param {string} latest - End datetime (ISO format)
  * @returns {Promise<Object[]>} Array of record objects
  */
-export async function fetchHistoricSerialData(serial) {
-  const res = await fetch(`${CONFIG.API.HISTORIC_SYSTEMS}/${encodeURIComponent(serial)}`);
+export async function fetchHistoricSerialData(serial,early,latest) {
+  const res = await fetch(`${CONFIG.API.HISTORIC_SYSTEMS}/${encodeURIComponent(serial)}/${encodeURIComponent(early)}/${encodeURIComponent(latest)}`);
   return await res.json();
 }
 

@@ -93,11 +93,13 @@ def list_historic_serials():
     finally:
         db.close()
 
-def get_historic_records_by_serial(serial: str):
+def get_historic_records_by_serial(serial: str, early: str = None, latest: str = None):
     """Return list of measurement records for a given SERIAL from database."""
     db = SessionLocal()
     try:
         ser = str(serial).strip()
+        sdate = datetime.fromisoformat(early) if early else None
+        edate = datetime.fromisoformat(latest) if latest else None
         cutoff = datetime.utcnow() - timedelta(days=15)
         rows = (
             db.query(
@@ -113,6 +115,8 @@ def get_historic_records_by_serial(serial: str):
             )
             .filter(HistoricMeasurement.SERIAL == ser)
             .filter(HistoricMeasurement.DATETIME >= cutoff)
+            .filter(HistoricMeasurement.DATETIME >= sdate if sdate else True)
+            .filter(HistoricMeasurement.DATETIME <= edate if edate else True)
             .order_by(HistoricMeasurement.DATETIME.asc())
             .all()
         )
@@ -251,6 +255,39 @@ def historic_serials_with_locations():
     finally:
         db.close()
 
+def get_earliest_datetime_for_serial(serial: str) -> str:
+    """Return earliest datetime for a given SERIAL from database."""
+    db = SessionLocal()
+    try:
+        ser = str(serial).strip()
+        row = (
+            db.query(func.min(HistoricMeasurement.DATETIME))
+            .filter(HistoricMeasurement.SERIAL == ser)
+            .first()
+        )
+        if row and row[0]:
+            return row[0].isoformat()
+        else:
+            return None
+    finally:
+        db.close()
+
+def get_latest_datetime_for_serial(serial: str) -> str:
+    """Return latest datetime for a given SERIAL from database."""
+    db = SessionLocal()
+    try:
+        ser = str(serial).strip()
+        row = (
+            db.query(func.max(HistoricMeasurement.DATETIME))
+            .filter(HistoricMeasurement.SERIAL == ser)
+            .first()
+        )
+        if row and row[0]:
+            return row[0].isoformat()
+        else:
+            return None
+    finally:
+        db.close()
 
 def export_live_csv(serial: str) -> str:
     """Return CSV string for the given serial from database."""

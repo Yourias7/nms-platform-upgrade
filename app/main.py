@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Request, Response
 import logging
-from app.data_source import get_historic_records_by_serial, get_live_records_by_serial, list_live_serial_name_pairs, list_live_serials, list_historic_serials, export_live_csv, export_historic_csv, live_serials_with_locations, historic_serials_with_locations
+from app.data_source import get_earliest_datetime_for_serial, get_latest_datetime_for_serial, get_historic_records_by_serial, get_live_records_by_serial, list_live_serial_name_pairs, list_live_serials, list_historic_serials, export_live_csv, export_historic_csv, live_serials_with_locations, historic_serials_with_locations
 from fastapi.responses import StreamingResponse, FileResponse
 import io
 import mimetypes
@@ -31,11 +31,21 @@ def get_system(serial: str):
     logger.info(f"Retrieved {len(data)} records for SERIAL: {serial}")
     return data
 
-@app.get("/Systems/Historic/{serial}")
-def get_system(serial: str):
-    data = get_historic_records_by_serial(serial)
+@app.get("/Systems/Historic/{serial}/{early}/{latest}")
+def get_system(serial: str, early: str, latest: str):
+    data = get_historic_records_by_serial(serial, early=early, latest=latest)
     logger.info(f"Retrieved {len(data)} records for SERIAL: {serial}")
     return data
+
+@app.get("/systems/Historic/{serial}/earliest")
+def get_early_datetime(serial: str):
+    """Return earliest datetime for a given SERIAL from database."""
+    return get_earliest_datetime_for_serial(serial)
+
+@app.get("/systems/Historic/{serial}/{latest}")
+def get_latest_datetime(serial: str, latest: str):
+    """Return latest datetime for a given SERIAL from database."""
+    return get_latest_datetime_for_serial(serial)
 
 
 @app.get("/systems/Live/serials")
