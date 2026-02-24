@@ -3,6 +3,7 @@
 
 import { CONFIG } from './config.js';
 import { fetchJSON } from './api.js';
+import { getThresholds, isInAlarm } from './settings.js';
 
 const COMMUNICATION_ALARM_THRESHOLD_HOURS = 3;
 
@@ -91,6 +92,47 @@ export async function fetchCommunicationAlarms() {
   }
 }
 
+// /**
+//  * Fetch all performance alarms
+//  * @param {number|null} rsrp
+//  * @param {number|null} sinr
+//  * @param {number|null} temp
+//  * @param {number|null} lat
+//  * @param {number|null} lon
+//  * @returns {Promise<Array>} Array of alarm objects
+//  */
+// export async function fetchPerformanceAlarms(rsrp = null, sinr = null, temp = null, lat = null, lon = null) {
+//   try {
+//     const serials = await fetchJSON(CONFIG.API.SERIALS);
+//     const per_alarms = [];
+    
+//     for (const serial of serials) {
+//       try {
+//         const records = await fetchJSON(`${CONFIG.API.SYSTEMS}/${encodeURIComponent(serial)}`);
+        
+//         if (records && records.length > 0) {
+//           const latest = records[0];
+          
+//           if (isInAlarm('rsrp', rsrp) || isInAlarm('sinr', sinr) || isInAlarm('temp', temp) || isInAlarm('lat', lat) || isInAlarm('lon', lon)) {
+//             per_alarms.push({
+//               site,
+//               lastUpdate: timestamp || 'Never',
+//               status: 'Performance Alarm'
+//             });
+                   
+
+//       } }}catch (err) {
+//         console.warn(`Failed to check alarm for ${serial}:`, err);
+//       }
+//     }
+    
+//     return per_alarms;
+//   } catch (err) {
+//     console.error('Error fetching performance alarms:', err);
+//     return [];
+//   }
+// }
+
 /**
  * Render alarms table
  * @param {Array} alarms - Array of alarm objects
@@ -150,6 +192,60 @@ export function renderAlarmsTable(alarms) {
   alarmsArea.innerHTML = '';
   alarmsArea.appendChild(table);
 }
+
+
+// /**
+//  * Render performance alarms table
+//  * @param {Array} per_alarms - Array of performance alarm objects
+//  */
+// export function renderPerformanceAlarmsTable(per_alarms) {
+//   const alarmsArea = document.getElementById('alarmsArea_performance');
+  
+//   if (!alarmsArea) {
+//     console.warn('[Alarms] Alarms area element not found');
+//     return;
+//   }
+  
+//   if (!per_alarms || per_alarms.length === 0) {
+//     alarmsArea.innerHTML = '<div class="text-center text-muted p-4">No active alarms</div>';
+//     return;
+//   }
+  
+//   // Create table
+//   const table = document.createElement('table');
+//   table.className = 'table table-sm table-striped';
+  
+//   // Create header
+//   const thead = document.createElement('thead');
+
+//   thead.innerHTML = `
+//     <tr>
+//       <th>Site</th>
+//       <th>Status</th>
+//     </tr>
+//   `;
+//   table.appendChild(thead);
+  
+//   // Create body
+//   const tbody = document.createElement('tbody');
+  
+  
+//   per_alarms.forEach(alarm => {
+//     const row = document.createElement('tr');
+//     row.innerHTML = `
+//       <td>${alarm.site}</td>
+//       <td><span class="badge bg-danger">${alarm.status}</span></td>
+//       <td>${alarm.lastUpdate ? new Date(alarm.lastUpdate).toISOString().replace('T', ' ').slice(0, 19) : 'Never'}</td>
+//           `;
+//     tbody.appendChild(row);
+//   });
+  
+//   table.appendChild(tbody);
+  
+//   // Clear and add table
+//   alarmsArea_performance.innerHTML = '';
+//   alarmsArea_performance.appendChild(table);
+// }
 
 /**
  * Update alarm count badge in navbar
