@@ -94,6 +94,13 @@
             <div class="card-body">
               <h5 class="card-title">RSRP Data Playback</h5>
               <p class="text-muted mb-3">Historical RSRP signal strength over time</p>
+              <!-- RSRP Chart loading overlay -->
+              <div id="rsrpLoadingOverlay" class="rsrp-loading-overlay hidden">
+                <div class="loading-spinner">
+                  <div class="spinner-circle"></div>
+                  <div class="loading-text">Loading RSRP data...</div>
+                </div>
+              </div>
               <div id="playbackRSRPChartContainer" style="position: relative; height: 400px;">
                 <canvas id="rsrpChart"></canvas>
               </div>
@@ -103,6 +110,13 @@
             <div class="card-body">
               <h5 class="card-title">SINR Data Playback</h5>
               <p class="text-muted mb-3">Historical SINR signal-to-noise ratio over time</p>
+              <!-- SINR Chart loading overlay -->
+              <div id="sinrLoadingOverlay" class="sinr-loading-overlay hidden">
+                <div class="loading-spinner">
+                  <div class="spinner-circle"></div>
+                  <div class="loading-text">Loading SINR data...</div>
+                </div>
+              </div>
               <div id="playbackSINRChartContainer" style="position: relative; height: 400px;">
                 <canvas id="sinrChart"></canvas>
               </div>
@@ -115,7 +129,7 @@
           <div class="card" style="height: calc(100% - 0px);">
             <div class="card-body">
               <!-- Map loading overlay -->
-              <div id="mapLoadingOverlay" class="map-loading-overlay" style="display: hidden;">
+              <div id="mapLoadingOverlay" class="map-loading-overlay hidden">
                 <div class="loading-spinner">
                   <div class="spinner-circle"></div>
                   <div class="loading-text">Loading systems on map...</div>

@@ -565,3 +565,43 @@ body::after {
 .map-loading-overlay.hidden {
   display: none;
 }
+
+/* RSRP Chart loading overlay */
+.rsrp-loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(10, 14, 39, 0.95);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  backdrop-filter: blur(5px);
+  border-radius: inherit;
+}
+
+.rsrp-loading-overlay.hidden {
+  display: none;
+}
+
+/* SINR Chart loading overlay */
+.sinr-loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(10, 14, 39, 0.95);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  backdrop-filter: blur(5px);
+  border-radius: inherit;
+}
+
+.sinr-loading-overlay.hidden {
+  display: none;
+}

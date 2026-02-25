@@ -32,6 +32,46 @@ function hideMapLoading() {
   }
 }
 
+/**
+ * Show RSRP loading overlay
+ */
+function showRSRPLoading() {
+  const overlay = document.getElementById('rsrpLoadingOverlay');
+  if (overlay) {
+    overlay.classList.remove('hidden');
+  }
+}
+
+/**
+ * Hide RSRP loading overlay
+ */
+function hideRSRPLoading() {
+  const overlay = document.getElementById('rsrpLoadingOverlay');
+  if (overlay) {
+    overlay.classList.add('hidden');
+  }
+}
+
+/**
+ * Show SINR loading overlay
+ */
+function showSINRLoading() {
+  const overlay = document.getElementById('sinrLoadingOverlay');
+  if (overlay) {
+    overlay.classList.remove('hidden');
+  }
+}
+
+/**
+ * Hide SINR loading overlay
+ */
+function hideSINRLoading() {
+  const overlay = document.getElementById('sinrLoadingOverlay');
+  if (overlay) {
+    overlay.classList.add('hidden');
+  }
+}
+
 function getSelectedSerial() {
   const params = new URLSearchParams(window.location.search);
   const serial = params.get('serial');
@@ -105,6 +145,7 @@ function sortByDatetime(records) {
 }
 
 function buildRSRPChartData(records) {
+  showRSRPLoading();
   const labels = [];
   const rsrpValues = [];
 
@@ -113,7 +154,8 @@ function buildRSRPChartData(records) {
     labels.push(dt.toLocaleString('en-US', { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' }));
     rsrpValues.push(rec.RSRP);
   });
-
+  console.log('Built RSRP chart data with %d points', rsrpValues.length);
+  hideRSRPLoading();
   return {
     labels,
     datasets: [
@@ -136,6 +178,7 @@ function buildRSRPChartData(records) {
 }
 
 function buildSINRChartData(records) {
+  showSINRLoading();
   const labels = [];
   const sinrValues = [];
 
@@ -145,6 +188,7 @@ function buildSINRChartData(records) {
     sinrValues.push(rec.SINR);
   });
   console.log('Built SINR chart data with %d points', sinrValues.length);
+  hideSINRLoading();
   return {
     labels,
     datasets: [
@@ -609,8 +653,17 @@ function buildEmptyChart(ctx) {
 }
 
 async function renderChartForSerial(serial) {
+  // Show loading overlays while fetching and rendering data
+  showMapLoading();
+  showRSRPLoading();
+  showSINRLoading();
+  
   if (!serial) {
     setPlaybackMessage('Select a serial to load data.', 'muted');
+    // Hide loading overlays
+    hideMapLoading();
+    hideRSRPLoading();
+    hideSINRLoading();
     return;
   }
 
@@ -619,6 +672,10 @@ async function renderChartForSerial(serial) {
 
   if (!startDate || !endDate) {
     setPlaybackMessage('Please select start and end dates.', 'warning');
+    // Hide loading overlays
+    hideMapLoading();
+    hideRSRPLoading();
+    hideSINRLoading();
     return;
   }
 
@@ -631,6 +688,10 @@ async function renderChartForSerial(serial) {
 
   if (!records || records.length === 0) {
     setPlaybackMessage('No historic records found for the selected date range.', 'muted');
+    // Hide loading overlays
+    hideMapLoading();
+    hideRSRPLoading();
+    hideSINRLoading();
     return;
   }
 
@@ -662,6 +723,10 @@ async function renderChartForSerial(serial) {
 
   setPlaybackMessage('', 'muted');
   console.log('[Playback] Chart updated', serial ? `for ${serial}` : '');
+  // Hide loading overlays after data is loaded
+  hideMapLoading();
+  hideRSRPLoading();
+  hideSINRLoading();
 }
 
 async function initChart() {
@@ -722,9 +787,6 @@ function initMap() {
 function updateMapWithData(records) {
   if (!mapInstance) return;
 
-  // Show loading overlay
-  showMapLoading();
-
   // Clear existing markers
   mapMarkers.forEach(marker => mapInstance.removeLayer(marker));
   mapMarkers = [];
@@ -784,8 +846,6 @@ function updateMapWithData(records) {
     const group = new L.featureGroup(mapMarkers);
     mapInstance.fitBounds(group.getBounds(), { padding: [20, 20] });
   }
-  // Hide loading overlay after markers are loaded
-  hideMapLoading();
 }
 
 /**
@@ -795,6 +855,16 @@ function getColorForRSRP(rsrp) {
   if (rsrp >= -80) return '#28a745'; // Good - green
   if (rsrp >= -95) return '#ffc107'; // Fair - yellow
   if (rsrp >= -110) return '#fd7e14'; // Poor - orange
+  return '#dc3545'; // Bad - red
+}
+
+/**
+ * Get color based on SINR value
+ */
+function getColorForSINR(sinr) {
+  if (sinr >= 10) return '#28a745'; // Good - green
+  if (sinr >= 5) return '#ffc107'; // Fair - yellow
+  if (sinr >= 0) return '#fd7e14'; // Poor - orange
   return '#dc3545'; // Bad - red
 }
 
