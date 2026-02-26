@@ -653,10 +653,9 @@ body::after {
   width: 150px;
   height: 36px;
   border-radius: 999px;
-  background: rgba(10, 14, 39, 0.95);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(102, 126, 234, 0.3);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgb(25, 0, 117);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.15);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -669,22 +668,18 @@ body::after {
 .seg-label{
   position: relative;
   z-index: 2;
-  color: #94a3b8;
   opacity: 0.75;
-  transition: all 0.2s ease;
 }
 
 .seg-toggle.is-right .seg-left,
 .seg-toggle:not(.is-right) .seg-right{
   opacity: 0.45;
-  color: #94a3b8;
 }
 
 .seg-toggle.is-right .seg-right,
 .seg-toggle:not(.is-right) .seg-left{
   opacity: 1;
   font-weight: 650;
-  color: #e5e7eb;
 }
 
 .seg-knob{
@@ -694,9 +689,8 @@ body::after {
   width: calc(50% - 6px);
   height: calc(100% - 6px);
   border-radius: 999px;
-  background: linear-gradient(135deg, rgba(102, 126, 234, 0.8), rgba(118, 75, 162, 0.8));
-  border: 1px solid rgba(102, 126, 234, 0.5);
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
+  background: #5397fc;
+  border: 2px solid rgba(0,0,0,0.10);
   transition: transform 180ms ease;
   z-index: 1;
 }
