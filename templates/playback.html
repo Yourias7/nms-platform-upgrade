@@ -135,8 +135,10 @@
                   <div class="loading-text">Loading systems on map...</div>
                 </div>
               </div>
-              <div class="button-container" style="position: absolute; top: 10px; right: 10px; bottom: 10px; z-index: 20;">
-                <button id="mapBtn" class="btn btn-primary">Radio coverage</button>
+              <div id="mapModeToggle" class="seg-toggle" role="switch" aria-checked="false" tabindex="0" style="position: absolute; top: 10px; right: 10px; bottom: 10px; z-index: 20;">
+                <span class="seg-label seg-left">RSRP</span>
+                <span class="seg-label seg-right">SINR</span>
+                <span class="seg-knob" aria-hidden="true"></span>
               </div>
               <h5 class="card-title">Location Map</h5>
               <div id="playbackMap" style="height: calc(100% - 50px); min-height: 820px; margin-top: 30px;"></div>
@@ -145,6 +147,7 @@
         </div>
       </div>
     </main>
+    <!-- style="position: absolute; top: 10px; right: 10px; bottom: 10px; z-index: 20;" -->
 
     <!-- Load alarm badge (runs on all pages) -->
     <script type="module" src="/static/js/alarm-badge.js"></script>

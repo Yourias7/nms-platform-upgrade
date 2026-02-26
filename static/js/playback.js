@@ -9,8 +9,9 @@ let chartInstance2 = null;
 let mapInstance = null;
 let mapMarkers = [];
 let currentRecords = [];
-let useRSRPColoring = false;
+let coloringMode = 'rsrp'; // 'rsrp' or 'sinr'
 let serialNameMap = {};
+let mapLegend = null;
 
 /**
  * Show map loading overlay
@@ -776,6 +777,9 @@ function initMap() {
     attribution: CONFIG.MAP.TILE_ATTRIBUTION
   }).addTo(mapInstance);
 
+  // Add legend to the map
+  addMapLegend();
+
   console.log('[Playback] Map initialized');
   hideMapLoading();
   return mapInstance;
@@ -815,8 +819,13 @@ function updateMapWithData(records) {
     const lat = rec.LAT || rec.LATITUDE;
     const lon = rec.LON || rec.LONGITUDE;
     
-    // Determine color based on useRSRPColoring state
-    const markerColor = useRSRPColoring ? getColorForRSRP(rec.RSRP) : '#000000';
+    // Determine color based on coloring mode
+    let markerColor = '#000000'; // Default uniform color
+    if (coloringMode === 'rsrp') {
+      markerColor = getColorForRSRP(rec.RSRP);
+    } else if (coloringMode === 'sinr') {
+      markerColor = getColorForSINR(rec.SINR);
+    }
     
     const marker = L.circleMarker([lat, lon], {
       radius: 6,
@@ -845,6 +854,76 @@ function updateMapWithData(records) {
   if (mapMarkers.length > 0) {
     const group = new L.featureGroup(mapMarkers);
     mapInstance.fitBounds(group.getBounds(), { padding: [20, 20] });
+    updateLegendContent();
+  }
+}
+
+/**
+ * Add legend to the map
+ */
+function addMapLegend() {
+  if (!mapInstance) return;
+
+  mapLegend = L.control({ position: 'topright' });
+
+  mapLegend.onAdd = function (map) {
+    const div = L.DomUtil.create('div', 'map-legend');
+    div.id = 'mapLegendContent';
+    updateLegendContent();
+    return div;
+  };
+
+  mapLegend.addTo(mapInstance);
+  updateLegendContent();
+}
+
+/**
+ * Update legend content based on current coloring mode
+ */
+function updateLegendContent() {
+  const legendDiv = document.getElementById('mapLegendContent');
+  if (!legendDiv) return;
+
+  if (coloringMode === 'rsrp') {
+    legendDiv.innerHTML = `
+      <div class="legend-title">RSRP Signal Quality</div>
+      <div class="legend-item">
+        <span class="legend-color" style="background: #28a745;"></span>
+        <span class="legend-label">Excellent (≥ -80 dBm)</span>
+      </div>
+      <div class="legend-item">
+        <span class="legend-color" style="background: #ffc107;"></span>
+        <span class="legend-label">Fair (-80 to -95 dBm)</span>
+      </div>
+      <div class="legend-item">
+        <span class="legend-color" style="background: #fd7e14;"></span>
+        <span class="legend-label">Poor (-95 to -110 dBm)</span>
+      </div>
+      <div class="legend-item">
+        <span class="legend-color" style="background: #dc3545;"></span>
+        <span class="legend-label">Bad (< -110 dBm)</span>
+      </div>
+    `;
+  } else if (coloringMode === 'sinr') {
+    legendDiv.innerHTML = `
+      <div class="legend-title">SINR Signal Quality</div>
+      <div class="legend-item">
+        <span class="legend-color" style="background: #28a745;"></span>
+        <span class="legend-label">Excellent (≥ 10 dB)</span>
+      </div>
+      <div class="legend-item">
+        <span class="legend-color" style="background: #ffc107;"></span>
+        <span class="legend-label">Fair (5 to 10 dB)</span>
+      </div>
+      <div class="legend-item">
+        <span class="legend-color" style="background: #fd7e14;"></span>
+        <span class="legend-label">Poor (0 to 5 dB)</span>
+      </div>
+      <div class="legend-item">
+        <span class="legend-color" style="background: #dc3545;"></span>
+        <span class="legend-label">Bad (< 0 dB)</span>
+      </div>
+    `;
   }
 }
 
@@ -869,23 +948,97 @@ function getColorForSINR(sinr) {
 }
 
 /**
- * Toggle map marker coloring between RSRP and black
+ * Apply RSRP coloring mode
  */
-function toggleMapColoring() {
-  useRSRPColoring = !useRSRPColoring;
+function applyRSRP() {
+  coloringMode = "rsrp";
+  updateLegendContent();
   
   // Redraw markers with new colors
   if (currentRecords.length > 0) {
     updateMapWithData(currentRecords);
   }
   
-  // Update button text or state
-  const mapBtn = document.getElementById('mapBtn');
-  if (mapBtn) {
-    mapBtn.textContent = useRSRPColoring ? 'Coverage (by Signal)' : 'Coverage (Uniform)';
+  // Show legend
+  if (mapLegend && mapLegend.getContainer()) {
+    mapLegend.getContainer().style.display = 'block';
   }
   
-  console.log('[Playback] Map coloring toggled to:', useRSRPColoring ? 'RSRP' : 'Black');
+  console.log("[Playback] Map mode set to RSRP");
+}
+
+/**
+ * Apply SINR coloring mode
+ */
+function applySINR() {
+  coloringMode = "sinr";
+  updateLegendContent();
+  
+  // Redraw markers with new colors
+  if (currentRecords.length > 0) {
+    updateMapWithData(currentRecords);
+  }
+  
+  // Show legend
+  if (mapLegend && mapLegend.getContainer()) {
+    mapLegend.getContainer().style.display = 'block';
+  }
+  
+  console.log("[Playback] Map mode set to SINR");
+}
+
+/**
+ * Set toggle UI state
+ */
+function setToggleUI(isRight) {
+  const toggle = document.getElementById("mapModeToggle");
+  if (toggle) {
+    toggle.classList.toggle("is-right", isRight);
+    toggle.setAttribute("aria-checked", String(isRight));
+  }
+}
+
+/**
+ * Set map coloring mode
+ */
+function setMode(isRight) {
+  setToggleUI(isRight);
+  if (isRight) {
+    applySINR();
+  } else {
+    applyRSRP();
+  }
+}
+
+/**
+ * Initialize the toggle control
+ */
+function initToggle() {
+  const toggle = document.getElementById("mapModeToggle");
+  if (!toggle) {
+    console.warn('[Playback] Toggle element not found');
+    return;
+  }
+
+  // Initial state (left = RSRP)
+  setMode(false);
+
+  // Click handler
+  toggle.addEventListener("click", () => {
+    const isRightNow = toggle.classList.contains("is-right");
+    setMode(!isRightNow);
+  });
+
+  // Keyboard support (Space / Enter)
+  toggle.addEventListener("keydown", (e) => {
+    if (e.key === " " || e.key === "Enter") {
+      e.preventDefault();
+      const isRightNow = toggle.classList.contains("is-right");
+      setMode(!isRightNow);
+    }
+  });
+  
+  console.log('[Playback] Toggle initialized');
 }
 
 /**
@@ -999,11 +1152,8 @@ async function init() {
     startDateInput.addEventListener('change', updateEndDateMin);
   }
 
-  // Add event listener for map button
-  const mapBtn = document.getElementById('mapBtn');
-  if (mapBtn) {
-    mapBtn.addEventListener('click', toggleMapColoring);
-  }
+  // Initialize the map mode toggle
+  initToggle();
 
   console.log('[Playback Page] Initialized');
 }

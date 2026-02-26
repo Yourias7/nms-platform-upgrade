@@ -605,3 +605,102 @@ body::after {
 .sinr-loading-overlay.hidden {
   display: none;
 }
+
+/* Map legend */
+.map-legend {
+  background: rgba(30, 41, 59, 0.95);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(102, 126, 234, 0.3);
+  border-radius: 8px;
+  padding: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  font-size: 13px;
+  line-height: 1.5;
+  color: #e5e7eb;
+}
+
+.legend-title {
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #fff;
+  font-size: 14px;
+  border-bottom: 1px solid rgba(102, 126, 234, 0.2);
+  padding-bottom: 6px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  margin: 6px 0;
+}
+
+.legend-color {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  margin-right: 8px;
+  flex-shrink: 0;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+}
+
+.legend-label {
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.seg-toggle{
+  position: relative;
+  width: 150px;
+  height: 36px;
+  border-radius: 999px;
+  background: rgba(10, 14, 39, 0.95);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(102, 126, 234, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  cursor: pointer;
+  user-select: none;
+  font: 13px/1 system-ui, -apple-system, Segoe UI, Roboto, Arial;
+}
+
+.seg-label{
+  position: relative;
+  z-index: 2;
+  color: #94a3b8;
+  opacity: 0.75;
+  transition: all 0.2s ease;
+}
+
+.seg-toggle.is-right .seg-left,
+.seg-toggle:not(.is-right) .seg-right{
+  opacity: 0.45;
+  color: #94a3b8;
+}
+
+.seg-toggle.is-right .seg-right,
+.seg-toggle:not(.is-right) .seg-left{
+  opacity: 1;
+  font-weight: 650;
+  color: #e5e7eb;
+}
+
+.seg-knob{
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: calc(50% - 6px);
+  height: calc(100% - 6px);
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.8), rgba(118, 75, 162, 0.8));
+  border: 1px solid rgba(102, 126, 234, 0.5);
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
+  transition: transform 180ms ease;
+  z-index: 1;
+}
+
+.seg-toggle.is-right .seg-knob{
+  transform: translateX(calc(100% + 6px));
+}
