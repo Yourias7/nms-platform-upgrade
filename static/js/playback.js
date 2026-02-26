@@ -13,6 +13,50 @@ let coloringMode = 'rsrp'; // 'rsrp' or 'sinr'
 let serialNameMap = {};
 let mapLegend = null;
 
+function updateDataCards(records) {
+  if (!records || records.length === 0) return;
+
+  // Helper function to calculate average
+  const getAverage = (field) => {
+    const values = records.map(r => r[field]).filter(v => v !== null && v !== undefined);
+    return values.length > 0 ? values.reduce((sum, v) => sum + v, 0) / values.length : null;
+  };
+
+  const bestRSRP = getAverage('RSRP');
+  const bestSINR = getAverage('SINR');
+  const ant1RSRP = getAverage('S0RSRP');
+  const ant1SINR = getAverage('S0SINR');
+  const ant2RSRP = getAverage('S1RSRP');
+  const ant2SINR = getAverage('S1SINR');
+  const ant3RSRP = getAverage('S2RSRP');
+  const ant3SINR = getAverage('S2SINR');
+  const ant4RSRP = getAverage('S3RSRP');
+  const ant4SINR = getAverage('S3SINR');
+  const bestDetailsRSRP = document.getElementById('bestDetailsRSRP');
+  const bestDetailsSINR = document.getElementById('bestDetailsSINR');
+  const ant1DetailsRSRP = document.getElementById('ant1DetailsRSRP');
+  const ant1DetailsSINR = document.getElementById('ant1DetailsSINR');
+  const ant2DetailsRSRP = document.getElementById('ant2DetailsRSRP');
+  const ant2DetailsSINR = document.getElementById('ant2DetailsSINR');
+  const ant3DetailsRSRP = document.getElementById('ant3DetailsRSRP');
+  const ant3DetailsSINR = document.getElementById('ant3DetailsSINR');
+  const ant4DetailsRSRP = document.getElementById('ant4DetailsRSRP');
+  const ant4DetailsSINR = document.getElementById('ant4DetailsSINR');
+  if (bestDetailsRSRP) bestDetailsRSRP.textContent = bestRSRP !== null && bestRSRP !== undefined ? `${bestRSRP.toFixed(2)} dBm` : 'N/A';
+  if (bestDetailsSINR) bestDetailsSINR.textContent = bestSINR !== null && bestSINR !== undefined ? `${bestSINR.toFixed(2)} dB` : 'N/A';
+  if (ant1DetailsRSRP) ant1DetailsRSRP.textContent = ant1RSRP !== null && ant1RSRP !== undefined ? `${ant1RSRP.toFixed(2)} dBm` : 'N/A';
+  if (ant1DetailsSINR) ant1DetailsSINR.textContent = ant1SINR !== null && ant1SINR !== undefined ? `${ant1SINR.toFixed(2)} dB` : 'N/A';
+  if (ant2DetailsRSRP) ant2DetailsRSRP.textContent = ant2RSRP !== null && ant2RSRP !== undefined ? `${ant2RSRP.toFixed(2)} dBm` : 'N/A';
+  if (ant2DetailsSINR) ant2DetailsSINR.textContent = ant2SINR !== null && ant2SINR !== undefined ? `${ant2SINR.toFixed(2)} dB` : 'N/A';
+  if (ant3DetailsRSRP) ant3DetailsRSRP.textContent = ant3RSRP !== null && ant3RSRP !== undefined ? `${ant3RSRP.toFixed(2)} dBm` : 'N/A';
+  if (ant3DetailsSINR) ant3DetailsSINR.textContent = ant3SINR !== null && ant3SINR !== undefined ? `${ant3SINR.toFixed(2)} dB` : 'N/A';
+  if (ant4DetailsRSRP) ant4DetailsRSRP.textContent = ant4RSRP !== null && ant4RSRP !== undefined ? `${ant4RSRP.toFixed(2)} dBm` : 'N/A';
+  if (ant4DetailsSINR) ant4DetailsSINR.textContent = ant4SINR !== null && ant4SINR !== undefined ? `${ant4SINR.toFixed(2)} dB` : 'N/A';
+
+  // Show/hide antenna cards based on data availability - TO DO
+
+}
+
 /**
  * Show map loading overlay
  */
@@ -721,6 +765,7 @@ async function renderChartForSerial(serial) {
   // Update map with data points
   currentRecords = records;
   updateMapWithData(records);
+  updateDataCards(records);
 
   setPlaybackMessage('', 'muted');
   console.log('[Playback] Chart updated', serial ? `for ${serial}` : '');
