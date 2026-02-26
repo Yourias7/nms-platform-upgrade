@@ -51,4 +51,11 @@ class HistoricMeasurement(Base):
     RSRP = Column(Float, name="BESTS.RSRP")
     SINR = Column(Float, name="BESTS.SNR")
     TEMP = Column(Float, name="BESTS.TEMP.")
-    
+    S0RSRP = Column(Float, name="S0.RSRP")
+    S0SINR = Column(Float, name="SECT0.SNR")
+    S1RSRP = Column(Float, name="S1.RSRP")
+    S1SINR = Column(Float, name="SECT1.SNR")
+    S2RSRP = Column(Float, name="S2.RSRP")
+    S2SINR = Column(Float, name="SECT2.SNR")
+    S3RSRP = Column(Float, name="S3.RSRP")
+    S3SINR = Column(Float, name="SECT3.SNR")

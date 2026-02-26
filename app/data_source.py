@@ -112,6 +112,14 @@ def get_historic_records_by_serial(serial: str, early: str = None, latest: str =
                 HistoricMeasurement.RSRP.label("RSRP"),
                 HistoricMeasurement.SINR.label("SINR"),
                 HistoricMeasurement.TEMP.label("TEMP"),
+                HistoricMeasurement.S0RSRP.label("S0RSRP"),
+                HistoricMeasurement.S0SINR.label("S0SINR"),
+                HistoricMeasurement.S1RSRP.label("S1RSRP"),
+                HistoricMeasurement.S1SINR.label("S1SINR"),
+                HistoricMeasurement.S2RSRP.label("S2RSRP"),
+                HistoricMeasurement.S2SINR.label("S2SINR"),
+                HistoricMeasurement.S3RSRP.label("S3RSRP"),
+                HistoricMeasurement.S3SINR.label("S3SINR"),
             )
             .filter(HistoricMeasurement.SERIAL == ser)
             .filter(HistoricMeasurement.DATETIME >= cutoff)
@@ -134,6 +142,14 @@ def get_historic_records_by_serial(serial: str, early: str = None, latest: str =
                 "RSRP": row.RSRP,
                 "SINR": row.SINR,
                 "TEMP": row.TEMP,
+                "S0RSRP": row.S0RSRP,
+                "S0SINR": row.S0SINR,
+                "S1RSRP": row.S1RSRP,
+                "S1SINR": row.S1SINR,
+                "S2RSRP": row.S2RSRP,
+                "S2SINR": row.S2SINR,
+                "S3RSRP": row.S3RSRP,
+                "S3SINR": row.S3SINR
             }
             result.append(rec)
         
