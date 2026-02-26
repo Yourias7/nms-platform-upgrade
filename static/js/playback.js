@@ -196,7 +196,7 @@ function buildRSRPChartData(records) {
 
   records.forEach((rec) => {
     const dt = new Date(rec.DATETIME);
-    labels.push(dt.toLocaleString('en-US', { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' }));
+    labels.push(dt.toLocaleString('en-US', { month: 'short', day: '2-digit',}));
     rsrpValues.push(rec.RSRP);
   });
   console.log('Built RSRP chart data with %d points', rsrpValues.length);
@@ -229,7 +229,7 @@ function buildSINRChartData(records) {
 
   records.forEach((rec) => {
     const dt = new Date(rec.DATETIME);
-    labels.push(dt.toLocaleString('en-US', { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' }));
+    labels.push(dt.toLocaleString('en-US', { month: 'short', day: '2-digit',}));
     sinrValues.push(rec.SINR);
   });
   console.log('Built SINR chart data with %d points', sinrValues.length);
