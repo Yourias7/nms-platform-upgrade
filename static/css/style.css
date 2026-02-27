@@ -653,9 +653,10 @@ body::after {
   width: 150px;
   height: 36px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid rgb(25, 0, 117);
-  box-shadow: 0 6px 18px rgba(0,0,0,0.15);
+  background: rgba(10, 14, 39, 0.95);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(102, 126, 234, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -689,8 +690,9 @@ body::after {
   width: calc(50% - 6px);
   height: calc(100% - 6px);
   border-radius: 999px;
-  background: #5397fc;
-  border: 2px solid rgba(0,0,0,0.10);
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  border: 2px solid rgba(102, 126, 234, 0.5);
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
   transition: transform 180ms ease;
   z-index: 1;
 }
