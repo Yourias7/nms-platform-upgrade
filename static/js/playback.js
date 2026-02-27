@@ -14,8 +14,6 @@ let serialNameMap = {};
 let mapLegend = null;
 
 function updateDataCards(records) {
-  if (!records || records.length === 0) return;
-
   // Helper function to calculate average
   const getAverage = (field) => {
     const values = records.map(r => r[field]).filter(v => v !== null && v !== undefined);
@@ -42,6 +40,21 @@ function updateDataCards(records) {
   const ant3DetailsSINR = document.getElementById('ant3DetailsSINR');
   const ant4DetailsRSRP = document.getElementById('ant4DetailsRSRP');
   const ant4DetailsSINR = document.getElementById('ant4DetailsSINR');
+
+  if (!records || records.length === 0) {
+    bestDetailsRSRP.textContent = 'N/A';
+    bestDetailsSINR.textContent = 'N/A';
+    ant1DetailsRSRP.textContent = 'N/A';
+    ant1DetailsSINR.textContent =  'N/A';
+    ant2DetailsRSRP.textContent = 'N/A';
+    ant2DetailsSINR.textContent = 'N/A';
+    ant3DetailsRSRP.textContent = 'N/A';
+    ant3DetailsSINR.textContent = 'N/A';
+    ant4DetailsRSRP.textContent = 'N/A';
+    ant4DetailsSINR.textContent = 'N/A';
+    return;
+  }
+  
   if (bestDetailsRSRP) bestDetailsRSRP.textContent = bestRSRP !== null && bestRSRP !== undefined ? `${bestRSRP.toFixed(2)} dBm` : 'N/A';
   if (bestDetailsSINR) bestDetailsSINR.textContent = bestSINR !== null && bestSINR !== undefined ? `${bestSINR.toFixed(2)} dB` : 'N/A';
   if (ant1DetailsRSRP) ant1DetailsRSRP.textContent = ant1RSRP !== null && ant1RSRP !== undefined ? `${ant1RSRP.toFixed(2)} dBm` : 'N/A';
@@ -1195,6 +1208,52 @@ async function init() {
   const startDateInput = document.getElementById('startDateInput');
   if (startDateInput) {
     startDateInput.addEventListener('change', updateEndDateMin);
+  }
+
+  // Add event listener for clear button
+  const clearBtn = document.getElementById('clearSelectedBtn');
+  if (clearBtn) {
+    clearBtn.addEventListener('click', () => {
+      // Clear all input fields
+      const serialInput = document.getElementById('serialInput');
+      const startDateInput = document.getElementById('startDateInput');
+      const endDateInput = document.getElementById('endDateInput');
+      
+      if (serialInput) {
+        serialInput.value = '';
+        delete serialInput.dataset.selectedSerial;
+      }
+      if (startDateInput) startDateInput.value = '';
+      if (endDateInput) endDateInput.value = '';
+
+      // Clear URL parameters
+      window.history.replaceState({}, '', window.location.pathname);
+
+      // Clear charts
+      if (chartInstance) {
+        chartInstance.data.labels = [];
+        chartInstance.data.datasets[0].data = [];
+        chartInstance.update();
+      }
+      if (chartInstance2) {
+        chartInstance2.data.labels = [];
+        chartInstance2.data.datasets[0].data = [];
+        chartInstance2.update();
+      }
+
+      // Clear map markers
+      mapMarkers.forEach(marker => mapInstance.removeLayer(marker));
+      mapMarkers = [];
+
+      // Clear data cards
+      currentRecords = [];
+      updateDataCards([]);
+
+      // Reset message
+      setPlaybackMessage('Select a serial to load data.', 'muted');
+
+      console.log('[Playback] Cleared all filters and data');
+    });
   }
 
   // Initialize the map mode toggle
