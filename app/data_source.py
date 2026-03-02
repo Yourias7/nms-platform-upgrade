@@ -61,6 +61,40 @@ def list_live_serial_name_pairs():
         db.close()
 
 
+def list_historic_alarm_serials():
+    """Return list of all distinct SERIAL values from database."""
+    global _historic_serials_cache, _historic_serials_cache_ts
+
+    now = time.monotonic()
+    with _historic_serials_lock:
+        if _historic_serials_cache is not None and (now - _historic_serials_cache_ts) < _HISTORIC_SERIALS_CACHE_TTL_SEC:
+            logger.info("Returning cached historic serials")
+            return list(_historic_serials_cache)
+
+    db = SessionLocal()
+    try:
+        cutoff = datetime.utcnow() - timedelta(days=15)
+        rows = (
+            db.query(HistoricMeasurement.SERIAL)
+            .filter(
+                HistoricMeasurement.DATETIME >= func.dateadd(
+                    text("DAY"), -15, func.sysutcdatetime()
+                )
+            )
+            .filter((HistoricMeasurement.RSRP <= -120) | (HistoricMeasurement.SINR <= 0) | (HistoricMeasurement.LONGITUDE == 0) | (HistoricMeasurement.LATITUDE == 0) | (HistoricMeasurement.TEMP >= 75))
+            .filter(HistoricMeasurement.SERIAL != None)
+            .distinct()
+            .all()
+        )
+        serials = [r[0] for r in rows if r[0] is not None]
+        logger.info(f"Retrieved {len(serials)} distinct serials from database (last 15 days)")
+        with _historic_serials_lock:
+            _historic_serials_cache = list(serials)
+            _historic_serials_cache_ts = time.monotonic()
+        return serials
+    finally:
+        db.close()
+
 def list_historic_serials():
     """Return list of all distinct SERIAL values from database."""
     global _historic_serials_cache, _historic_serials_cache_ts
@@ -81,6 +115,7 @@ def list_historic_serials():
                     text("DAY"), -15, func.sysutcdatetime()
                 )
             )
+            .filter(HistoricMeasurement.SERIAL != None)
             .distinct()
             .all()
         )
@@ -90,6 +125,71 @@ def list_historic_serials():
             _historic_serials_cache = list(serials)
             _historic_serials_cache_ts = time.monotonic()
         return serials
+    finally:
+        db.close()
+
+def get_alarm_records_by_serial(serial: str, early: str = None, latest: str = None):
+    """Return list of measurement records for a given SERIAL from database."""
+    db = SessionLocal()
+    try:
+        ser = str(serial).strip()
+        sdate = datetime.fromisoformat(early) if early else None
+        edate = datetime.fromisoformat(latest) if latest else None
+        cutoff = datetime.utcnow() - timedelta(days=15)
+        rows = (
+            db.query(
+                HistoricMeasurement.SERIAL.label("SERIAL"),
+                HistoricMeasurement.NAME.label("NAME"),
+                HistoricMeasurement.LATITUDE.label("LATITUDE"),
+                HistoricMeasurement.LONGITUDE.label("LONGITUDE"),
+                HistoricMeasurement.DATETIME.label("DATETIME"),
+                HistoricMeasurement.HEADING.label("HEADING"),
+                HistoricMeasurement.RSRP.label("RSRP"),
+                HistoricMeasurement.SINR.label("SINR"),
+                HistoricMeasurement.TEMP.label("TEMP"),
+                HistoricMeasurement.S0RSRP.label("S0RSRP"),
+                HistoricMeasurement.S0SINR.label("S0SINR"),
+                HistoricMeasurement.S1RSRP.label("S1RSRP"),
+                HistoricMeasurement.S1SINR.label("S1SINR"),
+                HistoricMeasurement.S2RSRP.label("S2RSRP"),
+                HistoricMeasurement.S2SINR.label("S2SINR"),
+                HistoricMeasurement.S3RSRP.label("S3RSRP"),
+                HistoricMeasurement.S3SINR.label("S3SINR"),
+            )
+            .filter(HistoricMeasurement.SERIAL == ser)
+            .filter(HistoricMeasurement.DATETIME >= cutoff)
+            .filter(HistoricMeasurement.DATETIME >= sdate if sdate else True)
+            .filter(HistoricMeasurement.DATETIME <= edate if edate else True)
+            .order_by(HistoricMeasurement.DATETIME.asc())
+            .all()
+        )
+        
+        # Convert SQLAlchemy objects to list of dicts
+        result = []
+        for row in rows:
+            rec = {
+                "SERIAL": row.SERIAL,
+                "NAME": row.NAME,
+                "LATITUDE": row.LATITUDE,
+                "LONGITUDE": row.LONGITUDE,
+                "DATETIME": row.DATETIME.isoformat() if row.DATETIME else None,
+                "HEADING": row.HEADING,
+                "RSRP": row.RSRP,
+                "SINR": row.SINR,
+                "TEMP": row.TEMP,
+                "S0RSRP": row.S0RSRP,
+                "S0SINR": row.S0SINR,
+                "S1RSRP": row.S1RSRP,
+                "S1SINR": row.S1SINR,
+                "S2RSRP": row.S2RSRP,
+                "S2SINR": row.S2SINR,
+                "S3RSRP": row.S3RSRP,
+                "S3SINR": row.S3SINR
+            }
+            result.append(rec)
+        
+        logger.info(f"Retrieved {len(result)} records for SERIAL: {ser} from database (last 15 days)")
+        return result
     finally:
         db.close()
 
@@ -125,6 +225,7 @@ def get_historic_records_by_serial(serial: str, early: str = None, latest: str =
             .filter(HistoricMeasurement.DATETIME >= cutoff)
             .filter(HistoricMeasurement.DATETIME >= sdate if sdate else True)
             .filter(HistoricMeasurement.DATETIME <= edate if edate else True)
+            .filter((HistoricMeasurement.RSRP <= -120) | (HistoricMeasurement.SINR <= 0) | (HistoricMeasurement.LONGITUDE == 0) | (HistoricMeasurement.LATITUDE == 0) | (HistoricMeasurement.TEMP >= 75))
             .order_by(HistoricMeasurement.DATETIME.asc())
             .all()
         )

@@ -5,10 +5,10 @@ let map;
 let markersLayer;
 
 function initMap() {
-  const mapDiv = document.getElementById("map");
+  const mapDiv = document.getElementById("alarmMap");
   if (!mapDiv || typeof L === "undefined") return;
 
-  map = L.map("map", {
+  map = L.map("alarmMap", {
     zoomControl: true,
     attributionControl: true,
   }).setView([37.9838, 23.7275], 6); // Greece default
