@@ -95,11 +95,22 @@
       
       <div class="row">
         <!-- Left side: Charts -->
-        <div class="col-12 col-lg-6">
-          <div class="card mb-3">
+        <div class="col-md-6">
+          <div class="card mb-3" style="height: 304px;">
             <div class="card-body">
-              <h5 class="card-title">RSRP Data Playback</h5>
-              <p class="text-muted mb-3">Historical RSRP signal strength over time</p>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <div>
+                  <h5 class="card-title" style="margin: 0;">RSRP Data Playback</h5>
+                  <p class="text-muted mb-0" style="font-size: 13px;">RSRP signal strength over time</p>
+                </div>
+                <div class="antenna-toggle" id="rsrpAntennaToggle">
+                  <button class="antenna-toggle-btn active" data-antenna="best">Best</button>
+                  <button class="antenna-toggle-btn" data-antenna="0">Ant 1</button>
+                  <button class="antenna-toggle-btn" data-antenna="1">Ant 2</button>
+                  <button class="antenna-toggle-btn" data-antenna="2">Ant 3</button>
+                  <button class="antenna-toggle-btn" data-antenna="3">Ant 4</button>
+                </div>
+              </div>
               <!-- RSRP Chart loading overlay -->
               <div id="rsrpLoadingOverlay" class="rsrp-loading-overlay hidden">
                 <div class="loading-spinner">
@@ -112,10 +123,21 @@
               </div>
             </div>
           </div>
-          <div class="card">
+          <div class="card" style="height: 304px;">
             <div class="card-body">
-              <h5 class="card-title">SINR Data Playback</h5>
-              <p class="text-muted mb-3">Historical SINR signal-to-noise ratio over time</p>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <div>
+                  <h5 class="card-title" style="margin: 0;">SINR Data Playback</h5>
+                  <p class="text-muted mb-0" style="font-size: 13px;">SINR signal-to-noise ratio over time</p>
+                </div>
+                <div class="antenna-toggle" id="sinrAntennaToggle">
+                  <button class="antenna-toggle-btn active" data-antenna="best">Best</button>
+                  <button class="antenna-toggle-btn" data-antenna="0">Ant 1</button>
+                  <button class="antenna-toggle-btn" data-antenna="1">Ant 2</button>
+                  <button class="antenna-toggle-btn" data-antenna="2">Ant 3</button>
+                  <button class="antenna-toggle-btn" data-antenna="3">Ant 4</button>
+                </div>
+              </div>
               <!-- SINR Chart loading overlay -->
               <div id="sinrLoadingOverlay" class="sinr-loading-overlay hidden">
                 <div class="loading-spinner">

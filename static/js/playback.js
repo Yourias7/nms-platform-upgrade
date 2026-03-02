@@ -12,6 +12,8 @@ let currentRecords = [];
 let coloringMode = 'rsrp'; // 'rsrp' or 'sinr'
 let serialNameMap = {};
 let mapLegend = null;
+let selectedRSRPAntenna = 'best'; // 'best', 0, 1, 2, 3
+let selectedSINRAntenna = 'best'; // 'best', 0, 1, 2, 3
 
 function updateDataCards(records) {
   // Helper function to calculate average
@@ -54,7 +56,7 @@ function updateDataCards(records) {
     ant4DetailsSINR.textContent = 'N/A';
     return;
   }
-  
+
   if (bestDetailsRSRP) bestDetailsRSRP.textContent = bestRSRP !== null && bestRSRP !== undefined ? `${bestRSRP.toFixed(2)} dBm` : 'N/A';
   if (bestDetailsSINR) bestDetailsSINR.textContent = bestSINR !== null && bestSINR !== undefined ? `${bestSINR.toFixed(2)} dB` : 'N/A';
   if (ant1DetailsRSRP) ant1DetailsRSRP.textContent = ant1RSRP !== null && ant1RSRP !== undefined ? `${ant1RSRP.toFixed(2)} dBm` : 'N/A';
@@ -202,30 +204,34 @@ function sortByDatetime(records) {
     .sort((a, b) => new Date(a.DATETIME) - new Date(b.DATETIME));
 }
 
-function buildRSRPChartData(records) {
+function buildRSRPChartData(records, antenna = 'best') {
   showRSRPLoading();
   const labels = [];
   const rsrpValues = [];
 
+  // Determine which field to use based on antenna selection
+  const fieldName = antenna === 'best' ? 'RSRP' : `S${antenna}RSRP`;
+  const antennaLabel = antenna === 'best' ? 'Best RSRP' : `Antenna ${parseInt(antenna) + 1} RSRP`;
+
   records.forEach((rec) => {
     const dt = new Date(rec.DATETIME);
     labels.push(dt.toLocaleString('en-US', { month: 'short', day: '2-digit',}));
-    rsrpValues.push(rec.RSRP);
+    rsrpValues.push(rec[fieldName]);
   });
-  console.log('Built RSRP chart data with %d points', rsrpValues.length);
+  console.log(`Built RSRP chart data for ${antennaLabel} with %d points`, rsrpValues.length);
   hideRSRPLoading();
   return {
     labels,
     datasets: [
       {
-        label: 'RSRP (dBm)',
+        label: `${antennaLabel} (dBm)`,
         data: rsrpValues,
         borderColor: '#0d6efd',
         backgroundColor: 'rgba(13, 110, 253, 0.1)',
         borderWidth: 2,
         fill: true,
         pointRadius: 3,
-        pointBackgroundColor: '#0d6efd',
+        pointBackgroundColor: '#764ba2',
         pointBorderColor: '#fff',
         pointBorderWidth: 1,
         tension: 0.4,
@@ -235,31 +241,35 @@ function buildRSRPChartData(records) {
   };
 }
 
-function buildSINRChartData(records) {
+function buildSINRChartData(records, antenna = 'best') {
   showSINRLoading();
   const labels = [];
   const sinrValues = [];
 
+  // Determine which field to use based on antenna selection
+  const fieldName = antenna === 'best' ? 'SINR' : `S${antenna}SINR`;
+  const antennaLabel = antenna === 'best' ? 'Best SINR' : `Antenna ${parseInt(antenna) + 1} SINR`;
+
   records.forEach((rec) => {
     const dt = new Date(rec.DATETIME);
     labels.push(dt.toLocaleString('en-US', { month: 'short', day: '2-digit',}));
-    sinrValues.push(rec.SINR);
+    sinrValues.push(rec[fieldName]);
   });
-  console.log('Built SINR chart data with %d points', sinrValues.length);
+  console.log(`Built SINR chart data for ${antennaLabel} with %d points`, sinrValues.length);
   hideSINRLoading();
   return {
     labels,
     datasets: [
       {
-        label: 'SINR (dB)',
+        label: `${antennaLabel} (dB)`,
         data: sinrValues,
         borderColor: '#0d6efd',
         backgroundColor: 'rgba(13, 110, 253, 0.1)',
         borderWidth: 2,
         fill: true,
         pointRadius: 3,
-        pointBackgroundColor: '#0d6efd',
-        pointBorderColor: '#fff',
+        pointBackgroundColor: '#764ba2',
+        pointBorderColor: '#764ba2',
         pointBorderWidth: 1,
         tension: 0.4,
         spanGaps: false
@@ -556,13 +566,13 @@ function buildEmptyChart(ctx) {
             {
               label: 'RSRP (dBm)',
               data: [],
-              borderColor: '#85c6f1',
+              borderColor: '#764ba2',
               backgroundColor: 'rgba(13, 110, 253, 0.1)',
               borderWidth: 2,
               fill: true,
               pointRadius: 3,
-              pointBackgroundColor: '#85c6f1',
-              pointBorderColor: '#85c6f1',
+              pointBackgroundColor: '#764ba2',
+              pointBorderColor: '#764ba2',
               pointBorderWidth: 1,
               tension: 0.4,
               spanGaps: false
@@ -636,13 +646,13 @@ function buildEmptyChart(ctx) {
             {
               label: 'SINR (dB)',
               data: [],
-              borderColor: '#85c6f1',
+              borderColor: '#764ba2',
               backgroundColor: 'rgba(13, 110, 253, 0.1)',
               borderWidth: 2,
               fill: true,
               pointRadius: 3,
-              pointBackgroundColor: '#85c6f1',
-              pointBorderColor: '#85c6f1',
+              pointBackgroundColor: '#764ba2',
+              pointBorderColor: '#764ba2',
               pointBorderWidth: 1,
               tension: 0.4,
               spanGaps: false
@@ -753,23 +763,25 @@ async function renderChartForSerial(serial) {
     return;
   }
 
-  const rsrpChartData = buildRSRPChartData(records);
+  const rsrpChartData = buildRSRPChartData(records, selectedRSRPAntenna);
   const yBounds = computeRSRPYAxisBounds(rsrpChartData.datasets[0].data);
 
   if (chartInstance) {
     chartInstance.data.labels = rsrpChartData.labels;
     chartInstance.data.datasets[0].data = rsrpChartData.datasets[0].data;
+    chartInstance.data.datasets[0].label = rsrpChartData.datasets[0].label;
     chartInstance.options.scales.y.min = yBounds.min;
     chartInstance.options.scales.y.max = yBounds.max;
     chartInstance.update();
   }
 
-  const sinrChartData = buildSINRChartData(records);
+  const sinrChartData = buildSINRChartData(records, selectedSINRAntenna);
   const yBoundsSINR = computeSINRYAxisBounds(sinrChartData.datasets[0].data);
 
   if (chartInstance2) {
     chartInstance2.data.labels = sinrChartData.labels;
     chartInstance2.data.datasets[0].data = sinrChartData.datasets[0].data;
+    chartInstance2.data.datasets[0].label = sinrChartData.datasets[0].label;
     chartInstance2.options.scales.y.min = yBoundsSINR.min;
     chartInstance2.options.scales.y.max = yBoundsSINR.max;
     chartInstance2.update();
@@ -1100,6 +1112,75 @@ function initToggle() {
 }
 
 /**
+ * Initialize antenna toggle buttons
+ */
+function initAntennaToggles() {
+  // RSRP Antenna Toggle
+  const rsrpToggle = document.getElementById('rsrpAntennaToggle');
+  if (rsrpToggle) {
+    const rsrpButtons = rsrpToggle.querySelectorAll('.antenna-toggle-btn');
+    rsrpButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const antenna = btn.dataset.antenna;
+        selectedRSRPAntenna = antenna;
+        
+        // Update active state
+        rsrpButtons.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        
+        // Re-render chart with new antenna data
+        if (currentRecords && currentRecords.length > 0) {
+          const rsrpChartData = buildRSRPChartData(currentRecords, selectedRSRPAntenna);
+          const yBounds = computeRSRPYAxisBounds(rsrpChartData.datasets[0].data);
+          
+          if (chartInstance) {
+            chartInstance.data.labels = rsrpChartData.labels;
+            chartInstance.data.datasets[0].data = rsrpChartData.datasets[0].data;
+            chartInstance.data.datasets[0].label = rsrpChartData.datasets[0].label;
+            chartInstance.options.scales.y.min = yBounds.min;
+            chartInstance.options.scales.y.max = yBounds.max;
+            chartInstance.update();
+          }
+        }
+      });
+    });
+  }
+
+  // SINR Antenna Toggle
+  const sinrToggle = document.getElementById('sinrAntennaToggle');
+  if (sinrToggle) {
+    const sinrButtons = sinrToggle.querySelectorAll('.antenna-toggle-btn');
+    sinrButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const antenna = btn.dataset.antenna;
+        selectedSINRAntenna = antenna;
+        
+        // Update active state
+        sinrButtons.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        
+        // Re-render chart with new antenna data
+        if (currentRecords && currentRecords.length > 0) {
+          const sinrChartData = buildSINRChartData(currentRecords, selectedSINRAntenna);
+          const yBoundsSINR = computeSINRYAxisBounds(sinrChartData.datasets[0].data);
+          
+          if (chartInstance2) {
+            chartInstance2.data.labels = sinrChartData.labels;
+            chartInstance2.data.datasets[0].data = sinrChartData.datasets[0].data;
+            chartInstance2.data.datasets[0].label = sinrChartData.datasets[0].label;
+            chartInstance2.options.scales.y.min = yBoundsSINR.min;
+            chartInstance2.options.scales.y.max = yBoundsSINR.max;
+            chartInstance2.update();
+          }
+        }
+      });
+    });
+  }
+  
+  console.log('[Playback] Antenna toggles initialized');
+}
+
+/**
  * Initialize the playback page
  */
 async function init() {
@@ -1249,6 +1330,24 @@ async function init() {
       currentRecords = [];
       updateDataCards([]);
 
+      // Reset antenna selection to "best"
+      selectedRSRPAntenna = 'best';
+      selectedSINRAntenna = 'best';
+      
+      // Reset antenna toggle buttons
+      const rsrpToggle = document.getElementById('rsrpAntennaToggle');
+      if (rsrpToggle) {
+        rsrpToggle.querySelectorAll('.antenna-toggle-btn').forEach(btn => {
+          btn.classList.toggle('active', btn.dataset.antenna === 'best');
+        });
+      }
+      const sinrToggle = document.getElementById('sinrAntennaToggle');
+      if (sinrToggle) {
+        sinrToggle.querySelectorAll('.antenna-toggle-btn').forEach(btn => {
+          btn.classList.toggle('active', btn.dataset.antenna === 'best');
+        });
+      }
+
       // Reset message
       setPlaybackMessage('Select a serial to load data.', 'muted');
 
@@ -1258,6 +1357,9 @@ async function init() {
 
   // Initialize the map mode toggle
   initToggle();
+
+  // Initialize antenna toggles
+  initAntennaToggles();
 
   console.log('[Playback Page] Initialized');
 }
