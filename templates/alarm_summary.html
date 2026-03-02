@@ -58,8 +58,45 @@
       </div>
 
       <!-- Content -->
-        <div id="alarms-summary-content">
-            <p>Loading alarm summary...</p>
+        <div class="row g-2 align-items-end mb-3">
+            <div class="col-12 col-md-3" style="position: relative;">
+                <label for="serialInput" class="form-label">System Name</label>
+                <input id="serialInput" class="form-control" placeholder="Select or type a system name"/>
+                <div id="serialOptions" class="dropdown-menu" style="position: absolute; top: 100%; left: 0; right: 0; display: none; z-index: 11; max-height: 300px; overflow-y: auto; box-shadow: 0 2px 8px rgba(0,0,0,0.15); background: rgba(10, 14, 39, 0.95); border: 1px solid rgba(102, 126, 234, 0.3);"></div>
+            </div>
+                <div class="col-12 col-md-3" style="width: auto;">
+                <label for="startDateInput" class="form-label">Start Date</label>
+                <input type="date" id="startDateInput" class="form-control" style="width: auto; position: relative; z-index: 10;" min="" max=""/>
+            </div>
+                <div class="col-12 col-md-3" style="width: auto;">
+                <label for="endDateInput" class="form-label">End Date</label>
+                <input type="date" id="endDateInput" class="form-control" style="width: auto; position: relative; z-index: 10;" min="" max=""/>
+            </div>
+                <div class="col-12 col-md-3" style="width: auto;">
+                <button id="serialLoadBtn" class="btn btn-primary w-100" type="button">Load</button>
+            </div>
+            <!-- Clear Selected Button -->
+            <div class="col-12 col-md-3" style="width: auto;">
+                <button id="clearSelectedBtn" type="button" class="btn btn-sm btn-outline-secondary" style="width: auto; height: 38px;">
+                    Clear
+                </button>
+            </div>
+            <div class="col-12 col-md-3">
+                <div id="alarmMessage" class="text-muted small" style="text-align: left;"></div>
+            </div>
+        </div>
+        <div class="card" style="height: 304px;">
+            <div class="card-body">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <div>
+                        <h5 class="card-title" style="margin: 0;">Total Alarms Summary</h5>
+                        <p class="text-muted mb-0" style="font-size: 13px;">Overview of all alarms</p>
+                    </div>
+                </div>
+            </div>
+            <div id="alarmsChartContainer" style="position: relative; height: 200px;">
+                <canvas id="alarmsChart"></canvas>
+            </div>
         </div>
     </main>
     <!-- Alarm badge (runs on all pages) -->
