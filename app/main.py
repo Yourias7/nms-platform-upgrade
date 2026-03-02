@@ -31,18 +31,18 @@ def get_system(serial: str):
     logger.info(f"Retrieved {len(data)} records for SERIAL: {serial}")
     return data
 
-@app.get("/Systems/Historic/{serial}/{early}/{latest}")
+@app.get("/playback/Historic/{serial}/{early}/{latest}")
 def get_system(serial: str, early: str, latest: str):
     data = get_historic_records_by_serial(serial, early=early, latest=latest)
     logger.info(f"Retrieved {len(data)} records for SERIAL: {serial}")
     return data
 
-@app.get("/systems/Historic/{serial}/earliest")
+@app.get("/playback/Historic/{serial}/earliest")
 def get_early_datetime(serial: str):
     """Return earliest datetime for a given SERIAL from database."""
     return get_earliest_datetime_for_serial(serial)
 
-@app.get("/systems/Historic/{serial}/{latest}")
+@app.get("/playback/Historic/{serial}/{latest}")
 def get_latest_datetime(serial: str, latest: str):
     """Return latest datetime for a given SERIAL from database."""
     return get_latest_datetime_for_serial(serial)
@@ -61,7 +61,7 @@ def list_live_names_endpoint():
     pairs = list_live_serial_name_pairs()
     return pairs
 
-@app.get("/systems/Historic/serials")
+@app.get("/playback/Historic/serials")
 def list_historic_serials_endpoint():
     """Return a list of all distinct SERIAL values."""
     serials = list_historic_serials()
@@ -129,8 +129,8 @@ def systems_locations():
     """Return list of {serial, latitude, longitude} for serials with coordinates."""
     return live_serials_with_locations()
 
-@app.get("/systems/Historic/locations")
-def systems_locations():
+@app.get("/playback/Historic/locations")
+def playback_historic_locations():
     """Return list of {serial, latitude, longitude} for serials with coordinates."""
     return historic_serials_with_locations()
 
