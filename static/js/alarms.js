@@ -7,6 +7,11 @@ import { getThresholds, isInAlarm } from './settings.js';
 
 const COMMUNICATION_ALARM_THRESHOLD_HOURS = 3;
 
+// Sorting state
+let currentAlarms = [];
+let sortColumn = null;
+let sortDirection = 'asc';
+
 /**
  * Check if a timestamp indicates a communication alarm
  * @param {string} timestamp - ISO timestamp string
@@ -43,9 +48,11 @@ export async function fetchCommunicationAlarms() {
         if (records && records.length > 0) {
           const latest = records[0];
           
-          // Find timestamp field (case-insensitive)
+          // Find timestamp, site, lat, lon fields (case-insensitive)
           let timestamp = null;
           let site = 'N/A';
+          let lat = null;
+          let lon = null;
           
           for (const [key, val] of Object.entries(latest)) {
             const lower = key.toLowerCase();
@@ -54,6 +61,12 @@ export async function fetchCommunicationAlarms() {
             }
             if (lower === 'site' || lower === 'name') {
               site = val;
+            }
+            if (lower === 'latitude' || lower === 'lat') {
+              lat = val;
+            }
+            if (lower === 'longitude' || lower === 'lon' || lower === 'long') {
+              lon = val;
             }
           }
           
@@ -68,7 +81,9 @@ export async function fetchCommunicationAlarms() {
               site,
               lastUpdate: timestamp || 'Never',
               hoursAgo,
-              status: 'Communication Lost'
+              status: 'Communication Lost',
+              latitude: lat,
+              longitude: lon
             });
           }
         } else {
@@ -77,7 +92,9 @@ export async function fetchCommunicationAlarms() {
             site: 'N/A',
             lastUpdate: 'Never',
             hoursAgo: 'N/A',
-            status: 'No Data'
+            status: 'No Data',
+            latitude: null,
+            longitude: null
           });
         }
       } catch (err) {
@@ -134,6 +151,51 @@ export async function fetchCommunicationAlarms() {
 // }
 
 /**
+ * Sort alarms by column
+ * @param {string} column - Column name to sort by
+ */
+function sortAlarms(column) {
+  // Toggle direction if same column, otherwise default to ascending
+  if (sortColumn === column) {
+    sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+  } else {
+    sortColumn = column;
+    sortDirection = 'asc';
+  }
+  
+  currentAlarms.sort((a, b) => {
+    let valA, valB;
+    
+    switch(column) {
+      case 'site':
+        valA = (a.site || '').toLowerCase();
+        valB = (b.site || '').toLowerCase();
+        break;
+      case 'status':
+        valA = (a.status || '').toLowerCase();
+        valB = (b.status || '').toLowerCase();
+        break;
+      case 'lastUpdate':
+        valA = a.lastUpdate === 'Never' ? 0 : new Date(a.lastUpdate).getTime();
+        valB = b.lastUpdate === 'Never' ? 0 : new Date(b.lastUpdate).getTime();
+        break;
+      case 'hoursAgo':
+        valA = a.hoursAgo === 'N/A' ? Infinity : parseFloat(a.hoursAgo);
+        valB = b.hoursAgo === 'N/A' ? Infinity : parseFloat(b.hoursAgo);
+        break;
+      default:
+        return 0;
+    }
+    
+    if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
+    if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
+    return 0;
+  });
+  
+  renderAlarmsTable(currentAlarms);
+}
+
+/**
  * Render alarms table
  * @param {Array} alarms - Array of alarm objects
  */
@@ -143,6 +205,11 @@ export function renderAlarmsTable(alarms) {
   if (!alarmsArea) {
     console.warn('[Alarms] Alarms area element not found');
     return;
+  }
+  
+  // Store alarms for sorting
+  if (alarms !== currentAlarms) {
+    currentAlarms = alarms;
   }
   
   if (!alarms || alarms.length === 0) {
@@ -156,17 +223,39 @@ export function renderAlarmsTable(alarms) {
   const table = document.createElement('table');
   table.className = 'table table-sm table-striped';
   
-  // Create header
+  // Create header with sortable columns
   const thead = document.createElement('thead');
-
-  thead.innerHTML = `
-    <tr>
-      <th>Site</th>
-      <th>Status</th>
-      <th>Last Update</th>
-      <th>Time Ago</th>
-    </tr>
-  `;
+  const headerRow = document.createElement('tr');
+  
+  const columns = [
+    { key: 'site', label: 'Site' },
+    { key: 'status', label: 'Status' },
+    { key: 'lastUpdate', label: 'Last Update' },
+    { key: 'hoursAgo', label: 'Time Ago' }
+  ];
+  
+  columns.forEach(col => {
+    const th = document.createElement('th');
+    th.textContent = col.label;
+    th.style.cursor = 'pointer';
+    th.style.userSelect = 'none';
+    th.dataset.column = col.key;
+    
+    // Add sort indicator
+    if (sortColumn === col.key) {
+      const arrow = document.createElement('span');
+      arrow.textContent = sortDirection === 'asc' ? ' ▲' : ' ▼';
+      arrow.style.fontSize = '0.75em';
+      th.appendChild(arrow);
+    }
+    
+    // Add click handler
+    th.addEventListener('click', () => sortAlarms(col.key));
+    
+    headerRow.appendChild(th);
+  });
+  
+  thead.appendChild(headerRow);
   table.appendChild(thead);
   
   // Create body

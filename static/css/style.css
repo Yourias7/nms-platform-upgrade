@@ -398,6 +398,15 @@ body::after {
   border-color: rgba(102, 126, 234, 0.3) !important;
 }
 
+/* Sortable table headers */
+.table thead th[data-column] {
+  transition: background-color 0.2s ease;
+}
+
+.table thead th[data-column]:hover {
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.5), rgba(118, 75, 162, 0.5)) !important;
+}
+
 .table tbody tr {
   background-color: rgba(10, 14, 39, 0.6) !important;
   border-color: rgba(10, 14, 39, 0.8) !important;

@@ -80,6 +80,13 @@
         <div class="col-md-5">
           <div class="card h-100">
             <div class="card-body d-flex flex-column" style="min-height: 700px;">
+              <!-- Map loading overlay -->
+              <div id="mapLoadingOverlay" class="map-loading-overlay hidden">
+                <div class="loading-spinner">
+                  <div class="spinner-circle"></div>
+                  <div class="loading-text">Loading last known locations...</div>
+                </div>
+              </div>
               <h5 class="card-title mb-3">Map</h5>
               <div id="map" role="region" aria-label="Alarms map" style="flex: 1; min-height: 400px;"></div>
             </div>

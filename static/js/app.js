@@ -427,6 +427,13 @@ table.appendChild(tbody);
 function init() {
   console.log('[Dashboard] Initializing');
   
+  // Only initialize dashboard features if we have the serial list element (liveview page)
+  const serialListEl = document.getElementById('serialList');
+  if (!serialListEl) {
+    console.log('[Dashboard] Not on dashboard page, skipping initialization');
+    return;
+  }
+  
   // Initialize map and load custom icon
   preloadCustomIcon();
   initMap();
@@ -442,7 +449,9 @@ function init() {
   });
   
   // Setup filter input listener
-  filterEl.addEventListener('input', debounce(handleFilter, CONFIG.UI.FILTER_DEBOUNCE_MS));
+  if (filterEl) {
+    filterEl.addEventListener('input', debounce(handleFilter, CONFIG.UI.FILTER_DEBOUNCE_MS));
+  }
   
   const runAutoRefresh = () => {
     console.log('[Dashboard] Auto-refreshing data...');

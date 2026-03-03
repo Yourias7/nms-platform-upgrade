@@ -3,48 +3,87 @@
 
 let map;
 let markersLayer;
+let isInitializing = false; // Flag to prevent concurrent initialization
 
 function initMap() {
+  // Prevent multiple initializations
+  showMapLoading();
+  if (map) {
+    console.log('[alarm-map] Map already initialized, skipping');
+    hideMapLoading();
+    return;
+  }
+  
+  if (isInitializing) {
+    console.log('[alarm-map] Map initialization already in progress, skipping');
+    hideMapLoading();
+    return;
+  }
+  
   const mapDiv = document.getElementById("map");
-  if (!mapDiv || typeof L === "undefined") return;
+  if (!mapDiv || typeof L === "undefined") {
+    console.warn('[alarm-map] Map div not found or Leaflet not loaded');
+    hideMapLoading();
+    return;
+  }
+  
+  // Check if Leaflet has already initialized this container
+  if (mapDiv.classList.contains('leaflet-container')) {
+    console.warn('[alarm-map] Map container already has Leaflet classes, skipping initialization');
+    hideMapLoading();
+    return;
+  }
+
+  console.log('[alarm-map] Initializing map...');
+  isInitializing = true;
 
   // Wait for the next frame to ensure flex container has calculated its dimensions
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
       // Double requestAnimationFrame to ensure layout is complete
       
-      map = L.map("map", {
-        zoomControl: true,
-        attributionControl: true,
-      }).setView([37.9838, 23.7275], 6); // Greece default
+      try {
+        map = L.map("map", {
+          zoomControl: true,
+          attributionControl: true,
+        }).setView([37.9838, 23.7275], 6); // Greece default
 
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        maxZoom: 19,
-        attribution: "&copy; OpenStreetMap",
-      }).addTo(map);
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          maxZoom: 19,
+          attribution: "&copy; OpenStreetMap",
+        }).addTo(map);
 
-      markersLayer = L.layerGroup().addTo(map);
-      
-      // Immediately invalidate size after map creation
-      setTimeout(() => {
-        if (map) {
-          map.invalidateSize(true);
-        }
-      }, 50);
-      
-      // Additional resize after flex container has stabilized
-      setTimeout(() => {
-        if (map) {
-          map.invalidateSize(true);
-        }
-      }, 300);
-      
-      // Final resize to catch any late adjustments
-      setTimeout(() => {
-        if (map) {
-          map.invalidateSize(true);
-        }
-      }, 800);
+        markersLayer = L.layerGroup().addTo(map);
+        
+        console.log('[alarm-map] Map initialized successfully');
+        
+        // Immediately invalidate size after map creation
+        setTimeout(() => {
+          if (map) {
+            map.invalidateSize(true);
+          }
+        }, 50);
+        
+        // Additional resize after flex container has stabilized
+        setTimeout(() => {
+          if (map) {
+            map.invalidateSize(true);
+          }
+        }, 300);
+        
+        // Final resize to catch any late adjustments
+        setTimeout(() => {
+          if (map) {
+            map.invalidateSize(true);
+          }
+        }, 800);
+        hideMapLoading();
+      } catch (error) {
+        console.error('[alarm-map] Error initializing map:', error);
+        isInitializing = false; // Reset flag on error
+        hideMapLoading();
+        throw error;
+      }
     });
   });
 }
@@ -75,7 +114,14 @@ function hideMapLoading() {
 
 function addMarker(lat, lon, popupHtml) {
   if (!map || !markersLayer) return;
-  const m = L.marker([lat, lon]);
+  const m = L.circleMarker([lat, lon], {
+    radius: 8,
+    fillColor: "#dc3545",
+    color: "#fff",
+    weight: 2,
+    opacity: 1,
+    fillOpacity: 0.9
+  });
   if (popupHtml) m.bindPopup(popupHtml, { maxWidth: 280 });
   m.addTo(markersLayer);
 }
@@ -91,53 +137,76 @@ function fitToMarkers() {
   map.fitBounds(b.pad(0.2));
 }
 
-// Try to load vessels (adjust endpoint if your backend is different)
-async function loadVesselsAndPlot() {
+// Load and plot alarms on the map
+export async function loadVesselsAndPlot(alarms) {
   try {
     // Show loading overlay
     showMapLoading();
-    // change this if your API is different
-    const res = await fetch("/api/vessels", { cache: "no-store" });
-    if (!res.ok) {
+    
+    if (!alarms || alarms.length === 0) {
+      console.log('[alarm-map] No alarms to plot');
       hideMapLoading();
       return;
     }
 
-    const data = await res.json();
-
-    // Initialize map after data is loaded
     if (!map) {
-      initMap();
+      console.warn('[alarm-map] Map not initialized, cannot plot markers');
+      hideMapLoading();
+      return;
     }
 
-    // expected: array of vessels with {lat, lon, name, mmsi, last_seen, ...}
+    // Clear existing markers
     clearMarkers();
 
-    for (const v of data) {
-      const lat = Number(v.lat ?? v.latitude);
-      const lon = Number(v.lon ?? v.longitude);
-      if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+    let validMarkerCount = 0;
+    
+    for (const alarm of alarms) {
+      const lat = Number(alarm.latitude ?? alarm.LATITUDE ?? alarm.lat);
+      const lon = Number(alarm.longitude ?? alarm.LONGITUDE ?? alarm.lon);
+      
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+        console.log(`[alarm-map] Skipping alarm for ${alarm.site} - invalid coordinates: lat=${lat}, lon=${lon}`);
+        continue;
+      }
 
-      const name = v.name || v.vessel_name || v.mmsi || "Vessel";
-      const last = v.last_seen || v.lastSeen || v.last_update || "";
+      const site = alarm.site || 'Unknown Site';
+      const status = alarm.status || 'Communication Lost';
+      const hoursAgo = alarm.hoursAgo || 'N/A';
+      const lastUpdate = alarm.lastUpdate || 'Never';
 
       addMarker(
         lat,
         lon,
         `
         <div style="min-width:200px">
-          <div style="font-weight:600">${name}</div>
-          ${v.mmsi ? `<div><small class="text-muted">MMSI: ${v.mmsi}</small></div>` : ""}
-          ${last ? `<div><small class="text-muted">Last: ${last}</small></div>` : ""}
+          <div style="font-weight:600; color: #dc3545;">${site}</div>
+          <div style="margin-top: 4px;">
+            <span style="background: #dc3545; color: white; padding: 2px 6px; border-radius: 3px; font-size: 11px;">
+              ${status}
+            </span>
+          </div>
+          <div style="margin-top: 6px;">
+            <small class="text-muted">Last Update: ${lastUpdate !== 'Never' ? new Date(lastUpdate).toLocaleString() : 'Never'}</small>
+          </div>
+          <div>
+            <small class="text-muted">Time ago: ${hoursAgo >= 24 
+              ? `${Math.floor(hoursAgo / 24)}d ${(hoursAgo % 24).toFixed(1)}h` 
+              : `${hoursAgo}h`}</small>
+          </div>
         </div>
         `
       );
+      validMarkerCount++;
     }
 
-    fitToMarkers();
+    console.log(`[alarm-map] Plotted ${validMarkerCount} alarm markers out of ${data.length} alarms`);
+
+    if (validMarkerCount > 0) {
+      fitToMarkers();
+    }
   } catch (e) {
     // Map still works even if API fails - initialize it anyway
-    console.warn("[alarms-map] Failed to load vessels:", e);
+    console.warn("[alarms-map] Failed to load alarms:", e);
     if (!map) {
       initMap();
     }
@@ -154,80 +223,34 @@ async function loadVesselsAndPlot() {
   }, 300);
 }
 
-// Optional: if your alarms.js dispatches an event with alarm vessels, we can listen:
-// window.dispatchEvent(new CustomEvent("alarms:update", { detail: alarmsArray }))
-window.addEventListener("alarms:update", (ev) => {
-  const alarms = ev.detail;
-  if (!Array.isArray(alarms)) return;
-
+// Listen for alarms table being rendered - use the alarm data from the event
+window.addEventListener('alarms:table-rendered', async (event) => {
+  console.log('[alarm-map] Alarms table rendered event received');
+  
+  // Get alarm data from the event
+  const alarms = event.detail?.alarms || [];
+  console.log(`[alarm-map] Received ${alarms.length} alarms from event`);
+  
   // Initialize map if not already done
   if (!map) {
-    initMap();
-  }
-
-  clearMarkers();
-
-  for (const a of alarms) {
-    const lat = Number(a.lat ?? a.latitude);
-    const lon = Number(a.lon ?? a.longitude);
-    if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
-
-    const name = a.name || a.vessel_name || a.mmsi || "Alarm";
-    const reason = a.reason || "No comms > 3 hours";
-
-    addMarker(
-      lat,
-      lon,
-      `
-      <div style="min-width:200px">
-        <div style="font-weight:600">${name}</div>
-        <div><small class="text-muted">${reason}</small></div>
-      </div>
-      `
-    );
-  }
-
-  fitToMarkers();
-  
-  // Ensure map resizes to fill container after alarms update
-  setTimeout(() => {
-    if (map) {
-      map.invalidateSize(true);
-    }
-  }, 200);
-});
-
-// Listen for alarms table being rendered before initializing map
-window.addEventListener('alarms:table-rendered', async (event) => {
-  console.log('[alarm-map] Alarms table rendered, initializing map');
-  // Initialize map after communication alarms data is loaded
-  if (!map) {
+    console.log('[alarm-map] Map not initialized, initializing now');
     // Wait a bit to ensure the container has its final dimensions
     await new Promise(resolve => setTimeout(resolve, 100));
     
     initMap();
-    console.log('[alarm-map] Map initialized');
     
     // Wait for map to be ready before loading data
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    // Reload/refresh the map with vessel data
-    await loadVesselsAndPlot();
-    console.log('[alarm-map] Map reloaded with data');
-    
-    // Final resize to ensure map fills container
-    setTimeout(() => {
-      if (map) {
-        console.log('[alarm-map] Final resize after data load');
-        map.invalidateSize(true);
-      }
-    }, 500);
+    await new Promise(resolve => setTimeout(resolve, 800));
+  }
+  
+  // Plot the alarm data on the map (works whether map is new or existing)
+  if (alarms.length > 0 && map) {
+    await loadVesselsAndPlot(alarms);
+    console.log('[alarm-map] Map updated with alarm data');
   }
 });
 
 document.addEventListener("DOMContentLoaded", async () => {
-  // Only load vessel data if map is already initialized
-  // Otherwise wait for alarms:table-rendered event
   console.log('[alarm-map] DOM loaded');
   
   // Add ResizeObserver to watch for map container size changes
@@ -248,12 +271,4 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
     resizeObserver.observe(mapDiv);
   }
-  
-  // If map hasn't been initialized after 2 seconds, initialize it anyway
-  setTimeout(() => {
-    if (!map) {
-      console.log('[alarm-map] Initializing map after timeout');
-      initMap();
-    }
-  }, 2000);
 });
