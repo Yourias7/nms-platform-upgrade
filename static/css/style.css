@@ -157,6 +157,27 @@ body::after {
   width: 8px;
 }
 
+::-webkit-scrollbar-track {
+  background: rgba(10, 14, 39, 0.4);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(102, 126, 234, 0.4);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(102, 126, 234, 0.6);
+}
+
+/* Alarms area scrollable container */
+#alarmsArea,
+#performanceAlarmsArea {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(102, 126, 234, 0.4) rgba(10, 14, 39, 0.4);
+}
+
 /* Glowing orbs in background */
 .glow-orb {
   position: fixed;
@@ -339,8 +360,7 @@ body::after {
 /* Map container styles */
 #map {
   width: 100%;
-  height: 72vh;
-  max-height: 80vh;
+  height: 100%;
   border-radius: 12px;
   border: 2px solid rgba(102, 126, 234, 0.3);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);

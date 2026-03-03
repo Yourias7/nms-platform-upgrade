@@ -147,6 +147,8 @@ export function renderAlarmsTable(alarms) {
   
   if (!alarms || alarms.length === 0) {
     alarmsArea.innerHTML = '<div class="text-center text-muted p-4">No active alarms</div>';
+    // Dispatch event even when there are no alarms
+    window.dispatchEvent(new CustomEvent('alarms:table-rendered', { detail: { alarms: [] } }));
     return;
   }
   
@@ -191,6 +193,9 @@ export function renderAlarmsTable(alarms) {
   // Clear and add table
   alarmsArea.innerHTML = '';
   alarmsArea.appendChild(table);
+  
+  // Dispatch event to notify that alarms table is rendered
+  window.dispatchEvent(new CustomEvent('alarms:table-rendered', { detail: { alarms } }));
 }
 
 
