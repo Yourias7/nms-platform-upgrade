@@ -74,6 +74,18 @@ export async function fetchHistoricSerialData(serial,early,latest) {
 }
 
 /**
+ * Fetch all alarm records for a specific serial
+ * @param {string} serial - Serial number to fetch
+ * @param {string} early - Start datetime (ISO format)
+ * @param {string} latest - End datetime (ISO format)
+ * @returns {Promise<Object[]>} Array of record objects
+ */
+export async function fetchAlarmSerialData(serial,early,latest) {
+  const res = await fetch(`${CONFIG.API.ALARM_SYSTEMS}/${encodeURIComponent(serial)}/${encodeURIComponent(early)}/${encodeURIComponent(latest)}`);
+  return await res.json();
+}
+
+/**
  * Fetch LED status data (RSRP/SINR/TEMP) for a serial
  * @param {string} serial - Serial number to check
  * @returns {Promise<{rsrp: number|null, sinr: number|null, temp: number|null, lat: number|null, lon: number|null}>}

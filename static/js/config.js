@@ -11,6 +11,7 @@ export const CONFIG = {
     LOCATIONS: '/systems/Live/locations',
     HISTORIC_SERIALS: '/playback/Historic/serials',
     HISTORIC_SYSTEMS: '/playback/Historic',
+    ALARM_SYSTEMS: '/alarms/systems',
     HISTORIC_EXPORT: '/export/Historic',
     HISTORIC_LOCATIONS: '/playback/Historic/locations',
   },

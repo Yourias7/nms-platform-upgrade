@@ -164,27 +164,28 @@ export async function loadVesselsAndPlot(alarms) {
       const lat = Number(alarm.latitude ?? alarm.LATITUDE ?? alarm.lat);
       const lon = Number(alarm.longitude ?? alarm.LONGITUDE ?? alarm.lon);
       
-      if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+      if (!Number.isFinite(lat) || !Number.isFinite(lon) || lat==0 || lon==0) {
         console.log(`[alarm-map] Skipping alarm for ${alarm.site} - invalid coordinates: lat=${lat}, lon=${lon}`);
         continue;
       }
 
       const site = alarm.site || 'Unknown Site';
-      const status = alarm.status || 'Communication Lost';
-      const hoursAgo = alarm.hoursAgo || 'N/A';
-      const lastUpdate = alarm.lastUpdate || 'Never';
-
-      addMarker(
-        lat,
-        lon,
-        `
-        <div style="min-width:200px">
-          <div style="font-weight:600; color: #dc3545;">${site}</div>
-          <div style="margin-top: 4px;">
-            <span style="background: #dc3545; color: white; padding: 2px 6px; border-radius: 3px; font-size: 11px;">
-              ${status}
-            </span>
-          </div>
+      const status = alarm.status || 'Alarm';
+      
+      // Build popup HTML based on alarm type
+      let popupHtml = `<div style="min-width:200px">
+        <div style="font-weight:600; color: #dc3545;">${site}</div>
+        <div style="margin-top: 4px;">
+          <span style="background: #dc3545; color: white; padding: 2px 6px; border-radius: 3px; font-size: 11px;">
+            ${status}
+          </span>
+        </div>`;
+      
+      // Add communication alarm details if available
+      if (alarm.hoursAgo !== undefined && alarm.lastUpdate !== undefined) {
+        const hoursAgo = alarm.hoursAgo || 'N/A';
+        const lastUpdate = alarm.lastUpdate || 'Never';
+        popupHtml += `
           <div style="margin-top: 6px;">
             <small class="text-muted">Last Update: ${lastUpdate !== 'Never' ? new Date(lastUpdate).toLocaleString() : 'Never'}</small>
           </div>
@@ -192,14 +193,38 @@ export async function loadVesselsAndPlot(alarms) {
             <small class="text-muted">Time ago: ${hoursAgo >= 24 
               ? `${Math.floor(hoursAgo / 24)}d ${(hoursAgo % 24).toFixed(1)}h` 
               : `${hoursAgo}h`}</small>
-          </div>
-        </div>
-        `
-      );
+          </div>`;
+      }
+      
+      // Add performance alarm details if available
+      if (alarm.datetime !== undefined) {
+        popupHtml += `
+          <div style="margin-top: 6px;">
+            <small class="text-muted">Time: ${alarm.datetime !== 'Unknown' ? new Date(alarm.datetime).toLocaleString() : 'Unknown'}</small>
+          </div>`;
+      }
+      
+      if (alarm.rsrp !== undefined || alarm.sinr !== undefined || alarm.temp !== undefined) {
+        popupHtml += `<div style="margin-top: 6px;">`;
+        if (alarm.rsrp !== null && alarm.rsrp !== undefined) {
+          popupHtml += `<div><small>RSRP: <strong>${alarm.rsrp.toFixed(1)} dBm</strong></small></div>`;
+        }
+        if (alarm.sinr !== null && alarm.sinr !== undefined) {
+          popupHtml += `<div><small>SINR: <strong>${alarm.sinr.toFixed(1)} dB</strong></small></div>`;
+        }
+        if (alarm.temp !== null && alarm.temp !== undefined) {
+          popupHtml += `<div><small>Temp: <strong>${alarm.temp.toFixed(1)} °C</strong></small></div>`;
+        }
+        popupHtml += `</div>`;
+      }
+      
+      popupHtml += `</div>`;
+
+      addMarker(lat, lon, popupHtml);
       validMarkerCount++;
     }
 
-    console.log(`[alarm-map] Plotted ${validMarkerCount} alarm markers out of ${data.length} alarms`);
+    console.log(`[alarm-map] Plotted ${validMarkerCount} alarm markers out of ${alarms.length} alarms`);
 
     if (validMarkerCount > 0) {
       fitToMarkers();

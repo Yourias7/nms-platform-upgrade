@@ -128,7 +128,7 @@ def list_historic_serials():
     finally:
         db.close()
 
-def get_alarm_records_by_serial(serial: str, early: str = None, latest: str = None):
+def get_historic_records_by_serial(serial: str, early: str = None, latest: str = None):
     """Return list of measurement records for a given SERIAL from database."""
     db = SessionLocal()
     try:
@@ -193,8 +193,8 @@ def get_alarm_records_by_serial(serial: str, early: str = None, latest: str = No
     finally:
         db.close()
 
-def get_historic_records_by_serial(serial: str, early: str = None, latest: str = None):
-    """Return list of measurement records for a given SERIAL from database."""
+def get_alarm_records_by_serial(serial: str, early: str = None, latest: str = None):
+    """Return list of alarm records for a given SERIAL from database."""
     db = SessionLocal()
     try:
         ser = str(serial).strip()
@@ -437,6 +437,80 @@ def export_live_csv(serial: str) -> str:
             ])
         
         return output.getvalue()
+    finally:
+        db.close()
+
+
+def get_alarm_statistics(early: str = None, latest: str = None):
+    """Return alarm statistics for all systems (total samples vs alarm samples)."""
+    db = SessionLocal()
+    try:
+        sdate = datetime.fromisoformat(early) if early else None
+        edate = datetime.fromisoformat(latest) if latest else None
+        cutoff = datetime.utcnow() - timedelta(days=15)
+        
+        # Get all distinct serials
+        serials_query = (
+            db.query(HistoricMeasurement.SERIAL, HistoricMeasurement.NAME)
+            .filter(HistoricMeasurement.DATETIME >= cutoff)
+            .filter(HistoricMeasurement.DATETIME >= sdate if sdate else True)
+            .filter(HistoricMeasurement.DATETIME <= edate if edate else True)
+            .filter(HistoricMeasurement.SERIAL != None)
+            .distinct()
+        )
+        
+        serials = serials_query.all()
+        logger.info(f"Found {len(serials)} systems for statistics")
+        
+        statistics = []
+        
+        for serial_row in serials:
+            serial = serial_row[0]
+            name = serial_row[1]
+            
+            # Count total samples
+            total_count = (
+                db.query(func.count(HistoricMeasurement.SERIAL))
+                .filter(HistoricMeasurement.SERIAL == serial)
+                .filter(HistoricMeasurement.DATETIME >= cutoff)
+                .filter(HistoricMeasurement.DATETIME >= sdate if sdate else True)
+                .filter(HistoricMeasurement.DATETIME <= edate if edate else True)
+                .scalar()
+            )
+            
+            # Count alarm samples (using same filter as get_alarm_records_by_serial)
+            alarm_count = (
+                db.query(func.count(HistoricMeasurement.SERIAL))
+                .filter(HistoricMeasurement.SERIAL == serial)
+                .filter(HistoricMeasurement.DATETIME >= cutoff)
+                .filter(HistoricMeasurement.DATETIME >= sdate if sdate else True)
+                .filter(HistoricMeasurement.DATETIME <= edate if edate else True)
+                .filter(
+                    (HistoricMeasurement.RSRP <= -120) | 
+                    (HistoricMeasurement.SINR <= 0) | 
+                    (HistoricMeasurement.LONGITUDE == 0) | 
+                    (HistoricMeasurement.LATITUDE == 0) | 
+                    (HistoricMeasurement.TEMP >= 75)
+                )
+                .scalar()
+            )
+            
+            percentage = (alarm_count / total_count * 100) if total_count > 0 else 0
+            
+            statistics.append({
+                "serial": serial,
+                "name": name or serial,
+                "total_samples": total_count,
+                "alarm_samples": alarm_count,
+                "alarm_percentage": round(percentage, 2)
+            })
+        
+        # Sort by alarm percentage descending
+        statistics.sort(key=lambda x: x["alarm_percentage"], reverse=True)
+        
+        logger.info(f"Calculated statistics for {len(statistics)} systems")
+        return statistics
+        
     finally:
         db.close()
 

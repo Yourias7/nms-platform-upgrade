@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request, Response
 import logging
-from app.data_source import get_earliest_datetime_for_serial, get_latest_datetime_for_serial, get_historic_records_by_serial, get_live_records_by_serial, list_live_serial_name_pairs, list_live_serials, list_historic_serials, export_live_csv, export_historic_csv, live_serials_with_locations, historic_serials_with_locations
-from fastapi.responses import StreamingResponse, FileResponse
+from app.data_source import get_alarm_records_by_serial, get_alarm_statistics, get_earliest_datetime_for_serial, get_latest_datetime_for_serial, get_historic_records_by_serial, get_live_records_by_serial, list_live_serial_name_pairs, list_live_serials, list_historic_serials, export_live_csv, export_historic_csv, live_serials_with_locations, historic_serials_with_locations
+from fastapi.responses import StreamingResponse, FileResponse, RedirectResponse
 import io
 import mimetypes
 from pathlib import Path
@@ -35,6 +35,19 @@ def get_system(serial: str):
 def get_system(serial: str, early: str, latest: str):
     data = get_historic_records_by_serial(serial, early=early, latest=latest)
     logger.info(f"Retrieved {len(data)} records for SERIAL: {serial}")
+    return data
+
+@app.get("/alarms/systems/{serial}/{early}/{latest}")
+def get_alarm_systems(serial: str, early: str, latest: str):
+    data = get_alarm_records_by_serial(serial, early=early, latest=latest)
+    logger.info(f"Retrieved {len(data)} records for SERIAL: {serial}")
+    return data
+
+@app.get("/alarms/statistics")
+def get_alarm_statistics_endpoint(early: str = None, latest: str = None):
+    """Return alarm statistics for all systems (total samples vs alarm samples)."""
+    data = get_alarm_statistics(early=early, latest=latest)
+    logger.info(f"Retrieved statistics for {len(data)} systems")
     return data
 
 @app.get("/playback/Historic/{serial}/earliest")
@@ -133,9 +146,5 @@ def systems_locations():
 def playback_historic_locations():
     """Return list of {serial, latitude, longitude} for serials with coordinates."""
     return historic_serials_with_locations()
-
-from fastapi.responses import RedirectResponse
-
-
 
 
