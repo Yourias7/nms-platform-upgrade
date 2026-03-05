@@ -38,16 +38,16 @@ def get_system(serial: str, early: str, latest: str):
     return data
 
 @app.get("/alarms/systems/{serial}/{early}/{latest}")
-def get_alarm_systems(serial: str, early: str, latest: str):
-    data = get_alarm_records_by_serial(serial, early=early, latest=latest)
-    logger.info(f"Retrieved {len(data)} records for SERIAL: {serial}")
+def get_alarm_systems(serial: str, early: str, latest: str, rsrp_threshold: float = -120, sinr_threshold: float = 0, temp_threshold: float = 75):
+    data = get_alarm_records_by_serial(serial, early=early, latest=latest, rsrp_threshold=rsrp_threshold, sinr_threshold=sinr_threshold, temp_threshold=temp_threshold)
+    logger.info(f"Retrieved {len(data)} alarm records for SERIAL: {serial} with thresholds RSRP<={rsrp_threshold}, SINR<={sinr_threshold}, TEMP>={temp_threshold}")
     return data
 
 @app.get("/alarms/statistics")
-def get_alarm_statistics_endpoint(early: str = None, latest: str = None):
+def get_alarm_statistics_endpoint(early: str = None, latest: str = None, rsrp_threshold: float = -120, sinr_threshold: float = 0, temp_threshold: float = 75):
     """Return alarm statistics for all systems (total samples vs alarm samples)."""
-    data = get_alarm_statistics(early=early, latest=latest)
-    logger.info(f"Retrieved statistics for {len(data)} systems")
+    data = get_alarm_statistics(early=early, latest=latest, rsrp_threshold=rsrp_threshold, sinr_threshold=sinr_threshold, temp_threshold=temp_threshold)
+    logger.info(f"Retrieved statistics for {len(data)} systems with thresholds RSRP<={rsrp_threshold}, SINR<={sinr_threshold}, TEMP>={temp_threshold}")
     return data
 
 @app.get("/playback/Historic/{serial}/earliest")

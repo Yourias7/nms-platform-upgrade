@@ -276,8 +276,8 @@ async function fetchPerformanceAlarms(startDate, endDate, serial = 'all') {
     
     for (const ser of serials) {
       try {
-        // Fetch alarm data for date range
-        const records = await fetchAlarmSerialData(ser, startDateTime, endDateTime);
+        // Fetch alarm data for date range with thresholds
+        const records = await fetchAlarmSerialData(ser, startDateTime, endDateTime, thresholds);
         
         if (!records || records.length === 0) continue;
         

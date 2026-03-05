@@ -193,7 +193,7 @@ def get_historic_records_by_serial(serial: str, early: str = None, latest: str =
     finally:
         db.close()
 
-def get_alarm_records_by_serial(serial: str, early: str = None, latest: str = None):
+def get_alarm_records_by_serial(serial: str, early: str = None, latest: str = None, rsrp_threshold: float = -120, sinr_threshold: float = 0, temp_threshold: float = 75):
     """Return list of alarm records for a given SERIAL from database."""
     db = SessionLocal()
     try:
@@ -201,6 +201,9 @@ def get_alarm_records_by_serial(serial: str, early: str = None, latest: str = No
         sdate = datetime.fromisoformat(early) if early else None
         edate = datetime.fromisoformat(latest) if latest else None
         cutoff = datetime.utcnow() - timedelta(days=15)
+        
+        # Log thresholds being used
+        logger.info(f"Fetching alarm records for {ser} with thresholds - RSRP: {rsrp_threshold}, SINR: {sinr_threshold}, TEMP: {temp_threshold}")
         rows = (
             db.query(
                 HistoricMeasurement.SERIAL.label("SERIAL"),
@@ -225,7 +228,7 @@ def get_alarm_records_by_serial(serial: str, early: str = None, latest: str = No
             .filter(HistoricMeasurement.DATETIME >= cutoff)
             .filter(HistoricMeasurement.DATETIME >= sdate if sdate else True)
             .filter(HistoricMeasurement.DATETIME <= edate if edate else True)
-            .filter((HistoricMeasurement.RSRP <= -120) | (HistoricMeasurement.SINR <= 0) | (HistoricMeasurement.LONGITUDE == 0) | (HistoricMeasurement.LATITUDE == 0) | (HistoricMeasurement.TEMP >= 75))
+            .filter((HistoricMeasurement.RSRP <= rsrp_threshold) | (HistoricMeasurement.SINR <= sinr_threshold) | (HistoricMeasurement.LONGITUDE == 0) | (HistoricMeasurement.LATITUDE == 0) | (HistoricMeasurement.TEMP >= temp_threshold))
             .order_by(HistoricMeasurement.DATETIME.asc())
             .all()
         )
@@ -441,13 +444,16 @@ def export_live_csv(serial: str) -> str:
         db.close()
 
 
-def get_alarm_statistics(early: str = None, latest: str = None):
+def get_alarm_statistics(early: str = None, latest: str = None, rsrp_threshold: float = -120, sinr_threshold: float = 0, temp_threshold: float = 75):
     """Return alarm statistics for all systems (total samples vs alarm samples)."""
     db = SessionLocal()
     try:
         sdate = datetime.fromisoformat(early) if early else None
         edate = datetime.fromisoformat(latest) if latest else None
         cutoff = datetime.utcnow() - timedelta(days=15)
+        
+        # Log thresholds being used
+        logger.info(f"Alarm statistics thresholds - RSRP: {rsrp_threshold}, SINR: {sinr_threshold}, TEMP: {temp_threshold}")
         
         # Get all distinct serials
         serials_query = (
@@ -478,7 +484,7 @@ def get_alarm_statistics(early: str = None, latest: str = None):
                 .scalar()
             )
             
-            # Count alarm samples (using same filter as get_alarm_records_by_serial)
+            # Count alarm samples (using configurable thresholds from settings)
             alarm_count = (
                 db.query(func.count(HistoricMeasurement.SERIAL))
                 .filter(HistoricMeasurement.SERIAL == serial)
@@ -486,11 +492,11 @@ def get_alarm_statistics(early: str = None, latest: str = None):
                 .filter(HistoricMeasurement.DATETIME >= sdate if sdate else True)
                 .filter(HistoricMeasurement.DATETIME <= edate if edate else True)
                 .filter(
-                    (HistoricMeasurement.RSRP <= -120) | 
-                    (HistoricMeasurement.SINR <= 0) | 
+                    (HistoricMeasurement.RSRP <= rsrp_threshold) | 
+                    (HistoricMeasurement.SINR <= sinr_threshold) | 
                     (HistoricMeasurement.LONGITUDE == 0) | 
                     (HistoricMeasurement.LATITUDE == 0) | 
-                    (HistoricMeasurement.TEMP >= 75)
+                    (HistoricMeasurement.TEMP >= temp_threshold)
                 )
                 .scalar()
             )

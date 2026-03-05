@@ -3,6 +3,7 @@
 
 import { CONFIG } from './config.js';
 import { fetchJSON } from './api.js';
+import { getThresholds } from './settings.js';
 
 // State management
 let alarmChart = null;
@@ -101,9 +102,16 @@ async function fetchAlarmStatistics(startDate, endDate) {
     const startDateTime = startDate ? `${startDate}T00:00:00` : '';
     const endDateTime = endDate ? `${endDate}T23:59:59` : '';
     
+    // Get thresholds from settings
+    const thresholds = getThresholds();
+    console.log('[Alarm Summary] Using thresholds:', thresholds);
+    
     const params = new URLSearchParams();
     if (startDateTime) params.append('early', startDateTime);
     if (endDateTime) params.append('latest', endDateTime);
+    params.append('rsrp_threshold', thresholds.rsrp);
+    params.append('sinr_threshold', thresholds.sinr);
+    params.append('temp_threshold', thresholds.temp);
     
     const url = `/alarms/statistics?${params.toString()}`;
     const statistics = await fetchJSON(url);
