@@ -296,6 +296,7 @@ export async function renderSerials(data, onSelectSerial) {
 
 /**
  * Filter serials by search query
+ * Searches both serial numbers and system names
  * @param {string} query - Search string
  * @param {Function} onSelectSerial - Callback for serial selection
  */
@@ -306,7 +307,11 @@ export function filterSerials(query, onSelectSerial) {
   if (!ql) {
     renderSerials(serials, onSelectSerial);
   } else {
-    const filtered = serials.filter(s => s.toLowerCase().includes(ql));
+    const filtered = serials.filter(s => {
+      const serialMatch = s.toLowerCase().includes(ql);
+      const nameMatch = serialNameMap[s]?.toLowerCase().includes(ql) || false;
+      return serialMatch || nameMatch;
+    });
     renderSerials(filtered, onSelectSerial);
   }
 }
