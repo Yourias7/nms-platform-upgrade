@@ -1,6 +1,6 @@
 import logging
 import threading
-from sqlalchemy.sql import func, text
+from sqlalchemy.sql import func, text, case
 import time
 from datetime import datetime, timedelta
 from .database import SessionLocal
@@ -445,7 +445,10 @@ def export_live_csv(serial: str) -> str:
 
 
 def get_alarm_statistics(early: str = None, latest: str = None, rsrp_threshold: float = -120, sinr_threshold: float = 0, temp_threshold: float = 75):
-    """Return alarm statistics for all systems (total samples vs alarm samples)."""
+    """Return alarm statistics for all systems (total samples vs alarm samples).
+    
+    Optimized version using single SQL query with conditional aggregation instead of N+1 queries.
+    """
     db = SessionLocal()
     try:
         sdate = datetime.fromisoformat(early) if early else None
@@ -455,52 +458,44 @@ def get_alarm_statistics(early: str = None, latest: str = None, rsrp_threshold: 
         # Log thresholds being used
         logger.info(f"Alarm statistics thresholds - RSRP: {rsrp_threshold}, SINR: {sinr_threshold}, TEMP: {temp_threshold}")
         
-        # Get all distinct serials
-        serials_query = (
-            db.query(HistoricMeasurement.SERIAL, HistoricMeasurement.NAME)
-            .filter(HistoricMeasurement.DATETIME >= cutoff)
-            .filter(HistoricMeasurement.DATETIME >= sdate if sdate else True)
-            .filter(HistoricMeasurement.DATETIME <= edate if edate else True)
-            .filter(HistoricMeasurement.SERIAL != None)
-            .distinct()
+        # Define alarm condition for conditional aggregation
+        alarm_condition = (
+            (HistoricMeasurement.RSRP <= rsrp_threshold) | 
+            (HistoricMeasurement.SINR <= sinr_threshold) | 
+            (HistoricMeasurement.LONGITUDE == 0) | 
+            (HistoricMeasurement.LATITUDE == 0) | 
+            (HistoricMeasurement.TEMP >= temp_threshold)
         )
         
-        serials = serials_query.all()
-        logger.info(f"Found {len(serials)} systems for statistics")
+        # Single query with GROUP BY and conditional aggregation
+        # Uses CASE WHEN in SQL to count alarms in a single pass
+        query = (
+            db.query(
+                HistoricMeasurement.SERIAL,
+                HistoricMeasurement.NAME,
+                func.count(HistoricMeasurement.SERIAL).label('total_samples'),
+                func.sum(case((alarm_condition, 1), else_=0)).label('alarm_samples')
+            )
+            .filter(HistoricMeasurement.DATETIME >= cutoff)
+            .filter(HistoricMeasurement.SERIAL != None)
+        )
         
+        # Apply optional date filters
+        if sdate:
+            query = query.filter(HistoricMeasurement.DATETIME >= sdate)
+        if edate:
+            query = query.filter(HistoricMeasurement.DATETIME <= edate)
+        
+        # Group by serial and name to aggregate counts per system
+        query = query.group_by(HistoricMeasurement.SERIAL, HistoricMeasurement.NAME)
+        
+        results = query.all()
+        logger.info(f"Found {len(results)} systems for statistics (optimized single query)")
+        
+        # Build statistics list from query results
         statistics = []
-        
-        for serial_row in serials:
-            serial = serial_row[0]
-            name = serial_row[1]
-            
-            # Count total samples
-            total_count = (
-                db.query(func.count(HistoricMeasurement.SERIAL))
-                .filter(HistoricMeasurement.SERIAL == serial)
-                .filter(HistoricMeasurement.DATETIME >= cutoff)
-                .filter(HistoricMeasurement.DATETIME >= sdate if sdate else True)
-                .filter(HistoricMeasurement.DATETIME <= edate if edate else True)
-                .scalar()
-            )
-            
-            # Count alarm samples (using configurable thresholds from settings)
-            alarm_count = (
-                db.query(func.count(HistoricMeasurement.SERIAL))
-                .filter(HistoricMeasurement.SERIAL == serial)
-                .filter(HistoricMeasurement.DATETIME >= cutoff)
-                .filter(HistoricMeasurement.DATETIME >= sdate if sdate else True)
-                .filter(HistoricMeasurement.DATETIME <= edate if edate else True)
-                .filter(
-                    (HistoricMeasurement.RSRP <= rsrp_threshold) | 
-                    (HistoricMeasurement.SINR <= sinr_threshold) | 
-                    (HistoricMeasurement.LONGITUDE == 0) | 
-                    (HistoricMeasurement.LATITUDE == 0) | 
-                    (HistoricMeasurement.TEMP >= temp_threshold)
-                )
-                .scalar()
-            )
-            
+        for row in results:
+            serial, name, total_count, alarm_count = row
             percentage = (alarm_count / total_count * 100) if total_count > 0 else 0
             
             statistics.append({
