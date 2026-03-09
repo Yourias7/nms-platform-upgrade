@@ -1,9 +1,90 @@
 // static/js/alarms-map.js
-// Leaflet map for Communication Alarms page
+// Leaflet map for alarms pages (communication + performance)
+
+import { safeParseFloat } from './utils.js';
 
 let map;
 let markersLayer;
 let isInitializing = false; // Flag to prevent concurrent initialization
+let latestAlarms = [];
+let activePerformanceAlarmKeys = new Set();
+const isPerformancePage = () => !!document.getElementById('performanceAlarmsArea');
+
+function getPerformanceAlarmKey(alarm) {
+  if (!alarm) return null;
+  return `${alarm.serial || ''}|${alarm.site || ''}|${alarm.datetime || ''}|${alarm.status || ''}`;
+}
+
+function updateMapFilterStatus(alarm) {
+  const selectedCount = Array.isArray(alarm) ? alarm.length : (alarm ? 1 : 0);
+  const statusEl = document.getElementById('alarmMapFilterStatus');
+  if (statusEl) {
+    if (isPerformancePage()) {
+      statusEl.textContent = `Showing: ${selectedCount} performance alarm${selectedCount === 1 ? '' : 's'}`;
+    } else {
+      if (selectedCount === 0) {
+        statusEl.textContent = 'Showing: All alarms';
+      } else if (selectedCount === 1) {
+        statusEl.textContent = `Showing: ${alarm[0]?.site || 'Selected alarm'}`;
+      } else {
+        statusEl.textContent = `Showing: ${selectedCount} selected alarms`;
+      }
+    }
+  }
+
+  const clearBtn = document.getElementById('clearAlarmFiltersBtn');
+  if (clearBtn) {
+    clearBtn.disabled = selectedCount === 0;
+  }
+}
+
+function getLatLonFromAlarm(alarm) {
+  const lat = safeParseFloat(alarm.latitude ?? alarm.LATITUDE ?? alarm.lat, NaN);
+  const lon = safeParseFloat(alarm.longitude ?? alarm.LONGITUDE ?? alarm.lon, NaN);
+
+  if (!Number.isFinite(lat) || !Number.isFinite(lon) || lat === 0 || lon === 0) {
+    return null;
+  }
+
+  return { lat, lon };
+}
+
+function buildPerformancePopup(alarm) {
+  const site = alarm.site || 'Unknown Site';
+  const serial = alarm.serial || '';
+  const datetime = alarm.datetime && alarm.datetime !== 'Unknown'
+    ? new Date(alarm.datetime).toLocaleString()
+    : 'Unknown';
+  const rsrp = alarm.rsrp !== null && alarm.rsrp !== undefined ? Number(alarm.rsrp).toFixed(1) : 'N/A';
+  const sinr = alarm.sinr !== null && alarm.sinr !== undefined ? Number(alarm.sinr).toFixed(1) : 'N/A';
+  const temp = alarm.temp !== null && alarm.temp !== undefined ? Number(alarm.temp).toFixed(1) : 'N/A';
+
+  return (
+    `<b>${site}</b>` +
+    `<br>${serial}` +
+    `<br>Status: ${alarm.status || 'Performance Alarm'}` +
+    `<br>Time: ${datetime}` +
+    `<br>RSRP: ${rsrp} dBm` +
+    `<br>SINR: ${sinr} dB` +
+    `<br>TEMP: ${temp}°C`
+  );
+}
+
+function buildCommunicationPopup(alarm) {
+  const site = alarm.site || 'Unknown Site';
+  const status = alarm.status || 'Alarm';
+  const lastUpdate = alarm.lastUpdate && alarm.lastUpdate !== 'Never'
+    ? new Date(alarm.lastUpdate).toLocaleString()
+    : 'Never';
+  const timeAgo = alarm.hoursAgo !== undefined && alarm.hoursAgo !== null ? `${alarm.hoursAgo}h` : 'N/A';
+
+  return (
+    `<b>${site}</b>` +
+    `<br>Status: ${status}` +
+    `<br>Last Update: ${lastUpdate}` +
+    `<br>Time ago: ${timeAgo}`
+  );
+}
 
 function initMap() {
   // Prevent multiple initializations
@@ -122,7 +203,13 @@ function addMarker(lat, lon, popupHtml) {
     opacity: 1,
     fillOpacity: 0.9
   });
-  if (popupHtml) m.bindPopup(popupHtml, { maxWidth: 280 });
+  if (popupHtml) {
+    m.bindPopup(popupHtml, { maxWidth: 280 });
+    m.bindTooltip(popupHtml, {
+      direction: 'top',
+      offset: [0, -45]
+    });
+  }
   m.addTo(markersLayer);
 }
 
@@ -161,64 +248,18 @@ export async function loadVesselsAndPlot(alarms) {
     let validMarkerCount = 0;
     
     for (const alarm of alarms) {
-      const lat = Number(alarm.latitude ?? alarm.LATITUDE ?? alarm.lat);
-      const lon = Number(alarm.longitude ?? alarm.LONGITUDE ?? alarm.lon);
+      const coords = getLatLonFromAlarm(alarm);
+      const lat = coords?.lat;
+      const lon = coords?.lon;
       
       if (!Number.isFinite(lat) || !Number.isFinite(lon) || lat==0 || lon==0) {
         console.log(`[alarm-map] Skipping alarm for ${alarm.site} - invalid coordinates: lat=${lat}, lon=${lon}`);
         continue;
       }
-
-      const site = alarm.site || 'Unknown Site';
-      const status = alarm.status || 'Alarm';
       
-      // Build popup HTML based on alarm type
-      let popupHtml = `<div style="min-width:200px">
-        <div style="font-weight:600; color: #dc3545;">${site}</div>
-        <div style="margin-top: 4px;">
-          <span style="background: #dc3545; color: white; padding: 2px 6px; border-radius: 3px; font-size: 11px;">
-            ${status}
-          </span>
-        </div>`;
-      
-      // Add communication alarm details if available
-      if (alarm.hoursAgo !== undefined && alarm.lastUpdate !== undefined) {
-        const hoursAgo = alarm.hoursAgo || 'N/A';
-        const lastUpdate = alarm.lastUpdate || 'Never';
-        popupHtml += `
-          <div style="margin-top: 6px;">
-            <small class="text-muted">Last Update: ${lastUpdate !== 'Never' ? new Date(lastUpdate).toLocaleString() : 'Never'}</small>
-          </div>
-          <div>
-            <small class="text-muted">Time ago: ${hoursAgo >= 24 
-              ? `${Math.floor(hoursAgo / 24)}d ${(hoursAgo % 24).toFixed(1)}h` 
-              : `${hoursAgo}h`}</small>
-          </div>`;
-      }
-      
-      // Add performance alarm details if available
-      if (alarm.datetime !== undefined) {
-        popupHtml += `
-          <div style="margin-top: 6px;">
-            <small class="text-muted">Time: ${alarm.datetime !== 'Unknown' ? new Date(alarm.datetime).toLocaleString() : 'Unknown'}</small>
-          </div>`;
-      }
-      
-      if (alarm.rsrp !== undefined || alarm.sinr !== undefined || alarm.temp !== undefined) {
-        popupHtml += `<div style="margin-top: 6px;">`;
-        if (alarm.rsrp !== null && alarm.rsrp !== undefined) {
-          popupHtml += `<div><small>RSRP: <strong>${alarm.rsrp.toFixed(1)} dBm</strong></small></div>`;
-        }
-        if (alarm.sinr !== null && alarm.sinr !== undefined) {
-          popupHtml += `<div><small>SINR: <strong>${alarm.sinr.toFixed(1)} dB</strong></small></div>`;
-        }
-        if (alarm.temp !== null && alarm.temp !== undefined) {
-          popupHtml += `<div><small>Temp: <strong>${alarm.temp.toFixed(1)} °C</strong></small></div>`;
-        }
-        popupHtml += `</div>`;
-      }
-      
-      popupHtml += `</div>`;
+      const popupHtml = isPerformancePage()
+        ? buildPerformancePopup(alarm)
+        : buildCommunicationPopup(alarm);
 
       addMarker(lat, lon, popupHtml);
       validMarkerCount++;
@@ -248,12 +289,16 @@ export async function loadVesselsAndPlot(alarms) {
   }, 300);
 }
 
-// Listen for alarms table being rendered - use the alarm data from the event
-window.addEventListener('alarms:table-rendered', async (event) => {
+async function handleTableRendered(event) {
   console.log('[alarm-map] Alarms table rendered event received');
   
   // Get alarm data from the event
   const alarms = event.detail?.alarms || [];
+  const selectedKeys = event.detail?.selectedKeys || [];
+  if (isPerformancePage()) {
+    activePerformanceAlarmKeys = new Set(selectedKeys);
+  }
+  latestAlarms = alarms;
   console.log(`[alarm-map] Received ${alarms.length} alarms from event`);
   
   // Initialize map if not already done
@@ -268,15 +313,71 @@ window.addEventListener('alarms:table-rendered', async (event) => {
     await new Promise(resolve => setTimeout(resolve, 800));
   }
   
-  // Plot the alarm data on the map (works whether map is new or existing)
-  if (alarms.length > 0 && map) {
-    await loadVesselsAndPlot(alarms);
-    console.log('[alarm-map] Map updated with alarm data');
+  if (!map) {
+    return;
   }
+
+  let alarmsToPlot = alarms;
+
+  if (isPerformancePage() && activePerformanceAlarmKeys.size > 0) {
+    const selected = alarms.filter(a => activePerformanceAlarmKeys.has(getPerformanceAlarmKey(a)));
+    if (selected.length > 0) {
+      alarmsToPlot = selected;
+    } else {
+      activePerformanceAlarmKeys = new Set();
+    }
+  }
+
+  if (alarmsToPlot.length > 0) {
+    await loadVesselsAndPlot(alarmsToPlot);
+    updateMapFilterStatus(isPerformancePage() ? alarmsToPlot : []);
+    console.log('[alarm-map] Map updated with alarm data');
+  } else {
+    clearMarkers();
+    updateMapFilterStatus([]);
+  }
+}
+
+window.addEventListener('performance-alarms:table-rendered', handleTableRendered);
+window.addEventListener('performance-alarms:row-selected', async (event) => {
+  if (!isPerformancePage() || !map) {
+    return;
+  }
+
+  const selectedAlarms = event.detail?.selectedAlarms || [];
+  const selectedKeys = event.detail?.selectedKeys || [];
+  activePerformanceAlarmKeys = new Set(selectedKeys);
+
+  if (selectedAlarms.length === 0) {
+    updateMapFilterStatus([]);
+    await loadVesselsAndPlot(latestAlarms);
+    return;
+  }
+
+  updateMapFilterStatus(selectedAlarms);
+  await loadVesselsAndPlot(selectedAlarms);
+});
+window.addEventListener('alarms:table-rendered', (event) => {
+  if (isPerformancePage()) {
+    return;
+  }
+  handleTableRendered(event);
 });
 
 document.addEventListener("DOMContentLoaded", async () => {
   console.log('[alarm-map] DOM loaded');
+
+  updateMapFilterStatus([]);
+
+  const clearBtn = document.getElementById('clearAlarmFiltersBtn');
+  if (clearBtn) {
+    clearBtn.style.display = '';
+    clearBtn.disabled = true;
+  }
+
+  if (!map) {
+    initMap();
+  }
   
   // Add ResizeObserver to watch for map container size changes
   const mapDiv = document.getElementById('map');

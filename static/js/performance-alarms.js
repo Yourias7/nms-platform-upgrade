@@ -12,6 +12,50 @@ let currentPerformanceAlarms = [];
 let sortColumn = null;
 let sortDirection = 'asc';
 let selectedSerial = 'all';
+let selectedPerformanceAlarmKeys = new Set();
+
+function getPerformanceAlarmKey(alarm) {
+  if (!alarm) return null;
+  return `${alarm.serial || ''}|${alarm.site || ''}|${alarm.datetime || ''}|${alarm.status || ''}`;
+}
+
+function getSelectedPerformanceAlarms() {
+  return currentPerformanceAlarms.filter(alarm => selectedPerformanceAlarmKeys.has(getPerformanceAlarmKey(alarm)));
+}
+
+function dispatchPerformanceRowSelection() {
+  window.dispatchEvent(new CustomEvent('performance-alarms:row-selected', {
+    detail: {
+      selectedAlarms: getSelectedPerformanceAlarms(),
+      selectedKeys: Array.from(selectedPerformanceAlarmKeys)
+    }
+  }));
+}
+
+function updateClearAlarmFiltersButtonState() {
+  const clearBtn = document.getElementById('clearAlarmFiltersBtn');
+  if (!clearBtn) return;
+  clearBtn.disabled = selectedPerformanceAlarmKeys.size === 0;
+}
+
+function clearPerformanceRowFilters() {
+  if (selectedPerformanceAlarmKeys.size === 0) return;
+  selectedPerformanceAlarmKeys = new Set();
+  renderPerformanceAlarmsTable(currentPerformanceAlarms);
+  dispatchPerformanceRowSelection();
+}
+
+function bindClearAlarmFiltersButton() {
+  const clearBtn = document.getElementById('clearAlarmFiltersBtn');
+  if (!clearBtn) return;
+  if (clearBtn.dataset.performanceBound === '1') return;
+  clearBtn.dataset.performanceBound = '1';
+
+  clearBtn.addEventListener('click', (event) => {
+    event.preventDefault();
+    clearPerformanceRowFilters();
+  });
+}
 
 // Date range constants
 const MAX_DAYS_BACK = 15;
@@ -408,16 +452,26 @@ function renderPerformanceAlarmsTable(alarms) {
   
   if (!alarmsArea) return;
   
+  bindClearAlarmFiltersButton();
+
   // Store alarms for sorting
   if (alarms !== currentPerformanceAlarms) {
     currentPerformanceAlarms = alarms;
   }
+
+  const availableKeys = new Set((alarms || []).map(getPerformanceAlarmKey));
+  selectedPerformanceAlarmKeys = new Set(
+    Array.from(selectedPerformanceAlarmKeys).filter(key => availableKeys.has(key))
+  );
   
   if (!alarms || alarms.length === 0) {
+    selectedPerformanceAlarmKeys = new Set();
+    updateClearAlarmFiltersButtonState();
     alarmsArea.innerHTML = '<div class="text-center text-muted p-4">No performance alarms found for the selected period</div>';
     if (alarmMessage) alarmMessage.textContent = 'No alarms found';
     
     // Dispatch event for map (empty)
+    window.dispatchEvent(new CustomEvent('performance-alarms:table-rendered', { detail: { alarms: [], selectedKeys: [] } }));
     window.dispatchEvent(new CustomEvent('alarms:table-rendered', { detail: { alarms: [] } }));
     return;
   }
@@ -473,6 +527,12 @@ function renderPerformanceAlarmsTable(alarms) {
   
   alarms.forEach(alarm => {
     const row = document.createElement('tr');
+    row.style.cursor = 'pointer';
+    const alarmKey = getPerformanceAlarmKey(alarm);
+
+    if (selectedPerformanceAlarmKeys.has(alarmKey)) {
+      row.classList.add('alarm-row-selected');
+    }
     
     // Site
     const siteCell = document.createElement('td');
@@ -549,6 +609,17 @@ function renderPerformanceAlarmsTable(alarms) {
       tempCell.textContent = 'N/A';
     }
     row.appendChild(tempCell);
+
+    row.addEventListener('click', () => {
+      if (selectedPerformanceAlarmKeys.has(alarmKey)) {
+        selectedPerformanceAlarmKeys.delete(alarmKey);
+      } else {
+        selectedPerformanceAlarmKeys.add(alarmKey);
+      }
+
+      renderPerformanceAlarmsTable(currentPerformanceAlarms);
+      dispatchPerformanceRowSelection();
+    });
     
     tbody.appendChild(row);
   });
@@ -558,8 +629,15 @@ function renderPerformanceAlarmsTable(alarms) {
   // Clear and add table
   alarmsArea.innerHTML = '';
   alarmsArea.appendChild(table);
+  updateClearAlarmFiltersButtonState();
   
   // Dispatch event to notify map
+  window.dispatchEvent(new CustomEvent('performance-alarms:table-rendered', {
+    detail: {
+      alarms,
+      selectedKeys: Array.from(selectedPerformanceAlarmKeys)
+    }
+  }));
   window.dispatchEvent(new CustomEvent('alarms:table-rendered', { detail: { alarms } }));
 }
 

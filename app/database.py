@@ -15,7 +15,7 @@ DB_PORT = os.getenv("DB_PORT", "1433")
 
 # MSSQL connection string with ODBC 17 driver
 DATABASE_URL = (
-    f"mssql+pyodbc://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}?driver=ODBC+Driver+17+for+SQL+Server"
+    f"mssql+pyodbc://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}?driver=ODBC+Driver+13+for+SQL+Server"
 )
 
 # Create SQLAlchemy engine (with connection pooling)

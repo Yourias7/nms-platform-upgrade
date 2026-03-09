@@ -87,7 +87,13 @@
                   <div class="loading-text">Loading last known locations...</div>
                 </div>
               </div>
-              <h5 class="card-title mb-3">Map</h5>
+              <div class="d-flex justify-content-between align-items-center mb-3 gap-2 flex-wrap">
+                <h5 class="card-title mb-0">Map</h5>
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                  <small id="alarmMapFilterStatus" class="text-muted" aria-live="polite">Showing: All alarms</small>
+                  <button id="clearAlarmFiltersBtn" type="button" class="btn btn-sm btn-outline-secondary" disabled>Clear Filters</button>
+                </div>
+              </div>
               <div id="map" role="region" aria-label="Alarms map" style="flex: 1; min-height: 400px;"></div>
             </div>
           </div>

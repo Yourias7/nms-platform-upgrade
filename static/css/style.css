@@ -430,6 +430,11 @@ body::after {
   background-color: rgba(102, 126, 234, 0.2) !important;
 }
 
+.table tbody tr.alarm-row-selected {
+  background-color: rgba(220, 53, 69, 0.28) !important;
+  outline: 1px solid rgba(220, 53, 69, 0.7);
+}
+
 /* Alarm badge on navbar */
 .alarm-badge {
   display: inline-flex;

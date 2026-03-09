@@ -11,6 +11,50 @@ const COMMUNICATION_ALARM_THRESHOLD_HOURS = 3;
 let currentAlarms = [];
 let sortColumn = null;
 let sortDirection = 'asc';
+let selectedAlarmKeys = new Set();
+
+function getAlarmKey(alarm) {
+  if (!alarm) return null;
+  return `${alarm.site || ''}|${alarm.lastUpdate || ''}|${alarm.status || ''}`;
+}
+
+function getSelectedAlarmsFromCurrent() {
+  return currentAlarms.filter(alarm => selectedAlarmKeys.has(getAlarmKey(alarm)));
+}
+
+function dispatchRowSelectionEvent() {
+  window.dispatchEvent(new CustomEvent('alarms:row-selected', {
+    detail: {
+      selectedAlarms: getSelectedAlarmsFromCurrent(),
+      selectedKeys: Array.from(selectedAlarmKeys)
+    }
+  }));
+}
+
+function updateClearFiltersButtonState() {
+  const clearBtn = document.getElementById('clearAlarmFiltersBtn');
+  if (!clearBtn) return;
+  clearBtn.disabled = selectedAlarmKeys.size === 0;
+}
+
+function clearAlarmFilters() {
+  if (selectedAlarmKeys.size === 0) return;
+  selectedAlarmKeys = new Set();
+  renderAlarmsTable(currentAlarms);
+  dispatchRowSelectionEvent();
+}
+
+function bindClearFiltersButton() {
+  const clearBtn = document.getElementById('clearAlarmFiltersBtn');
+  if (!clearBtn) return;
+  if (clearBtn.dataset.bound === '1') return;
+  clearBtn.dataset.bound = '1';
+
+  clearBtn.addEventListener('click', (event) => {
+    event.preventDefault();
+    clearAlarmFilters();
+  });
+}
 
 /**
  * Check if a timestamp indicates a communication alarm
@@ -78,6 +122,7 @@ export async function fetchCommunicationAlarms() {
               : 'N/A';
             
             alarms.push({
+              serial,
               site,
               lastUpdate: timestamp || 'Never',
               hoursAgo,
@@ -89,6 +134,7 @@ export async function fetchCommunicationAlarms() {
         } else {
           // No records = alarm
           alarms.push({
+            serial,
             site: 'N/A',
             lastUpdate: 'Never',
             hoursAgo: 'N/A',
@@ -207,15 +253,29 @@ export function renderAlarmsTable(alarms) {
     return;
   }
   
+  bindClearFiltersButton();
+
   // Store alarms for sorting
   if (alarms !== currentAlarms) {
     currentAlarms = alarms;
   }
+
+  const availableAlarmKeys = new Set(alarms.map(getAlarmKey));
+  selectedAlarmKeys = new Set(
+    Array.from(selectedAlarmKeys).filter(key => availableAlarmKeys.has(key))
+  );
   
   if (!alarms || alarms.length === 0) {
+    selectedAlarmKeys = new Set();
+    updateClearFiltersButtonState();
     alarmsArea.innerHTML = '<div class="text-center text-muted p-4">No active alarms</div>';
     // Dispatch event even when there are no alarms
-    window.dispatchEvent(new CustomEvent('alarms:table-rendered', { detail: { alarms: [] } }));
+    window.dispatchEvent(new CustomEvent('alarms:table-rendered', {
+      detail: {
+        alarms: [],
+        selectedKeys: []
+      }
+    }));
     return;
   }
   
@@ -262,8 +322,15 @@ export function renderAlarmsTable(alarms) {
   const tbody = document.createElement('tbody');
   
   
-  alarms.forEach(alarm => {
+  alarms.forEach((alarm, index) => {
     const row = document.createElement('tr');
+    row.style.cursor = 'pointer';
+    const alarmKey = getAlarmKey(alarm);
+
+    if (selectedAlarmKeys.has(alarmKey)) {
+      row.classList.add('alarm-row-selected');
+    }
+
     row.innerHTML = `
       <td>${alarm.site}</td>
       <td><span class="badge bg-danger">${alarm.status}</span></td>
@@ -274,6 +341,18 @@ export function renderAlarmsTable(alarms) {
         : `${alarm.hoursAgo}h`}
       </td>
           `;
+
+    row.addEventListener('click', () => {
+      if (selectedAlarmKeys.has(alarmKey)) {
+        selectedAlarmKeys.delete(alarmKey);
+      } else {
+        selectedAlarmKeys.add(alarmKey);
+      }
+
+      renderAlarmsTable(currentAlarms);
+      dispatchRowSelectionEvent();
+    });
+
     tbody.appendChild(row);
   });
   
@@ -282,9 +361,15 @@ export function renderAlarmsTable(alarms) {
   // Clear and add table
   alarmsArea.innerHTML = '';
   alarmsArea.appendChild(table);
+  updateClearFiltersButtonState();
   
   // Dispatch event to notify that alarms table is rendered
-  window.dispatchEvent(new CustomEvent('alarms:table-rendered', { detail: { alarms } }));
+  window.dispatchEvent(new CustomEvent('alarms:table-rendered', {
+    detail: {
+      alarms,
+      selectedKeys: Array.from(selectedAlarmKeys)
+    }
+  }));
 }
 
 
