@@ -80,7 +80,13 @@ function getPerformanceAlarmType(rsrp, sinr, temp, lat, lon) {
     if (isInAlarm('lon', lon)) alarms.push('GPS');
 
     if (alarms.length === 0) return null;
-    if (alarms.length > 1) return 'Multiple Alarms';
+    let alarmType = '';
+    if (alarms.length > 1){
+      for (let i = 0; i < alarms.length; i++) {
+        alarmType += `${alarms[i]} Alarm${i < alarms.length - 1 ? ' + ' : ''}`;
+      }
+      return alarmType;
+    }
     return `${alarms[0]} Alarm`;
 }
 
