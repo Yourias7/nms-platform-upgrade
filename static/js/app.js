@@ -16,13 +16,30 @@ import {
   removeSelectedSerial,
   clearSelectedSerials,
   renderSerials, 
-  filterSerials 
+  filterSerials,
+  isSerialInAlarm
 } from './serials.js';
 import { loadSerialDetails, clearDetails } from './details.js';
 
 // DOM elements
 const filterEl = document.getElementById('filter');
+const alarmOnlyFilterBtn = document.getElementById('alarmOnlyFilterBtn');
 let autoRefreshTimer = null;
+let alarmOnlyFilterActive = false;
+
+function updateAlarmOnlyFilterButton() {
+  if (!alarmOnlyFilterBtn) return;
+
+  alarmOnlyFilterBtn.classList.toggle('btn-danger', alarmOnlyFilterActive);
+  alarmOnlyFilterBtn.classList.toggle('btn-outline-danger', !alarmOnlyFilterActive);
+  alarmOnlyFilterBtn.setAttribute('aria-pressed', alarmOnlyFilterActive ? 'true' : 'false');
+  alarmOnlyFilterBtn.textContent = alarmOnlyFilterActive ? 'Showing Alarms Only' : 'Show Alarms Only';
+}
+
+function applyActiveFilters() {
+  const currentFilter = getCurrentFilter() || '';
+  filterSerials(currentFilter, handleSerialSelect, { alarmOnly: alarmOnlyFilterActive });
+}
 
 /**
  * Fetch and render all serials
@@ -31,14 +48,9 @@ async function fetchAndRenderSerials() {
   try {
     const serialsList = await fetchSerialsList();
     setSerials(serialsList);
-    
-    // Apply any active filter so user view isn't reset by auto-refresh
-    const currentFilter = getCurrentFilter();
-    if (currentFilter && currentFilter.trim() !== '') {
-      filterSerials(currentFilter, handleSerialSelect);
-    } else {
-      renderSerials(serialsList, handleSerialSelect);
-    }
+
+    // Apply active filters so user view isn't reset by auto-refresh
+    applyActiveFilters();
     
     // Reload details for all selected serials
     const selected = getSelectedSerials();
@@ -71,7 +83,14 @@ async function handleSerialSelect(serial, card) {
       // No selections - show all serials
       const currentFilter = getCurrentFilter();
       const allSerials = getSerials();
-      const displaySerials = currentFilter ? allSerials.filter(s => s.toLowerCase().includes(currentFilter.toLowerCase())) : allSerials;
+      let displaySerials = currentFilter
+        ? allSerials.filter(s => s.toLowerCase().includes(currentFilter.toLowerCase()))
+        : allSerials;
+
+      if (alarmOnlyFilterActive) {
+        displaySerials = displaySerials.filter(s => isSerialInAlarm(s));
+      }
+
       updateMapMarkers(displaySerials);
       clearDetails();
     } else {
@@ -99,7 +118,13 @@ async function handleSerialSelect(serial, card) {
  */
 function handleFilter() {
   const query = filterEl.value.trim();
-  filterSerials(query, handleSerialSelect);
+  filterSerials(query, handleSerialSelect, { alarmOnly: alarmOnlyFilterActive });
+}
+
+function handleAlarmOnlyToggle() {
+  alarmOnlyFilterActive = !alarmOnlyFilterActive;
+  updateAlarmOnlyFilterButton();
+  applyActiveFilters();
 }
 
 /**
@@ -451,6 +476,11 @@ function init() {
   // Setup filter input listener
   if (filterEl) {
     filterEl.addEventListener('input', debounce(handleFilter, CONFIG.UI.FILTER_DEBOUNCE_MS));
+  }
+
+  updateAlarmOnlyFilterButton();
+  if (alarmOnlyFilterBtn) {
+    alarmOnlyFilterBtn.addEventListener('click', handleAlarmOnlyToggle);
   }
   
   const runAutoRefresh = () => {
