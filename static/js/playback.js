@@ -12,8 +12,53 @@ let currentRecords = [];
 let coloringMode = 'rsrp'; // 'rsrp' or 'sinr'
 let serialNameMap = {};
 let mapLegend = null;
-let selectedRSRPAntenna = 'best'; // 'best', 0, 1, 2, 3
-let selectedSINRAntenna = 'best'; // 'best', 0, 1, 2, 3
+let selectedRSRPAntennas = ['best']; // any of: 'best', '0', '1', '2', '3'
+let selectedSINRAntennas = ['best']; // any of: 'best', '0', '1', '2', '3'
+
+const CHART_SERIES_COLORS = ['#0d6efd', '#198754', '#fd7e14', '#6f42c1', '#dc3545'];
+
+function getAntennaLabel(antenna, metric) {
+  return antenna === 'best'
+    ? `Best ${metric}`
+    : `Antenna ${parseInt(antenna, 10) + 1} ${metric}`;
+}
+
+function getAntennaFieldName(antenna, metric) {
+  return antenna === 'best' ? metric : `S${antenna}${metric}`;
+}
+
+function buildMetricChartData(records, selectedAntennas, metric, unit) {
+  const labels = records.map((rec) => {
+    const dt = new Date(rec.DATETIME);
+    return dt.toLocaleString('en-US', { month: 'short', day: '2-digit' });
+  });
+
+  const datasets = selectedAntennas.map((antenna, idx) => {
+    const fieldName = getAntennaFieldName(antenna, metric);
+    const color = CHART_SERIES_COLORS[idx % CHART_SERIES_COLORS.length];
+    return {
+      label: `${getAntennaLabel(antenna, metric)} (${unit})`,
+      data: records.map((rec) => rec[fieldName]),
+      borderColor: color,
+      backgroundColor: `${color}1A`,
+      borderWidth: 2,
+      fill: false,
+      pointRadius: 2,
+      pointHoverRadius: 4,
+      pointBackgroundColor: color,
+      pointBorderColor: '#fff',
+      pointBorderWidth: 1,
+      tension: 0.35,
+      spanGaps: false
+    };
+  });
+
+  return { labels, datasets };
+}
+
+function getAllDatasetValues(datasets) {
+  return (datasets || []).flatMap((dataset) => dataset.data || []);
+}
 
 function updateDataCards(records) {
   // Helper function to calculate average
@@ -204,78 +249,20 @@ function sortByDatetime(records) {
     .sort((a, b) => new Date(a.DATETIME) - new Date(b.DATETIME));
 }
 
-function buildRSRPChartData(records, antenna = 'best') {
+function buildRSRPChartData(records, selectedAntennas = ['best']) {
   showRSRPLoading();
-  const labels = [];
-  const rsrpValues = [];
-
-  // Determine which field to use based on antenna selection
-  const fieldName = antenna === 'best' ? 'RSRP' : `S${antenna}RSRP`;
-  const antennaLabel = antenna === 'best' ? 'Best RSRP' : `Antenna ${parseInt(antenna) + 1} RSRP`;
-
-  records.forEach((rec) => {
-    const dt = new Date(rec.DATETIME);
-    labels.push(dt.toLocaleString('en-US', { month: 'short', day: '2-digit',}));
-    rsrpValues.push(rec[fieldName]);
-  });
-  console.log(`Built RSRP chart data for ${antennaLabel} with %d points`, rsrpValues.length);
+  const chartData = buildMetricChartData(records, selectedAntennas, 'RSRP', 'dBm');
+  console.log('Built RSRP chart data for %d antennas with %d points', selectedAntennas.length, records.length);
   hideRSRPLoading();
-  return {
-    labels,
-    datasets: [
-      {
-        label: `${antennaLabel} (dBm)`,
-        data: rsrpValues,
-        borderColor: '#0d6efd',
-        backgroundColor: 'rgba(13, 110, 253, 0.1)',
-        borderWidth: 2,
-        fill: true,
-        pointRadius: 3,
-        pointBackgroundColor: '#764ba2',
-        pointBorderColor: '#fff',
-        pointBorderWidth: 1,
-        tension: 0.4,
-        spanGaps: false
-      }
-    ]
-  };
+  return chartData;
 }
 
-function buildSINRChartData(records, antenna = 'best') {
+function buildSINRChartData(records, selectedAntennas = ['best']) {
   showSINRLoading();
-  const labels = [];
-  const sinrValues = [];
-
-  // Determine which field to use based on antenna selection
-  const fieldName = antenna === 'best' ? 'SINR' : `S${antenna}SINR`;
-  const antennaLabel = antenna === 'best' ? 'Best SINR' : `Antenna ${parseInt(antenna) + 1} SINR`;
-
-  records.forEach((rec) => {
-    const dt = new Date(rec.DATETIME);
-    labels.push(dt.toLocaleString('en-US', { month: 'short', day: '2-digit',}));
-    sinrValues.push(rec[fieldName]);
-  });
-  console.log(`Built SINR chart data for ${antennaLabel} with %d points`, sinrValues.length);
+  const chartData = buildMetricChartData(records, selectedAntennas, 'SINR', 'dB');
+  console.log('Built SINR chart data for %d antennas with %d points', selectedAntennas.length, records.length);
   hideSINRLoading();
-  return {
-    labels,
-    datasets: [
-      {
-        label: `${antennaLabel} (dB)`,
-        data: sinrValues,
-        borderColor: '#0d6efd',
-        backgroundColor: 'rgba(13, 110, 253, 0.1)',
-        borderWidth: 2,
-        fill: true,
-        pointRadius: 3,
-        pointBackgroundColor: '#764ba2',
-        pointBorderColor: '#764ba2',
-        pointBorderWidth: 1,
-        tension: 0.4,
-        spanGaps: false
-      }
-    ]
-  };
+  return chartData;
 }
 
 function computeRSRPYAxisBounds(values) {
@@ -309,8 +296,8 @@ function computeSINRYAxisBounds(values) {
   const max = Math.ceil(maxValue + padding);
 
   return {
-    min: Math.max(40, min),
-    max: Math.min(-20, max)
+    min: Math.max(-20, min),
+    max: Math.min(40, max)
   };
 }
 
@@ -763,25 +750,23 @@ async function renderChartForSerial(serial) {
     return;
   }
 
-  const rsrpChartData = buildRSRPChartData(records, selectedRSRPAntenna);
-  const yBounds = computeRSRPYAxisBounds(rsrpChartData.datasets[0].data);
+  const rsrpChartData = buildRSRPChartData(records, selectedRSRPAntennas);
+  const yBounds = computeRSRPYAxisBounds(getAllDatasetValues(rsrpChartData.datasets));
 
   if (chartInstance) {
     chartInstance.data.labels = rsrpChartData.labels;
-    chartInstance.data.datasets[0].data = rsrpChartData.datasets[0].data;
-    chartInstance.data.datasets[0].label = rsrpChartData.datasets[0].label;
+    chartInstance.data.datasets = rsrpChartData.datasets;
     chartInstance.options.scales.y.min = yBounds.min;
     chartInstance.options.scales.y.max = yBounds.max;
     chartInstance.update();
   }
 
-  const sinrChartData = buildSINRChartData(records, selectedSINRAntenna);
-  const yBoundsSINR = computeSINRYAxisBounds(sinrChartData.datasets[0].data);
+  const sinrChartData = buildSINRChartData(records, selectedSINRAntennas);
+  const yBoundsSINR = computeSINRYAxisBounds(getAllDatasetValues(sinrChartData.datasets));
 
   if (chartInstance2) {
     chartInstance2.data.labels = sinrChartData.labels;
-    chartInstance2.data.datasets[0].data = sinrChartData.datasets[0].data;
-    chartInstance2.data.datasets[0].label = sinrChartData.datasets[0].label;
+    chartInstance2.data.datasets = sinrChartData.datasets;
     chartInstance2.options.scales.y.min = yBoundsSINR.min;
     chartInstance2.options.scales.y.max = yBoundsSINR.max;
     chartInstance2.update();
@@ -1115,6 +1100,23 @@ function initToggle() {
  * Initialize antenna toggle buttons
  */
 function initAntennaToggles() {
+  const toggleAntennaSelection = (selectedAntennas, antenna) => {
+    const exists = selectedAntennas.includes(antenna);
+    if (exists) {
+      if (selectedAntennas.length === 1) {
+        return selectedAntennas;
+      }
+      return selectedAntennas.filter((a) => a !== antenna);
+    }
+    return [...selectedAntennas, antenna];
+  };
+
+  const setButtonStates = (buttons, selectedAntennas) => {
+    buttons.forEach((b) => {
+      b.classList.toggle('active', selectedAntennas.includes(b.dataset.antenna));
+    });
+  };
+
   // RSRP Antenna Toggle
   const rsrpToggle = document.getElementById('rsrpAntennaToggle');
   if (rsrpToggle) {
@@ -1122,21 +1124,17 @@ function initAntennaToggles() {
     rsrpButtons.forEach(btn => {
       btn.addEventListener('click', () => {
         const antenna = btn.dataset.antenna;
-        selectedRSRPAntenna = antenna;
-        
-        // Update active state
-        rsrpButtons.forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
+        selectedRSRPAntennas = toggleAntennaSelection(selectedRSRPAntennas, antenna);
+        setButtonStates(rsrpButtons, selectedRSRPAntennas);
         
         // Re-render chart with new antenna data
         if (currentRecords && currentRecords.length > 0) {
-          const rsrpChartData = buildRSRPChartData(currentRecords, selectedRSRPAntenna);
-          const yBounds = computeRSRPYAxisBounds(rsrpChartData.datasets[0].data);
+          const rsrpChartData = buildRSRPChartData(currentRecords, selectedRSRPAntennas);
+          const yBounds = computeRSRPYAxisBounds(getAllDatasetValues(rsrpChartData.datasets));
           
           if (chartInstance) {
             chartInstance.data.labels = rsrpChartData.labels;
-            chartInstance.data.datasets[0].data = rsrpChartData.datasets[0].data;
-            chartInstance.data.datasets[0].label = rsrpChartData.datasets[0].label;
+            chartInstance.data.datasets = rsrpChartData.datasets;
             chartInstance.options.scales.y.min = yBounds.min;
             chartInstance.options.scales.y.max = yBounds.max;
             chartInstance.update();
@@ -1153,21 +1151,17 @@ function initAntennaToggles() {
     sinrButtons.forEach(btn => {
       btn.addEventListener('click', () => {
         const antenna = btn.dataset.antenna;
-        selectedSINRAntenna = antenna;
-        
-        // Update active state
-        sinrButtons.forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
+        selectedSINRAntennas = toggleAntennaSelection(selectedSINRAntennas, antenna);
+        setButtonStates(sinrButtons, selectedSINRAntennas);
         
         // Re-render chart with new antenna data
         if (currentRecords && currentRecords.length > 0) {
-          const sinrChartData = buildSINRChartData(currentRecords, selectedSINRAntenna);
-          const yBoundsSINR = computeSINRYAxisBounds(sinrChartData.datasets[0].data);
+          const sinrChartData = buildSINRChartData(currentRecords, selectedSINRAntennas);
+          const yBoundsSINR = computeSINRYAxisBounds(getAllDatasetValues(sinrChartData.datasets));
           
           if (chartInstance2) {
             chartInstance2.data.labels = sinrChartData.labels;
-            chartInstance2.data.datasets[0].data = sinrChartData.datasets[0].data;
-            chartInstance2.data.datasets[0].label = sinrChartData.datasets[0].label;
+            chartInstance2.data.datasets = sinrChartData.datasets;
             chartInstance2.options.scales.y.min = yBoundsSINR.min;
             chartInstance2.options.scales.y.max = yBoundsSINR.max;
             chartInstance2.update();
@@ -1313,12 +1307,16 @@ async function init() {
       // Clear charts
       if (chartInstance) {
         chartInstance.data.labels = [];
+        chartInstance.data.datasets = [chartInstance.data.datasets[0]];
         chartInstance.data.datasets[0].data = [];
+        chartInstance.data.datasets[0].label = 'RSRP (dBm)';
         chartInstance.update();
       }
       if (chartInstance2) {
         chartInstance2.data.labels = [];
+        chartInstance2.data.datasets = [chartInstance2.data.datasets[0]];
         chartInstance2.data.datasets[0].data = [];
+        chartInstance2.data.datasets[0].label = 'SINR (dB)';
         chartInstance2.update();
       }
 
@@ -1331,20 +1329,20 @@ async function init() {
       updateDataCards([]);
 
       // Reset antenna selection to "best"
-      selectedRSRPAntenna = 'best';
-      selectedSINRAntenna = 'best';
+      selectedRSRPAntennas = ['best'];
+      selectedSINRAntennas = ['best'];
       
       // Reset antenna toggle buttons
       const rsrpToggle = document.getElementById('rsrpAntennaToggle');
       if (rsrpToggle) {
         rsrpToggle.querySelectorAll('.antenna-toggle-btn').forEach(btn => {
-          btn.classList.toggle('active', btn.dataset.antenna === 'best');
+          btn.classList.toggle('active', selectedRSRPAntennas.includes(btn.dataset.antenna));
         });
       }
       const sinrToggle = document.getElementById('sinrAntennaToggle');
       if (sinrToggle) {
         sinrToggle.querySelectorAll('.antenna-toggle-btn').forEach(btn => {
-          btn.classList.toggle('active', btn.dataset.antenna === 'best');
+          btn.classList.toggle('active', selectedSINRAntennas.includes(btn.dataset.antenna));
         });
       }
 
