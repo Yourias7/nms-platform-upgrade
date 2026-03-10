@@ -466,6 +466,10 @@ def get_alarm_statistics(early: str = None, latest: str = None, rsrp_threshold: 
             (HistoricMeasurement.LATITUDE == 0) | 
             (HistoricMeasurement.TEMP >= temp_threshold)
         )
+        rsrp_condition = (HistoricMeasurement.RSRP <= rsrp_threshold)
+        sinr_condition = (HistoricMeasurement.SINR <= sinr_threshold)
+        gps_condition = (HistoricMeasurement.LONGITUDE == 0) | (HistoricMeasurement.LATITUDE == 0)
+        temp_condition = (HistoricMeasurement.TEMP >= temp_threshold)
         
         # Single query with GROUP BY and conditional aggregation
         # Uses CASE WHEN in SQL to count alarms in a single pass
@@ -474,7 +478,12 @@ def get_alarm_statistics(early: str = None, latest: str = None, rsrp_threshold: 
                 HistoricMeasurement.SERIAL,
                 HistoricMeasurement.NAME,
                 func.count(HistoricMeasurement.SERIAL).label('total_samples'),
-                func.sum(case((alarm_condition, 1), else_=0)).label('alarm_samples')
+                func.sum(case((alarm_condition, 1), else_=0)).label('alarm_samples'),
+                func.sum(case((rsrp_condition, 1), else_=0)).label('rsrp_alarms'),
+                func.sum(case((sinr_condition, 1), else_=0)).label('sinr_alarms'),
+                func.sum(case((gps_condition, 1), else_=0)).label('gps_alarms'),
+                func.sum(case((temp_condition, 1), else_=0)).label('temp_alarms')
+
             )
             .filter(HistoricMeasurement.DATETIME >= cutoff)
             .filter(HistoricMeasurement.SERIAL != None)
@@ -495,7 +504,7 @@ def get_alarm_statistics(early: str = None, latest: str = None, rsrp_threshold: 
         # Build statistics list from query results
         statistics = []
         for row in results:
-            serial, name, total_count, alarm_count = row
+            serial, name, total_count, alarm_count, rsrp_alarms, sinr_alarms, gps_alarms, temp_alarms = row
             percentage = (alarm_count / total_count * 100) if total_count > 0 else 0
             
             statistics.append({
@@ -503,7 +512,11 @@ def get_alarm_statistics(early: str = None, latest: str = None, rsrp_threshold: 
                 "name": name or serial,
                 "total_samples": total_count,
                 "alarm_samples": alarm_count,
-                "alarm_percentage": round(percentage, 2)
+                "alarm_percentage": round(percentage, 2),
+                "rsrp_alarms": rsrp_alarms,
+                "sinr_alarms": sinr_alarms,
+                "gps_alarms": gps_alarms,
+                "temp_alarms": temp_alarms
             })
         
         # Sort by alarm percentage descending
