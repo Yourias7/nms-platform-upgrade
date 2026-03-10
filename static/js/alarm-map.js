@@ -8,6 +8,8 @@ let markersLayer;
 let isInitializing = false; // Flag to prevent concurrent initialization
 let latestAlarms = [];
 let activePerformanceAlarmKeys = new Set();
+let lassoLayerGroup = null;
+let activeLassoLayer = null;
 const isPerformancePage = () => !!document.getElementById('performanceAlarmsArea');
 
 function getPerformanceAlarmKey(alarm) {
@@ -135,6 +137,10 @@ function initMap() {
         }).addTo(map);
 
         markersLayer = L.layerGroup().addTo(map);
+
+        if (isPerformancePage()) {
+          initPerformanceLassoTool();
+        }
         
         console.log('[alarm-map] Map initialized successfully');
         
@@ -169,6 +175,164 @@ function initMap() {
   });
 }
 
+function isLatLngInPolygon(point, polygonLatLngs) {
+  const x = point.lng;
+  const y = point.lat;
+  let inside = false;
+
+  for (let i = 0, j = polygonLatLngs.length - 1; i < polygonLatLngs.length; j = i++) {
+    const xi = polygonLatLngs[i].lng;
+    const yi = polygonLatLngs[i].lat;
+    const xj = polygonLatLngs[j].lng;
+    const yj = polygonLatLngs[j].lat;
+
+    const intersects = ((yi > y) !== (yj > y))
+      && (x < ((xj - xi) * (y - yi)) / ((yj - yi) || Number.EPSILON) + xi);
+
+    if (intersects) inside = !inside;
+  }
+
+  return inside;
+}
+
+function applyDefaultAlarmMarkerStyle(marker) {
+  marker.setStyle({
+    radius: 8,
+    fillColor: '#dc3545',
+    color: '#fff',
+    weight: 2,
+    opacity: 1,
+    fillOpacity: 0.9
+  });
+}
+
+function clearLassoAlarmSelection() {
+  if (!markersLayer) return;
+  markersLayer.eachLayer((layer) => {
+    if (layer && typeof layer.setStyle === 'function' && layer.getLatLng) {
+      applyDefaultAlarmMarkerStyle(layer);
+    }
+  });
+  window.dispatchEvent(new CustomEvent('performance-alarms:lasso-selected', {
+    detail: {
+      hasLasso: false,
+      selectedKeys: []
+    }
+  }));
+}
+
+function clearActiveLasso() {
+  if (lassoLayerGroup) {
+    lassoLayerGroup.clearLayers();
+  }
+  activeLassoLayer = null;
+  clearLassoAlarmSelection();
+}
+
+function applyLassoToAlarmMarkers(layer) {
+  if (!layer || !markersLayer) return;
+
+  const latLngs = layer.getLatLngs();
+  const polygon = Array.isArray(latLngs[0]) ? latLngs[0] : latLngs;
+  const selectedKeys = new Set();
+
+  markersLayer.eachLayer((marker) => {
+    if (!marker || typeof marker.getLatLng !== 'function' || typeof marker.setStyle !== 'function') {
+      return;
+    }
+
+    const inside = isLatLngInPolygon(marker.getLatLng(), polygon);
+    if (inside) {
+      if (marker._alarmKey) {
+        selectedKeys.add(marker._alarmKey);
+      }
+      marker.setStyle({
+        radius: 9,
+        fillColor: '#00d4ff',
+        color: '#111827',
+        weight: 2,
+        opacity: 1,
+        fillOpacity: 0.95
+      });
+    } else {
+      applyDefaultAlarmMarkerStyle(marker);
+    }
+  });
+
+  window.dispatchEvent(new CustomEvent('performance-alarms:lasso-selected', {
+    detail: {
+      hasLasso: true,
+      selectedKeys: Array.from(selectedKeys)
+    }
+  }));
+}
+
+function initPerformanceLassoTool() {
+  if (!map || typeof L.Control.Draw === 'undefined') {
+    console.warn('[alarm-map] Leaflet.Draw not available; lasso disabled');
+    return;
+  }
+
+  lassoLayerGroup = new L.FeatureGroup();
+  map.addLayer(lassoLayerGroup);
+
+  const drawControl = new L.Control.Draw({
+    position: 'topleft',
+    draw: {
+      polygon: {
+        allowIntersection: false,
+        showArea: true,
+        shapeOptions: {
+          color: '#0d6efd',
+          weight: 2,
+          fillOpacity: 0.08
+        }
+      },
+      polyline: false,
+      rectangle: false,
+      circle: false,
+      marker: false,
+      circlemarker: false
+    },
+    edit: false
+  });
+
+  map.addControl(drawControl);
+
+  const ClearLassoControl = L.Control.extend({
+    options: { position: 'topleft' },
+    onAdd: function () {
+      const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
+      const link = L.DomUtil.create('a', '', container);
+      link.href = '#';
+      link.title = 'Clear lasso';
+      link.setAttribute('role', 'button');
+      link.setAttribute('aria-label', 'Clear lasso');
+      link.innerHTML = '&times;';
+      link.style.fontSize = '18px';
+      link.style.lineHeight = '26px';
+      link.style.textAlign = 'center';
+
+      L.DomEvent.disableClickPropagation(container);
+      L.DomEvent.on(link, 'click', (e) => {
+        L.DomEvent.preventDefault(e);
+        clearActiveLasso();
+      });
+
+      return container;
+    }
+  });
+
+  map.addControl(new ClearLassoControl());
+
+  map.on(L.Draw.Event.CREATED, (event) => {
+    lassoLayerGroup.clearLayers();
+    lassoLayerGroup.addLayer(event.layer);
+    activeLassoLayer = event.layer;
+    applyLassoToAlarmMarkers(activeLassoLayer);
+  });
+}
+
 function clearMarkers() {
   if (markersLayer) markersLayer.clearLayers();
 }
@@ -193,7 +357,7 @@ function hideMapLoading() {
   }
 }
 
-function addMarker(lat, lon, popupHtml) {
+function addMarker(lat, lon, popupHtml, alarm = null) {
   if (!map || !markersLayer) return;
   const m = L.circleMarker([lat, lon], {
     radius: 8,
@@ -210,6 +374,7 @@ function addMarker(lat, lon, popupHtml) {
       offset: [0, -45]
     });
   }
+  m._alarmKey = alarm ? getPerformanceAlarmKey(alarm) : null;
   m.addTo(markersLayer);
 }
 
@@ -261,7 +426,7 @@ export async function loadVesselsAndPlot(alarms) {
         ? buildPerformancePopup(alarm)
         : buildCommunicationPopup(alarm);
 
-      addMarker(lat, lon, popupHtml);
+      addMarker(lat, lon, popupHtml, alarm);
       validMarkerCount++;
     }
 
@@ -269,6 +434,9 @@ export async function loadVesselsAndPlot(alarms) {
 
     if (validMarkerCount > 0) {
       fitToMarkers();
+      if (isPerformancePage() && activeLassoLayer) {
+        applyLassoToAlarmMarkers(activeLassoLayer);
+      }
     }
   } catch (e) {
     // Map still works even if API fails - initialize it anyway
@@ -356,6 +524,10 @@ window.addEventListener('performance-alarms:row-selected', async (event) => {
 
   updateMapFilterStatus(selectedAlarms);
   await loadVesselsAndPlot(selectedAlarms);
+});
+window.addEventListener('performance-alarms:clear-lasso', () => {
+  if (!isPerformancePage()) return;
+  clearActiveLasso();
 });
 window.addEventListener('alarms:table-rendered', (event) => {
   if (isPerformancePage()) {

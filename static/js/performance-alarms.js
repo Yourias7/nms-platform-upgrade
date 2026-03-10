@@ -13,6 +13,8 @@ let sortColumn = null;
 let sortDirection = 'asc';
 let selectedSerial = 'all';
 let selectedPerformanceAlarmKeys = new Set();
+let allPerformanceAlarms = [];
+let lassoFilteredAlarmKeys = null;
 
 function getPerformanceAlarmKey(alarm) {
   if (!alarm) return null;
@@ -35,13 +37,22 @@ function dispatchPerformanceRowSelection() {
 function updateClearAlarmFiltersButtonState() {
   const clearBtn = document.getElementById('clearAlarmFiltersBtn');
   if (!clearBtn) return;
-  clearBtn.disabled = selectedPerformanceAlarmKeys.size === 0;
+  clearBtn.disabled = selectedPerformanceAlarmKeys.size === 0 && (!lassoFilteredAlarmKeys || lassoFilteredAlarmKeys.size === 0);
+}
+
+function getVisiblePerformanceAlarms() {
+  if (!lassoFilteredAlarmKeys || lassoFilteredAlarmKeys.size === 0) {
+    return allPerformanceAlarms;
+  }
+  return allPerformanceAlarms.filter((alarm) => lassoFilteredAlarmKeys.has(getPerformanceAlarmKey(alarm)));
 }
 
 function clearPerformanceRowFilters() {
-  if (selectedPerformanceAlarmKeys.size === 0) return;
+  if (selectedPerformanceAlarmKeys.size === 0 && (!lassoFilteredAlarmKeys || lassoFilteredAlarmKeys.size === 0)) return;
   selectedPerformanceAlarmKeys = new Set();
-  renderPerformanceAlarmsTable(currentPerformanceAlarms);
+  lassoFilteredAlarmKeys = null;
+  window.dispatchEvent(new CustomEvent('performance-alarms:clear-lasso'));
+  renderPerformanceAlarmsTable(getVisiblePerformanceAlarms());
   dispatchPerformanceRowSelection();
 }
 
@@ -462,7 +473,7 @@ function renderPerformanceAlarmsTable(alarms) {
 
   // Store alarms for sorting
   if (alarms !== currentPerformanceAlarms) {
-    currentPerformanceAlarms = alarms;
+    currentPerformanceAlarms = [...(alarms || [])];
   }
 
   const availableKeys = new Set((alarms || []).map(getPerformanceAlarmKey));
@@ -668,7 +679,9 @@ async function loadPerformanceAlarms() {
   
   try {
     const alarms = await fetchPerformanceAlarms(startDate, endDate, selectedSerial);
-    renderPerformanceAlarmsTable(alarms);
+    allPerformanceAlarms = alarms || [];
+    lassoFilteredAlarmKeys = null;
+    renderPerformanceAlarmsTable(getVisiblePerformanceAlarms());
   } catch (err) {
     console.error('Error loading performance alarms:', err);
     showError('Error loading performance alarms');
@@ -688,6 +701,9 @@ function clearFilters() {
   
   // Reset dates to yesterday
   initializeDateInputs();
+
+  lassoFilteredAlarmKeys = null;
+  window.dispatchEvent(new CustomEvent('performance-alarms:clear-lasso'));
   
   // Reload with defaults
   loadPerformanceAlarms();
@@ -719,6 +735,20 @@ async function init() {
   
   // Load initial data (last 24 hours, all systems)
   await loadPerformanceAlarms();
+
+  window.addEventListener('performance-alarms:lasso-selected', (event) => {
+    const hasLasso = !!event.detail?.hasLasso;
+    const selectedKeys = event.detail?.selectedKeys || [];
+
+    if (!hasLasso) {
+      lassoFilteredAlarmKeys = null;
+      renderPerformanceAlarmsTable(getVisiblePerformanceAlarms());
+      return;
+    }
+
+    lassoFilteredAlarmKeys = new Set(selectedKeys);
+    renderPerformanceAlarmsTable(getVisiblePerformanceAlarms());
+  });
 }
 
 // Start the app on DOM ready

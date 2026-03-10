@@ -8,6 +8,9 @@ let chartInstance = null;
 let chartInstance2 = null;
 let mapInstance = null;
 let mapMarkers = [];
+let lassoLayerGroup = null;
+let activeLassoLayer = null;
+let lassoSelectedRecords = null;
 let currentRecords = [];
 let coloringMode = 'rsrp'; // 'rsrp' or 'sinr'
 let serialNameMap = {};
@@ -58,6 +61,38 @@ function buildMetricChartData(records, selectedAntennas, metric, unit) {
 
 function getAllDatasetValues(datasets) {
   return (datasets || []).flatMap((dataset) => dataset.data || []);
+}
+
+function getActiveDisplayRecords() {
+  return lassoSelectedRecords !== null ? lassoSelectedRecords : currentRecords;
+}
+
+function renderChartsAndDataCards(records) {
+  const safeRecords = records || [];
+
+  const rsrpChartData = buildRSRPChartData(safeRecords, selectedRSRPAntennas);
+  const yBounds = computeRSRPYAxisBounds(getAllDatasetValues(rsrpChartData.datasets));
+
+  if (chartInstance) {
+    chartInstance.data.labels = rsrpChartData.labels;
+    chartInstance.data.datasets = rsrpChartData.datasets;
+    chartInstance.options.scales.y.min = yBounds.min;
+    chartInstance.options.scales.y.max = yBounds.max;
+    chartInstance.update();
+  }
+
+  const sinrChartData = buildSINRChartData(safeRecords, selectedSINRAntennas);
+  const yBoundsSINR = computeSINRYAxisBounds(getAllDatasetValues(sinrChartData.datasets));
+
+  if (chartInstance2) {
+    chartInstance2.data.labels = sinrChartData.labels;
+    chartInstance2.data.datasets = sinrChartData.datasets;
+    chartInstance2.options.scales.y.min = yBoundsSINR.min;
+    chartInstance2.options.scales.y.max = yBoundsSINR.max;
+    chartInstance2.update();
+  }
+
+  updateDataCards(safeRecords);
 }
 
 function updateDataCards(records) {
@@ -750,34 +785,16 @@ async function renderChartForSerial(serial) {
     return;
   }
 
-  const rsrpChartData = buildRSRPChartData(records, selectedRSRPAntennas);
-  const yBounds = computeRSRPYAxisBounds(getAllDatasetValues(rsrpChartData.datasets));
-
-  if (chartInstance) {
-    chartInstance.data.labels = rsrpChartData.labels;
-    chartInstance.data.datasets = rsrpChartData.datasets;
-    chartInstance.options.scales.y.min = yBounds.min;
-    chartInstance.options.scales.y.max = yBounds.max;
-    chartInstance.update();
-  }
-
-  const sinrChartData = buildSINRChartData(records, selectedSINRAntennas);
-  const yBoundsSINR = computeSINRYAxisBounds(getAllDatasetValues(sinrChartData.datasets));
-
-  if (chartInstance2) {
-    chartInstance2.data.labels = sinrChartData.labels;
-    chartInstance2.data.datasets = sinrChartData.datasets;
-    chartInstance2.options.scales.y.min = yBoundsSINR.min;
-    chartInstance2.options.scales.y.max = yBoundsSINR.max;
-    chartInstance2.update();
-  }
-
   // Update map with data points
   currentRecords = records;
   updateMapWithData(records);
-  updateDataCards(records);
 
-  setPlaybackMessage('', 'muted');
+  if (!activeLassoLayer) {
+    lassoSelectedRecords = null;
+    renderChartsAndDataCards(records);
+    setPlaybackMessage('', 'muted');
+  }
+
   console.log('[Playback] Chart updated', serial ? `for ${serial}` : '');
   // Hide loading overlays after data is loaded
   hideMapLoading();
@@ -834,10 +851,166 @@ function initMap() {
 
   // Add legend to the map
   addMapLegend();
+  initLassoTool();
 
   console.log('[Playback] Map initialized');
   hideMapLoading();
   return mapInstance;
+}
+
+function getMarkerBaseColor(rec) {
+  if (coloringMode === 'sinr') {
+    return getColorForSINR(rec?.SINR);
+  }
+  return getColorForRSRP(rec?.RSRP);
+}
+
+function applyDefaultMarkerStyle(marker) {
+  const rec = marker?._record || {};
+  const markerColor = getMarkerBaseColor(rec);
+  marker.setStyle({
+    radius: 6,
+    fillColor: markerColor,
+    color: markerColor,
+    weight: 1,
+    opacity: 1,
+    fillOpacity: 0.8
+  });
+}
+
+function isLatLngInPolygon(point, polygonLatLngs) {
+  const x = point.lng;
+  const y = point.lat;
+  let inside = false;
+
+  for (let i = 0, j = polygonLatLngs.length - 1; i < polygonLatLngs.length; j = i++) {
+    const xi = polygonLatLngs[i].lng;
+    const yi = polygonLatLngs[i].lat;
+    const xj = polygonLatLngs[j].lng;
+    const yj = polygonLatLngs[j].lat;
+
+    const intersects = ((yi > y) !== (yj > y))
+      && (x < ((xj - xi) * (y - yi)) / ((yj - yi) || Number.EPSILON) + xi);
+
+    if (intersects) inside = !inside;
+  }
+
+  return inside;
+}
+
+function clearLassoSelection() {
+  lassoSelectedRecords = null;
+  mapMarkers.forEach((marker) => applyDefaultMarkerStyle(marker));
+  renderChartsAndDataCards(getActiveDisplayRecords());
+}
+
+function clearActiveLasso() {
+  if (lassoLayerGroup) {
+    lassoLayerGroup.clearLayers();
+  }
+  activeLassoLayer = null;
+  clearLassoSelection();
+  setPlaybackMessage('', 'muted');
+}
+
+function applyLassoSelection(layer) {
+  if (!layer || mapMarkers.length === 0) return;
+
+  const latLngs = layer.getLatLngs();
+  const polygon = Array.isArray(latLngs[0]) ? latLngs[0] : latLngs;
+  let selectedCount = 0;
+  const selectedRecords = [];
+
+  mapMarkers.forEach((marker) => {
+    const inside = isLatLngInPolygon(marker.getLatLng(), polygon);
+    if (inside) {
+      selectedCount += 1;
+      if (marker._record) {
+        selectedRecords.push(marker._record);
+      }
+      marker.setStyle({
+        radius: 8,
+        fillColor: '#00d4ff',
+        color: '#111827',
+        weight: 2,
+        opacity: 1,
+        fillOpacity: 0.95
+      });
+    } else {
+      applyDefaultMarkerStyle(marker);
+    }
+  });
+
+  lassoSelectedRecords = selectedRecords;
+  renderChartsAndDataCards(selectedRecords);
+
+  setPlaybackMessage(`${selectedCount} point(s) selected by lasso.`, 'primary');
+}
+
+function initLassoTool() {
+  if (!mapInstance || typeof L.Control.Draw === 'undefined') {
+    console.warn('[Playback] Leaflet.Draw not available; lasso disabled');
+    return;
+  }
+
+  lassoLayerGroup = new L.FeatureGroup();
+  mapInstance.addLayer(lassoLayerGroup);
+
+  const drawControl = new L.Control.Draw({
+    position: 'topleft',
+    draw: {
+      polygon: {
+        allowIntersection: false,
+        showArea: true,
+        shapeOptions: {
+          color: '#0d6efd',
+          weight: 2,
+          fillOpacity: 0.08
+        }
+      },
+      polyline: false,
+      rectangle: false,
+      circle: false,
+      marker: false,
+      circlemarker: false
+    },
+    edit: false
+  });
+
+  mapInstance.addControl(drawControl);
+
+  const ClearLassoControl = L.Control.extend({
+    options: { position: 'topleft' },
+    onAdd: function () {
+      const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
+      const link = L.DomUtil.create('a', '', container);
+      link.href = '#';
+      link.title = 'Clear lasso';
+      link.setAttribute('role', 'button');
+      link.setAttribute('aria-label', 'Clear lasso');
+      link.innerHTML = '&times;';
+      link.style.fontSize = '18px';
+      link.style.lineHeight = '26px';
+      link.style.textAlign = 'center';
+
+      L.DomEvent.disableClickPropagation(container);
+      L.DomEvent.on(link, 'click', (e) => {
+        L.DomEvent.preventDefault(e);
+        clearActiveLasso();
+      });
+
+      return container;
+    }
+  });
+
+  mapInstance.addControl(new ClearLassoControl());
+
+  mapInstance.on(L.Draw.Event.CREATED, (event) => {
+    lassoLayerGroup.clearLayers();
+    lassoLayerGroup.addLayer(event.layer);
+    activeLassoLayer = event.layer;
+    applyLassoSelection(activeLassoLayer);
+  });
 }
 
 /**
@@ -890,6 +1063,7 @@ function updateMapWithData(records) {
       opacity: 1,
       fillOpacity: 0.8
     });
+    marker._record = rec;
 
     const dt = new Date(rec.DATETIME);
     marker.bindPopup(`
@@ -910,6 +1084,10 @@ function updateMapWithData(records) {
     const group = new L.featureGroup(mapMarkers);
     mapInstance.fitBounds(group.getBounds(), { padding: [20, 20] });
     updateLegendContent();
+
+    if (activeLassoLayer) {
+      applyLassoSelection(activeLassoLayer);
+    }
   }
 }
 
@@ -1129,7 +1307,7 @@ function initAntennaToggles() {
         
         // Re-render chart with new antenna data
         if (currentRecords && currentRecords.length > 0) {
-          const rsrpChartData = buildRSRPChartData(currentRecords, selectedRSRPAntennas);
+          const rsrpChartData = buildRSRPChartData(getActiveDisplayRecords(), selectedRSRPAntennas);
           const yBounds = computeRSRPYAxisBounds(getAllDatasetValues(rsrpChartData.datasets));
           
           if (chartInstance) {
@@ -1156,7 +1334,7 @@ function initAntennaToggles() {
         
         // Re-render chart with new antenna data
         if (currentRecords && currentRecords.length > 0) {
-          const sinrChartData = buildSINRChartData(currentRecords, selectedSINRAntennas);
+          const sinrChartData = buildSINRChartData(getActiveDisplayRecords(), selectedSINRAntennas);
           const yBoundsSINR = computeSINRYAxisBounds(getAllDatasetValues(sinrChartData.datasets));
           
           if (chartInstance2) {
@@ -1323,6 +1501,11 @@ async function init() {
       // Clear map markers
       mapMarkers.forEach(marker => mapInstance.removeLayer(marker));
       mapMarkers = [];
+      if (lassoLayerGroup) {
+        lassoLayerGroup.clearLayers();
+      }
+      activeLassoLayer = null;
+      lassoSelectedRecords = null;
 
       // Clear data cards
       currentRecords = [];
