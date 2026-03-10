@@ -17,6 +17,11 @@ function getPerformanceAlarmKey(alarm) {
   return `${alarm.serial || ''}|${alarm.site || ''}|${alarm.datetime || ''}|${alarm.status || ''}`;
 }
 
+function getCommunicationAlarmKey(alarm) {
+  if (!alarm) return null;
+  return `${alarm.site || ''}|${alarm.lastUpdate || ''}|${alarm.status || ''}`;
+}
+
 function updateMapFilterStatus(alarm) {
   const selectedCount = Array.isArray(alarm) ? alarm.length : (alarm ? 1 : 0);
   const statusEl = document.getElementById('alarmMapFilterStatus');
@@ -79,12 +84,18 @@ function buildCommunicationPopup(alarm) {
     ? new Date(alarm.lastUpdate).toLocaleString()
     : 'Never';
   const timeAgo = alarm.hoursAgo !== undefined && alarm.hoursAgo !== null ? `${alarm.hoursAgo}h` : 'N/A';
+  const rsrp = alarm.rsrp !== null && alarm.rsrp !== undefined ? Number(alarm.rsrp).toFixed(1) : 'N/A';
+  const sinr = alarm.sinr !== null && alarm.sinr !== undefined ? Number(alarm.sinr).toFixed(1) : 'N/A';
+  const temp = alarm.temp !== null && alarm.temp !== undefined ? Number(alarm.temp).toFixed(1) : 'N/A';
 
   return (
     `<b>${site}</b>` +
     `<br>Status: ${status}` +
     `<br>Last Update: ${lastUpdate}` +
-    `<br>Time ago: ${timeAgo}`
+    `<br>Time ago: ${timeAgo}`+
+    `<br>RSRP: ${rsrp} dBm` +
+    `<br>SINR: ${sinr} dB` +
+    `<br>TEMP: ${temp}°C`
   );
 }
 
@@ -494,6 +505,12 @@ async function handleTableRendered(event) {
     } else {
       activePerformanceAlarmKeys = new Set();
     }
+  } else if (!isPerformancePage() && selectedKeys.length > 0) {
+    const selectedCommunicationKeys = new Set(selectedKeys);
+    const selected = alarms.filter(a => selectedCommunicationKeys.has(getCommunicationAlarmKey(a)));
+    if (selected.length > 0) {
+      alarmsToPlot = selected;
+    }
   }
 
   if (alarmsToPlot.length > 0) {
@@ -515,6 +532,22 @@ window.addEventListener('performance-alarms:row-selected', async (event) => {
   const selectedAlarms = event.detail?.selectedAlarms || [];
   const selectedKeys = event.detail?.selectedKeys || [];
   activePerformanceAlarmKeys = new Set(selectedKeys);
+
+  if (selectedAlarms.length === 0) {
+    updateMapFilterStatus([]);
+    await loadVesselsAndPlot(latestAlarms);
+    return;
+  }
+
+  updateMapFilterStatus(selectedAlarms);
+  await loadVesselsAndPlot(selectedAlarms);
+});
+window.addEventListener('alarms:row-selected', async (event) => {
+  if (isPerformancePage() || !map) {
+    return;
+  }
+
+  const selectedAlarms = event.detail?.selectedAlarms || [];
 
   if (selectedAlarms.length === 0) {
     updateMapFilterStatus([]);
