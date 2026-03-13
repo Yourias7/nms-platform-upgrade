@@ -49,7 +49,7 @@ function buildMetricChartData(records, selectedAntennas, metric, unit) {
       pointRadius: 2,
       pointHoverRadius: 4,
       pointBackgroundColor: color,
-      pointBorderColor: '#fff',
+      pointBorderColor: color,
       pointBorderWidth: 1,
       tension: 0.35,
       spanGaps: false
