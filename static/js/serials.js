@@ -17,6 +17,7 @@ let currentFilter = '';
 let selectedSerials = [];
 let serialNameMap = {};
 let serialAlarmCache = new Map();
+let currentlyRenderedSerials = [];
 
 /**
  * Get all serials
@@ -107,6 +108,14 @@ export function clearSelectedSerials() {
   selectedSerials = [];
 }
 
+/**
+ * Select all currently rendered serials
+ */
+export function selectAllRenderedSerials() {
+  selectedSerials = [...currentlyRenderedSerials];
+  selectedSerials.sort();
+}
+
 const THREE_HOURS_MS = 3 * 60 * 60 * 1000;//3 hours in milliseconds
 
 function parseBackendDate(value) {// Parses date string from backend, handling both ISO and space-separated formats
@@ -186,19 +195,55 @@ function bindClearButton(onSelectSerial) {
   });
 }
 
+function bindSelectAllButton(onSelectSerial, loadMultipleDetails) {
+  const btn = document.getElementById('selectAllBtn');
+  if (!btn) return;
+
+  // μην ξαναδένεις handler πολλές φορές
+  if (btn.dataset.bound === '1') return;
+  btn.dataset.bound = '1';
+
+  btn.addEventListener('click', async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    // 1) Select all currently rendered serials
+    selectAllRenderedSerials();
+
+    // 2) Add selected class to all cards
+    document.querySelectorAll('.serial-card')
+      .forEach(el => el.classList.add('selected'));
+
+    // 3) Show the clear button
+    showClearBtn(true);
+
+    // 4) Update map to show selected serials
+    updateMapMarkers(selectedSerials);
+
+    // 5) Load details for all selected serials
+    if (loadMultipleDetails) {
+      await loadMultipleDetails(selectedSerials);
+    }
+  });
+}
+
 
 
 /**
  * Render serial list with LED indicators
  * @param {string[]} data - Array of serial numbers to render
  * @param {Function} onSelectSerial - Callback when serial is selected
+ * @param {Function} loadMultipleDetails - Function to load details for multiple serials
  */
-export async function renderSerials(data, onSelectSerial) {
+export async function renderSerials(data, onSelectSerial, loadMultipleDetails = null) {
   const serialListEl = document.getElementById('serialList');
   const serialCountEl = document.getElementById('serialCount');
   serialListEl.innerHTML = '';
 
+  currentlyRenderedSerials = data;
+
   bindClearButton(onSelectSerial);
+  bindSelectAllButton(onSelectSerial, loadMultipleDetails);
   showClearBtn(selectedSerials.length > 0);
   
   if (!data || data.length === 0) {
@@ -321,8 +366,9 @@ export async function renderSerials(data, onSelectSerial) {
  * Searches both serial numbers and system names
  * @param {string} query - Search string
  * @param {Function} onSelectSerial - Callback for serial selection
+ * @param {Function} loadMultipleDetails - Function to load details for multiple serials
  */
-export function filterSerials(query, onSelectSerial, options = {}) {
+export function filterSerials(query, onSelectSerial, options = {}, loadMultipleDetails = null) {
   const { alarmOnly = false } = options;
   currentFilter = query;
   const ql = query.toLowerCase();
@@ -340,5 +386,5 @@ export function filterSerials(query, onSelectSerial, options = {}) {
     filtered = filtered.filter(s => isSerialInAlarm(s));
   }
 
-  renderSerials(filtered, onSelectSerial);
+  renderSerials(filtered, onSelectSerial, loadMultipleDetails);
 }

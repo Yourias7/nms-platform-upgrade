@@ -38,7 +38,7 @@ function updateAlarmOnlyFilterButton() {
 
 function applyActiveFilters() {
   const currentFilter = getCurrentFilter() || '';
-  filterSerials(currentFilter, handleSerialSelect, { alarmOnly: alarmOnlyFilterActive });
+  filterSerials(currentFilter, handleSerialSelect, { alarmOnly: alarmOnlyFilterActive }, loadMultipleSerialDetails);
 }
 
 /**
@@ -118,7 +118,7 @@ async function handleSerialSelect(serial, card) {
  */
 function handleFilter() {
   const query = filterEl.value.trim();
-  filterSerials(query, handleSerialSelect, { alarmOnly: alarmOnlyFilterActive });
+  filterSerials(query, handleSerialSelect, { alarmOnly: alarmOnlyFilterActive }, loadMultipleSerialDetails);
 }
 
 function handleAlarmOnlyToggle() {
