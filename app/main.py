@@ -121,6 +121,11 @@ def settings(request: Request):
     """Render the settings UI."""
     return templates.TemplateResponse("settings.html", {"request": request})
 
+@app.get("/details")
+def details(request: Request):
+    """Render the Historic Details UI"""
+    return templates.TemplateResponse("historic_details.html", {"request": request})
+
 @app.get("/export/Live/{serial}")
 def export_serial(serial: str):
     """Export records for a serial as CSV."""
