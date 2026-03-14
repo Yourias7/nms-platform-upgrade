@@ -9,6 +9,7 @@ let sortDirection = 'asc';
 let selectedSerial = 'all';
 let currentHistoricData = [];
 let headersAttached = false;
+let currentAbortController = null; // Track ongoing requests
 
 function getSelectedSerial() {
   const params = new URLSearchParams(window.location.search);
@@ -527,13 +528,27 @@ async function renderTableForSerial(serial) {
     return;
   }
 
+  // Cancel any ongoing request
+  if (currentAbortController) {
+    currentAbortController.abort();
+  }
+  
+  // Create new AbortController for this request
+  currentAbortController = new AbortController();
+  const signal = currentAbortController.signal;
+
   setPlaybackMessage('Loading data...', 'muted');
 
   try {
-    const data = await fetchHistoricSerialData(serial, startDate, endDate);
+    const data = await fetchHistoricSerialData(serial, startDate, endDate, signal);
     renderHistoricTable(data, serial);
     hideDetailsLoading();
   } catch (error) {
+    // Don't show error message if request was cancelled
+    if (error.name === 'AbortError') {
+      console.log('[Historic Details] Request cancelled');
+      return;
+    }
     console.error('Error loading historic data:', error);
     setPlaybackMessage('Error loading data.', 'danger');
     hideDetailsLoading();

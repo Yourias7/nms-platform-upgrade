@@ -7,6 +7,7 @@ import { getThresholds } from './settings.js';
 
 // State management
 let alarmChart = null;
+let currentAbortController = null; // Track ongoing requests
 
 // Date range constants
 const MAX_DAYS_BACK = 15;
@@ -99,6 +100,15 @@ function initializeDateInputs() {
  */
 async function fetchAlarmStatistics(startDate, endDate) {
   try {
+    // Cancel any ongoing request
+    if (currentAbortController) {
+      currentAbortController.abort();
+    }
+    
+    // Create new AbortController for this request
+    currentAbortController = new AbortController();
+    const signal = currentAbortController.signal;
+    
     const startDateTime = startDate ? `${startDate}T00:00:00` : '';
     const endDateTime = endDate ? `${endDate}T23:59:59` : '';
     
@@ -114,9 +124,14 @@ async function fetchAlarmStatistics(startDate, endDate) {
     params.append('temp_threshold', thresholds.temp);
     
     const url = `/alarms/statistics?${params.toString()}`;
-    const statistics = await fetchJSON(url);
+    const statistics = await fetchJSON(url, signal);
     return statistics;
   } catch (err) {
+    // Ignore abort errors (expected when cancelling)
+    if (err.name === 'AbortError') {
+      console.log('[Alarm Summary] Request cancelled');
+      throw err;
+    }
     console.error('Error fetching alarm statistics:', err);
     throw err;
   }
@@ -282,6 +297,10 @@ async function loadAlarmStatistics() {
     const statistics = await fetchAlarmStatistics(startDate, endDate);
     renderAlarmChart(statistics);
   } catch (err) {
+    // Don't show error message if request was cancelled
+    if (err.name === 'AbortError') {
+      return;
+    }
     console.error('Error loading alarm statistics:', err);
     showChartError('Error loading alarm statistics');
   }

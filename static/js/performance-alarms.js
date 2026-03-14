@@ -15,6 +15,7 @@ let selectedSerial = 'all';
 let selectedPerformanceAlarmKeys = new Set();
 let allPerformanceAlarms = [];
 let lassoFilteredAlarmKeys = null;
+let currentAbortController = null; // Track ongoing requests
 
 function getPerformanceAlarmKey(alarm) {
   if (!alarm) return null;
@@ -323,6 +324,15 @@ async function initializeSerialDropdown() {
  */
 async function fetchPerformanceAlarms(startDate, endDate, serial = 'all') {
   try {
+    // Cancel any ongoing request
+    if (currentAbortController) {
+      currentAbortController.abort();
+    }
+    
+    // Create new AbortController for this request
+    currentAbortController = new AbortController();
+    const signal = currentAbortController.signal;
+    
     const serials = serial === 'all' ? allSerials : [serial];
     const alarms = [];
     const thresholds = getThresholds();
@@ -337,9 +347,14 @@ async function fetchPerformanceAlarms(startDate, endDate, serial = 'all') {
     console.log('[Performance Alarms] Thresholds:', thresholds);
     
     for (const ser of serials) {
+      // Check if request was cancelled
+      if (signal.aborted) {
+        throw new DOMException('Request cancelled', 'AbortError');
+      }
+      
       try {
-        // Fetch alarm data for date range with thresholds
-        const records = await fetchAlarmSerialData(ser, startDateTime, endDateTime, thresholds);
+        // Fetch alarm data for date range with thresholds, pass signal
+        const records = await fetchAlarmSerialData(ser, startDateTime, endDateTime, thresholds, signal);
         
         if (!records || records.length === 0) continue;
         
@@ -403,6 +418,11 @@ async function fetchPerformanceAlarms(startDate, endDate, serial = 'all') {
     console.log('[Performance Alarms] Found', alarms.length, 'alarms');
     return alarms;
   } catch (err) {
+    // Ignore abort errors (expected when cancelling)
+    if (err.name === 'AbortError') {
+      console.log('[Performance Alarms] Request cancelled');
+      throw err;
+    }
     console.error('Error fetching performance alarms:', err);
     return [];
   }
@@ -688,6 +708,10 @@ async function loadPerformanceAlarms() {
     lassoFilteredAlarmKeys = null;
     renderPerformanceAlarmsTable(getVisiblePerformanceAlarms());
   } catch (err) {
+    // Don't show error message if request was cancelled
+    if (err.name === 'AbortError') {
+      return;
+    }
     console.error('Error loading performance alarms:', err);
     showError('Error loading performance alarms');
   }

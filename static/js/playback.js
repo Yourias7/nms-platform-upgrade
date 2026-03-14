@@ -21,6 +21,7 @@ let serialNameMap = {};
 let mapLegend = null;
 let selectedRSRPAntennas = ['best']; // any of: 'best', '0', '1', '2', '3'
 let selectedSINRAntennas = ['best']; // any of: 'best', '0', '1', '2', '3'
+let currentAbortController = null; // Track ongoing requests
 
 const CHART_SERIES_COLORS = ['#0d6efd', '#198754', '#fd7e14', '#6f42c1', '#dc3545'];
 
@@ -578,7 +579,16 @@ async function loadHistoricData(serial, startDate, endDate) {
     return { serial: '', records: [] };
   }
 
-  const records = await fetchHistoricSerialData(serial, startDate, endDate);
+  // Cancel any ongoing request
+  if (currentAbortController) {
+    currentAbortController.abort();
+  }
+  
+  // Create new AbortController for this request
+  currentAbortController = new AbortController();
+  const signal = currentAbortController.signal;
+
+  const records = await fetchHistoricSerialData(serial, startDate, endDate, signal);
   return { serial, records: sortByDatetime(records || []) };
 }
 
@@ -788,32 +798,46 @@ async function renderChartForSerial(serial) {
   const endDateTime = `${endDate}T23:59:59`;
 
   setPlaybackMessage('Loading data...', 'muted');
-  const { records } = await loadHistoricData(serial, startDateTime, endDateTime);
+  
+  try {
+    const { records } = await loadHistoricData(serial, startDateTime, endDateTime);
 
-  if (!records || records.length === 0) {
-    setPlaybackMessage('No historic records found for the selected date range.', 'muted');
-    // Hide loading overlays
+    if (!records || records.length === 0) {
+      setPlaybackMessage('No historic records found for the selected date range.', 'muted');
+      // Hide loading overlays
+      hideMapLoading();
+      hideRSRPLoading();
+      hideSINRLoading();
+      return;
+    }
+
+    // Update map with data points
+    currentRecords = records;
+    updateMapWithData(records);
+
+    if (!activeLassoLayer) {
+      lassoSelectedRecords = null;
+      renderChartsAndDataCards(records);
+      setPlaybackMessage('', 'muted');
+    }
+
+    console.log('[Playback] Chart updated', serial ? `for ${serial}` : '');
+    // Hide loading overlays after data is loaded
     hideMapLoading();
     hideRSRPLoading();
     hideSINRLoading();
-    return;
+  } catch (error) {
+    // Don't show error message if request was cancelled
+    if (error.name === 'AbortError') {
+      console.log('[Playback] Request cancelled');
+      return;
+    }
+    console.error('[Playback] Error loading data:', error);
+    setPlaybackMessage('Error loading data.', 'danger');
+    hideMapLoading();
+    hideRSRPLoading();
+    hideSINRLoading();
   }
-
-  // Update map with data points
-  currentRecords = records;
-  updateMapWithData(records);
-
-  if (!activeLassoLayer) {
-    lassoSelectedRecords = null;
-    renderChartsAndDataCards(records);
-    setPlaybackMessage('', 'muted');
-  }
-
-  console.log('[Playback] Chart updated', serial ? `for ${serial}` : '');
-  // Hide loading overlays after data is loaded
-  hideMapLoading();
-  hideRSRPLoading();
-  hideSINRLoading();
 }
 
 async function initChart() {

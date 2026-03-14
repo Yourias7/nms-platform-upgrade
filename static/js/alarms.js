@@ -34,17 +34,10 @@ function dispatchRowSelectionEvent() {
 function updateClearFiltersButtonState() {
   const clearBtn = document.getElementById('clearAlarmFiltersBtn');
   if (!clearBtn) {
-    console.log('[Alarms] updateClearFiltersButtonState: button not found');
     return;
   }
   const newState = selectedAlarmKeys.size === 0;
-  console.log('[Alarms] updateClearFiltersButtonState:', {
-    selectedKeysSize: selectedAlarmKeys.size,
-    settingDisabledTo: newState,
-    wasDisabled: clearBtn.disabled
-  });
   clearBtn.disabled = newState;
-  console.log('[Alarms] Button disabled is now:', clearBtn.disabled);
 }
 
 function clearAlarmFilters() {
@@ -357,17 +350,13 @@ export function renderAlarmsTable(alarms) {
           `;
 
     row.addEventListener('click', () => {
-      console.log('[Alarms] Row clicked');
       if (selectedAlarmKeys.has(alarmKey)) {
         selectedAlarmKeys.delete(alarmKey);
-        console.log('[Alarms] Deleted key, new size:', selectedAlarmKeys.size);
       } else {
         selectedAlarmKeys.add(alarmKey);
-        console.log('[Alarms] Added key, new size:', selectedAlarmKeys.size);
       }
 
       renderAlarmsTable(currentAlarms);
-      console.log('[Alarms] After renderAlarmsTable, calling updateClearFiltersButtonState');
       updateClearFiltersButtonState();
       dispatchRowSelectionEvent();
     });

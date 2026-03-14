@@ -42,13 +42,10 @@ function updateMapFilterStatus(alarm) {
   // Only manage button state for performance alarms page
   // Communication alarms page manages its own button state in alarms.js
   if (isPerformancePage()) {
-    console.log('[alarm-map] updateMapFilterStatus: managing button for performance page');
     const clearBtn = document.getElementById('clearAlarmFiltersBtn');
     if (clearBtn) {
       clearBtn.disabled = selectedCount === 0;
     }
-  } else {
-    console.log('[alarm-map] updateMapFilterStatus: NOT managing button (communication alarms page)');
   }
 }
 
