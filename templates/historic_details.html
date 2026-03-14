@@ -26,6 +26,14 @@
 </head>
 
 <body> 
+
+  <!-- Loading overlay -->
+  <div id="loadingOverlay" class="loading-overlay">
+    <div class="loading-spinner">
+      <div class="spinner-circle"></div>
+      <div class="loading-text">Loading systems...</div>
+    </div>
+  </div>
   <!-- Animated glowing orbs -->
   <div class="glow-orb glow-orb-1"></div>
   <div class="glow-orb glow-orb-2"></div>
@@ -58,6 +66,17 @@
   </nav>
 
   <main class="container">
+    <!-- Back Button -->
+    <div class="row mb-3">
+      <div class="col-12">
+        <a href="/playback" class="back-btn" style="display: inline-flex; align-items: center; text-decoration: none;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-left" viewBox="0 0 16 16" style="margin-right: 6px;">
+            <path fill-rule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8z"/>
+          </svg>
+          Back to Playback
+        </a>
+      </div>
+    </div>
     <!-- Historic Details Content -->
      <!-- Playback Content -->
     <div class="row g-2 align-items-end mb-3">
@@ -99,7 +118,14 @@
                   CSV</a>
               </div>
             </div>
-            <div id="detailsArea">
+            <!-- Details loading overlay -->
+            <div id="detailsLoadingOverlay" class="details-loading-overlay hidden">
+              <div class="loading-spinner">
+                <div class="spinner-circle"></div>
+                <div class="loading-text">Loading Historic details...</div>
+              </div>
+            </div>
+            <div id="detailsArea" class="text-center text-muted p-4">
               <table id="historicTable" class="table table-sm table-striped" style="display:none">
                 <thead id="historicTableHead">
                   <tr>

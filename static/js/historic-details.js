@@ -7,12 +7,8 @@ let serialNameMap = {};
 let sortColumn = null;
 let sortDirection = 'asc';
 let selectedSerial = 'all';
-
-function updateClearFiltersButtonState() {
-  const clearBtn = document.getElementById('clearSelectedBtn');
-  if (!clearBtn) return;
-  clearBtn.disabled = selectedPerformanceAlarmKeys.size === 0 && (!lassoFilteredAlarmKeys || lassoFilteredAlarmKeys.size === 0);
-}
+let currentHistoricData = [];
+let headersAttached = false;
 
 function getSelectedSerial() {
   const params = new URLSearchParams(window.location.search);
@@ -183,19 +179,6 @@ function renderDropdownOptions(serials, nameMap = {}) {
   });
 }
 
-function bindClearAlarmFiltersButton() {
-  const clearBtn = document.getElementById('clearSelectedBtn');
-  if (!clearBtn) return;
-  if (clearBtn.dataset.performanceBound === '1') return;
-  clearBtn.dataset.performanceBound = '1';
-
-  clearBtn.addEventListener('click', (event) => {
-    event.preventDefault();
-    clearPerformanceRowFilters();
-  });
-}
-
-
 function updateSerialInUrl(serial) {
   const params = new URLSearchParams(window.location.search);
   if (serial) {
@@ -226,6 +209,169 @@ function updateDatesInUrl(startDate, endDate) {
 }
 
 /**
+ * Show details loading overlay
+ */
+function showDetailsLoading() {
+  const overlay = document.getElementById('detailsLoadingOverlay');
+  if (overlay) {
+    overlay.classList.remove('hidden');
+  }
+}
+
+/**
+ * Hide details loading overlay
+ */
+function hideDetailsLoading() {
+  const overlay = document.getElementById('detailsLoadingOverlay');
+  if (overlay) {
+    overlay.classList.add('hidden');
+  }
+}
+
+/**
+ * Update sort indicators on table headers
+ */
+function updateSortIndicators() {
+  const headers = document.querySelectorAll('#historicTableHead th');
+  headers.forEach(th => {
+    th.classList.remove('sort-asc', 'sort-desc');
+    const columnName = th.dataset.column;
+    
+    // Remove any existing arrow and reset to base column name
+    const baseColumnName = th.dataset.column;
+    th.textContent = baseColumnName;
+    
+    // Add arrow if this is the sorted column
+    if (columnName === sortColumn) {
+      th.classList.add(sortDirection === 'asc' ? 'sort-asc' : 'sort-desc');
+      const arrow = sortDirection === 'asc' ? ' ▲' : ' ▼';
+      th.textContent = baseColumnName + arrow;
+    }
+  });
+}
+
+/**
+ * Attach click handlers to table headers for sorting
+ */
+function attachHeaderClickHandlers() {
+  if (headersAttached) return; // Only attach once
+  
+  const headers = document.querySelectorAll('#historicTableHead th');
+  headers.forEach(th => {
+    const columnName = th.textContent.trim();
+    th.dataset.column = columnName; // Store base column name
+    th.style.cursor = 'pointer';
+    th.style.userSelect = 'none';
+    
+    // Add click listener
+    th.addEventListener('click', () => {
+      sortHistoric(columnName);
+    });
+  });
+  
+  headersAttached = true;
+}
+
+
+/**
+ * Sort historic data by column
+ * @param {string} column - Column name to sort by
+ */
+function sortHistoric(column) {
+  if (sortColumn === column) {
+    sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+  } else {
+    sortColumn = column;
+    sortDirection = 'asc';
+  }
+  
+  currentHistoricData.sort((a, b) => {
+    let valA, valB;
+    
+    switch(column) {
+      case 'SERIAL':
+        valA = (a.SERIAL || '').toLowerCase();
+        valB = (b.SERIAL || '').toLowerCase();
+        break;
+      case 'NAME':
+        valA = (a.NAME || '').toLowerCase();
+        valB = (b.NAME || '').toLowerCase();
+        break;
+      case 'DATETIME':
+        valA = a.DATETIME === 'Unknown' ? 0 : new Date(a.DATETIME).getTime();
+        valB = b.DATETIME === 'Unknown' ? 0 : new Date(b.DATETIME).getTime();
+        break;
+      case 'RSRP':
+        valA = a.RSRP === null ? -Infinity : a.RSRP;
+        valB = b.RSRP === null ? -Infinity : b.RSRP;
+        break;
+      case 'SINR':
+        valA = a.SINR === null ? -Infinity : a.SINR;
+        valB = b.SINR === null ? -Infinity : b.SINR;
+        break;
+      case 'TEMP':
+        valA = a.TEMP === null ? -Infinity : a.TEMP;
+        valB = b.TEMP === null ? -Infinity : b.TEMP;
+        break;
+      case 'HEADING':
+        valA = a.HEADING === null ? -Infinity : a.HEADING;
+        valB = b.HEADING === null ? -Infinity : b.HEADING;
+        break;
+      case 'LATITUDE':
+        valA = a.LATITUDE === null ? -Infinity : a.LATITUDE;
+        valB = b.LATITUDE === null ? -Infinity : b.LATITUDE;
+        break;
+      case 'LONGITUDE':
+        valA = a.LONGITUDE === null ? -Infinity : a.LONGITUDE;
+        valB = b.LONGITUDE === null ? -Infinity : b.LONGITUDE;
+        break;
+      case 'S0RSRP':
+        valA = a.S0RSRP === null ? -Infinity : a.S0RSRP;
+        valB = b.S0RSRP === null ? -Infinity : b.S0RSRP;
+        break;
+      case 'S0SINR':
+        valA = a.S0SINR === null ? -Infinity : a.S0SINR;
+        valB = b.S0SINR === null ? -Infinity : b.S0SINR;
+        break;
+      case 'S1RSRP':
+        valA = a.S1RSRP === null ? -Infinity : a.S1RSRP;
+        valB = b.S1RSRP === null ? -Infinity : b.S1RSRP;
+        break; 
+      case 'S1SINR':
+        valA = a.S1SINR === null ? -Infinity : a.S1SINR;
+        valB = b.S1SINR === null ? -Infinity : b.S1SINR;
+        break;
+      case 'S2RSRP':
+        valA = a.S2RSRP === null ? -Infinity : a.S2RSRP;
+        valB = b.S2RSRP === null ? -Infinity : b.S2RSRP;
+        break;
+      case 'S2SINR':
+        valA = a.S2SINR === null ? -Infinity : a.S2SINR;
+        valB = b.S2SINR === null ? -Infinity : b.S2SINR;
+        break;
+      case 'S3RSRP':
+        valA = a.S3RSRP === null ? -Infinity : a.S3RSRP;
+        valB = b.S3RSRP === null ? -Infinity : b.S3RSRP;
+        break;
+      case 'S3SINR':
+        valA = a.S3SINR === null ? -Infinity : a.S3SINR;
+        valB = b.S3SINR === null ? -Infinity : b.S3SINR;
+        break;
+      default:
+        return 0;
+    }
+    
+    if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
+    if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
+    return 0;
+  });
+  
+  renderHistoricTable(currentHistoricData, getSelectedSerial());
+  updateSortIndicators();
+}
+
+
+/**
  * Render historic data table
  * @param {Array} data - Array of historic record objects
  * @param {string} serial - Serial number for export
@@ -235,6 +381,9 @@ function renderHistoricTable(data, serial) {
   const tbody = document.getElementById('historicTableBody');
   const noDataMessage = document.getElementById('noDataMessage');
   const exportBtn = document.getElementById('exportBtn');
+
+  // Store data for sorting
+  currentHistoricData = data || [];
 
   if (!data || data.length === 0) {
     table.style.display = 'none';
@@ -351,6 +500,10 @@ function renderHistoricTable(data, serial) {
   exportBtn.href = getHistoricExportUrl(serial);
 
   setPlaybackMessage(`Found ${data.length} records`, 'success');
+  
+  // Attach click handlers to headers for sorting
+  attachHeaderClickHandlers();
+  updateSortIndicators();
 }
 
 /**
@@ -358,8 +511,10 @@ function renderHistoricTable(data, serial) {
  * @param {string} serial - Serial number
  */
 async function renderTableForSerial(serial) {
+  showDetailsLoading();
   if (!serial || serial === 'all') {
     setPlaybackMessage('Please select a specific system.', 'warning');
+    hideDetailsLoading();
     return;
   }
 
@@ -368,6 +523,7 @@ async function renderTableForSerial(serial) {
 
   if (!startDate || !endDate) {
     setPlaybackMessage('Please select both start and end dates.', 'warning');
+    hideDetailsLoading();
     return;
   }
 
@@ -376,64 +532,12 @@ async function renderTableForSerial(serial) {
   try {
     const data = await fetchHistoricSerialData(serial, startDate, endDate);
     renderHistoricTable(data, serial);
+    hideDetailsLoading();
   } catch (error) {
     console.error('Error loading historic data:', error);
     setPlaybackMessage('Error loading data.', 'danger');
+    hideDetailsLoading();
   }
-}
-
-/**
- * Initialize date inputs with last 15 days range
- */
-function initializeDateInputs() {
-  const startDateInput = document.getElementById('startDateInput');
-  const endDateInput = document.getElementById('endDateInput');
-  
-  if (!startDateInput || !endDateInput) return;
-  
-  const today = new Date();
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
-  const maxDaysBack = new Date(today);
-  maxDaysBack.setDate(maxDaysBack.getDate() - MAX_DAYS_BACK);
-  
-  // Format dates as YYYY-MM-DD
-  const formatDate = (date) => date.toISOString().split('T')[0];
-  
-  // Set default range to yesterday (start of yesterday to now)
-  startDateInput.value = formatDate(yesterday);
-  endDateInput.value = formatDate(today);
-  
-  // Set min/max constraints
-  startDateInput.min = formatDate(maxDaysBack);
-  startDateInput.max = formatDate(today);
-  endDateInput.min = formatDate(maxDaysBack);
-  endDateInput.max = formatDate(today);
-  
-  // Ensure end date >= start date and within 15 days
-  startDateInput.addEventListener('change', () => {
-    if (endDateInput.value < startDateInput.value) {
-      endDateInput.value = startDateInput.value;
-    }
-    // Validate start date is not older than 15 days
-    const startDate = new Date(startDateInput.value);
-    if (startDate < maxDaysBack) {
-      startDateInput.value = formatDate(maxDaysBack);
-      alert('Start date cannot be more than 15 days in the past');
-    }
-  });
-  
-  endDateInput.addEventListener('change', () => {
-    if (endDateInput.value < startDateInput.value) {
-      startDateInput.value = endDateInput.value;
-    }
-    // Validate end date is not in the future
-    const endDate = new Date(endDateInput.value);
-    if (endDate > today) {
-      endDateInput.value = formatDate(today);
-      alert('End date cannot be in the future');
-    }
-  });
 }
 
 /**
