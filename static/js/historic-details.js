@@ -1,7 +1,8 @@
-import { fetchJSON, fetchHistoricSerialsList , fetchSerialNameMap, fetchHistoricSerialData, getHistoricExportUrl } from './api.js';
+import { fetchJSON, fetchHistoricSerialsList , fetchSerialNameMap, fetchHistoricSerialData, fetchPagedHistoricAllData, getHistoricExportUrl } from './api.js';
 import { CONFIG } from './config.js';
 
 const MAX_DAYS_BACK = 15;
+const PAGE_SIZE = 500;
 let allSerials = [];
 let serialNameMap = {};
 let sortColumn = null;
@@ -10,6 +11,9 @@ let selectedSerial = 'all';
 let currentHistoricData = [];
 let headersAttached = false;
 let currentAbortController = null; // Track ongoing requests
+let currentPage = 1;
+let currentActiveSerial = '';
+let currentTotal = null; // total records for paginated 'all' view
 
 function getSelectedSerial() {
   const params = new URLSearchParams(window.location.search);
@@ -210,6 +214,65 @@ function updateDatesInUrl(startDate, endDate) {
 }
 
 /**
+ * Render Bootstrap pagination controls below the table
+ */
+function renderPaginator(total, page, pageSize) {
+  let container = document.getElementById('paginationControls');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'paginationControls';
+    const detailsArea = document.getElementById('detailsArea');
+    if (detailsArea) detailsArea.appendChild(container);
+  }
+
+  const totalPages = Math.ceil(total / pageSize);
+  if (total <= pageSize || totalPages <= 1) {
+    container.innerHTML = '';
+    return;
+  }
+
+  const nav = document.createElement('nav');
+  nav.setAttribute('aria-label', 'Historic data pagination');
+  const ul = document.createElement('ul');
+  ul.className = 'pagination pagination-sm justify-content-center mt-2 flex-wrap';
+
+  // Prev button
+  const prevLi = document.createElement('li');
+  prevLi.className = `page-item${page === 1 ? ' disabled' : ''}`;
+  const prevBtn = document.createElement('button');
+  prevBtn.type = 'button';
+  prevBtn.className = 'page-link';
+  prevBtn.textContent = '← Prev';
+  if (page > 1) prevBtn.addEventListener('click', () => renderTableForSerial(currentActiveSerial, page - 1));
+  prevLi.appendChild(prevBtn);
+  ul.appendChild(prevLi);
+
+  // Page info
+  const infoLi = document.createElement('li');
+  infoLi.className = 'page-item disabled';
+  const infoSpan = document.createElement('span');
+  infoSpan.className = 'page-link';
+  infoSpan.textContent = `Page ${page} of ${totalPages} — ${total} records`;
+  infoLi.appendChild(infoSpan);
+  ul.appendChild(infoLi);
+
+  // Next button
+  const nextLi = document.createElement('li');
+  nextLi.className = `page-item${page === totalPages ? ' disabled' : ''}`;
+  const nextBtn = document.createElement('button');
+  nextBtn.type = 'button';
+  nextBtn.className = 'page-link';
+  nextBtn.textContent = 'Next →';
+  if (page < totalPages) nextBtn.addEventListener('click', () => renderTableForSerial(currentActiveSerial, page + 1));
+  nextLi.appendChild(nextBtn);
+  ul.appendChild(nextLi);
+
+  nav.appendChild(ul);
+  container.innerHTML = '';
+  container.appendChild(nav);
+}
+
+/**
  * Show details loading overlay
  */
 function showDetailsLoading() {
@@ -367,7 +430,7 @@ function sortHistoric(column) {
     return 0;
   });
   
-  renderHistoricTable(currentHistoricData, getSelectedSerial());
+  renderHistoricTable(currentHistoricData, getSelectedSerial(), currentTotal);
   updateSortIndicators();
 }
 
@@ -376,15 +439,17 @@ function sortHistoric(column) {
  * Render historic data table
  * @param {Array} data - Array of historic record objects
  * @param {string} serial - Serial number for export
+ * @param {number|null} total - Total records across all pages (null for single-serial view)
  */
-function renderHistoricTable(data, serial) {
+function renderHistoricTable(data, serial, total = null) {
   const table = document.getElementById('historicTable');
   const tbody = document.getElementById('historicTableBody');
   const noDataMessage = document.getElementById('noDataMessage');
   const exportBtn = document.getElementById('exportBtn');
 
-  // Store data for sorting
+  // Store data and total for sorting
   currentHistoricData = data || [];
+  currentTotal = total;
 
   if (!data || data.length === 0) {
     table.style.display = 'none';
@@ -497,10 +562,16 @@ function renderHistoricTable(data, serial) {
   // Show table, hide message
   table.style.display = 'table';
   noDataMessage.style.display = 'none';
-  exportBtn.style.display = 'inline-block';
-  exportBtn.href = getHistoricExportUrl(serial);
 
-  setPlaybackMessage(`Found ${data.length} records`, 'success');
+  if (serial === 'all') {
+    exportBtn.style.display = 'none';
+  } else {
+    exportBtn.style.display = 'inline-block';
+    exportBtn.href = getHistoricExportUrl(serial);
+  }
+  const totalPages = Math.ceil(total / PAGE_SIZE);
+  renderPaginator(total, currentPage, PAGE_SIZE);
+  setPlaybackMessage(`Page ${currentPage} of ${totalPages} — ${total} total records`, 'success');
   
   // Attach click handlers to headers for sorting
   attachHeaderClickHandlers();
@@ -509,15 +580,18 @@ function renderHistoricTable(data, serial) {
 
 /**
  * Load and render historic data for a serial
- * @param {string} serial - Serial number
+ * @param {string} serial - Serial number (or 'all')
+ * @param {number} [page] - Page number for paginated 'all' view (default 1)
  */
-async function renderTableForSerial(serial) {
+async function renderTableForSerial(serial, page = 1) {
   showDetailsLoading();
-  if (!serial || serial === 'all') {
-    setPlaybackMessage('Please select a specific system.', 'warning');
+  if (!serial) {
+    setPlaybackMessage('Please select a system.', 'warning');
     hideDetailsLoading();
     return;
   }
+
+  currentActiveSerial = serial;
 
   const startDate = getStartDateInputValue();
   const endDate = getEndDateInputValue();
@@ -532,7 +606,7 @@ async function renderTableForSerial(serial) {
   if (currentAbortController) {
     currentAbortController.abort();
   }
-  
+
   // Create new AbortController for this request
   currentAbortController = new AbortController();
   const signal = currentAbortController.signal;
@@ -540,8 +614,15 @@ async function renderTableForSerial(serial) {
   setPlaybackMessage('Loading data...', 'muted');
 
   try {
-    const data = await fetchHistoricSerialData(serial, startDate, endDate, signal);
-    renderHistoricTable(data, serial);
+    if (serial === 'all') {
+      currentPage = page;
+      const result = await fetchPagedHistoricAllData(startDate, endDate, page, PAGE_SIZE, signal);
+      renderHistoricTable(result.data, serial, result.total);
+    } else {
+      currentPage = page;
+      const result = await fetchHistoricSerialData(serial, startDate, endDate, page, PAGE_SIZE, signal);
+      renderHistoricTable(result.data, serial, result.total);
+    }
     hideDetailsLoading();
   } catch (error) {
     // Don't show error message if request was cancelled
@@ -573,6 +654,7 @@ async function initializeSerialDropdown() {
     
     // Set default to "All systems"
     serialInput.value = 'All systems';
+    serialInput.dataset.selectedSerial = 'all';
     selectedSerial = 'all';
     
     // Populate dropdown options
@@ -587,6 +669,7 @@ async function initializeSerialDropdown() {
       allOption.onclick = (e) => {
         e.preventDefault();
         serialInput.value = 'All systems';
+        serialInput.dataset.selectedSerial = 'all';
         selectedSerial = 'all';
         serialOptions.style.display = 'none';
       };
@@ -618,6 +701,7 @@ async function initializeSerialDropdown() {
           option.onclick = (e) => {
             e.preventDefault();
             serialInput.value = serialNameMap[serial] || serial;
+            serialInput.dataset.selectedSerial = serial;
             selectedSerial = serial;
             serialOptions.style.display = 'none';
           };

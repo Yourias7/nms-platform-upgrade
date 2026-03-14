@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Request, Response
 import logging
-from app.data_source import get_alarm_records_by_serial, get_alarm_statistics, get_earliest_datetime_for_serial, get_latest_datetime_for_serial, get_historic_records_by_serial, get_live_records_by_serial, list_live_serial_name_pairs, list_live_serials, list_historic_serials, export_live_csv, export_historic_csv, live_serials_with_locations, historic_serials_with_locations
+from app.data_source import get_alarm_records_by_serial, get_alarm_statistics, get_earliest_datetime_for_serial, get_latest_datetime_for_serial, get_historic_records_by_serial, get_all_historic_records, get_live_records_by_serial, list_live_serial_name_pairs, list_live_serials, list_historic_serials, export_live_csv, export_historic_csv, live_serials_with_locations, historic_serials_with_locations
 from fastapi.responses import StreamingResponse, FileResponse, RedirectResponse
 import io
 import mimetypes
@@ -31,11 +31,20 @@ def get_system(serial: str):
     logger.info(f"Retrieved {len(data)} records for SERIAL: {serial}")
     return data
 
+@app.get("/playback/Historic/all/{early}/{latest}")
+def get_all_systems_paged(early: str, latest: str, page: int = 1, limit: int = 500):
+    """Return paginated historic records for all systems."""
+    offset = (page - 1) * limit
+    result = get_all_historic_records(early=early, latest=latest, limit=limit, offset=offset)
+    logger.info(f"Returning {len(result['data'])} records (page {page}) out of {result['total']} total for ALL systems")
+    return result
+
 @app.get("/playback/Historic/{serial}/{early}/{latest}")
-def get_system(serial: str, early: str, latest: str):
-    data = get_historic_records_by_serial(serial, early=early, latest=latest)
-    logger.info(f"Retrieved {len(data)} records for SERIAL: {serial}")
-    return data
+def get_system(serial: str, early: str, latest: str, page: int = 1, limit: int = 500):
+    offset = (page - 1) * limit
+    result = get_historic_records_by_serial(serial, early=early, latest=latest, limit=limit, offset=offset)
+    logger.info(f"Retrieved {len(result['data'])} records (page {page}) out of {result['total']} total for SERIAL: {serial}")
+    return result
 
 @app.get("/alarms/systems/{serial}/{early}/{latest}")
 def get_alarm_systems(serial: str, early: str, latest: str, rsrp_threshold: float = -120, sinr_threshold: float = 0, temp_threshold: float = 75):

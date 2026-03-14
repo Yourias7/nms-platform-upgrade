@@ -67,6 +67,22 @@ export async function fetchLatestSerialData(serial) {
 }
 
 /**
+ * Fetch paginated historic records for ALL systems
+ * @param {string} early - Start date (YYYY-MM-DD)
+ * @param {string} latest - End date (YYYY-MM-DD)
+ * @param {number} page - 1-based page number
+ * @param {number} limit - Records per page
+ * @param {AbortSignal} [signal] - Optional AbortSignal for cancellation
+ * @returns {Promise<{data: Object[], total: number}>}
+ */
+export async function fetchPagedHistoricAllData(early, latest, page = 1, limit = 500, signal = null) {
+  const options = signal ? { signal } : {};
+  const url = `/playback/Historic/all/${encodeURIComponent(early)}/${encodeURIComponent(latest)}?page=${page}&limit=${limit}`;
+  const res = await fetch(url, options);
+  return await res.json();
+}
+
+/**
  * Fetch all historic records for a specific serial
  * @param {string} serial - Serial number to fetch
  * @param {string} early - Start datetime (ISO format)
@@ -74,9 +90,20 @@ export async function fetchLatestSerialData(serial) {
  * @param {AbortSignal} [signal] - Optional AbortSignal for cancellation
  * @returns {Promise<Object[]>} Array of record objects
  */
-export async function fetchHistoricSerialData(serial, early, latest, signal = null) {
+/**
+ * Fetch paginated historic records for a specific serial
+ * @param {string} serial - Serial number to fetch
+ * @param {string} early - Start datetime (ISO format)
+ * @param {string} latest - End datetime (ISO format)
+ * @param {number} page - 1-based page number
+ * @param {number} limit - Records per page
+ * @param {AbortSignal} [signal] - Optional AbortSignal for cancellation
+ * @returns {Promise<{data: Object[], total: number}>}
+ */
+export async function fetchHistoricSerialData(serial, early, latest, page = 1, limit = 500, signal = null) {
   const options = signal ? { signal } : {};
-  const res = await fetch(`${CONFIG.API.HISTORIC_SYSTEMS}/${encodeURIComponent(serial)}/${encodeURIComponent(early)}/${encodeURIComponent(latest)}`, options);
+  const url = `${CONFIG.API.HISTORIC_SYSTEMS}/${encodeURIComponent(serial)}/${encodeURIComponent(early)}/${encodeURIComponent(latest)}?page=${page}&limit=${limit}`;
+  const res = await fetch(url, options);
   return await res.json();
 }
 
