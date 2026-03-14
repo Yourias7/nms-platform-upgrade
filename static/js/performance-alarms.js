@@ -53,6 +53,7 @@ function clearPerformanceRowFilters() {
   lassoFilteredAlarmKeys = null;
   window.dispatchEvent(new CustomEvent('performance-alarms:clear-lasso'));
   renderPerformanceAlarmsTable(getVisiblePerformanceAlarms());
+  updateClearAlarmFiltersButtonState();
   dispatchPerformanceRowSelection();
 }
 
@@ -481,6 +482,9 @@ function renderPerformanceAlarmsTable(alarms) {
     Array.from(selectedPerformanceAlarmKeys).filter(key => availableKeys.has(key))
   );
   
+  // Update button state after filtering selection
+  updateClearAlarmFiltersButtonState();
+  
   if (!alarms || alarms.length === 0) {
     selectedPerformanceAlarmKeys = new Set();
     updateClearAlarmFiltersButtonState();
@@ -635,6 +639,7 @@ function renderPerformanceAlarmsTable(alarms) {
       }
 
       renderPerformanceAlarmsTable(currentPerformanceAlarms);
+      updateClearAlarmFiltersButtonState();
       dispatchPerformanceRowSelection();
     });
     

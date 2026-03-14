@@ -39,9 +39,16 @@ function updateMapFilterStatus(alarm) {
     }
   }
 
-  const clearBtn = document.getElementById('clearAlarmFiltersBtn');
-  if (clearBtn) {
-    clearBtn.disabled = selectedCount === 0;
+  // Only manage button state for performance alarms page
+  // Communication alarms page manages its own button state in alarms.js
+  if (isPerformancePage()) {
+    console.log('[alarm-map] updateMapFilterStatus: managing button for performance page');
+    const clearBtn = document.getElementById('clearAlarmFiltersBtn');
+    if (clearBtn) {
+      clearBtn.disabled = selectedCount === 0;
+    }
+  } else {
+    console.log('[alarm-map] updateMapFilterStatus: NOT managing button (communication alarms page)');
   }
 }
 
@@ -515,7 +522,7 @@ async function handleTableRendered(event) {
 
   if (alarmsToPlot.length > 0) {
     await loadVesselsAndPlot(alarmsToPlot);
-    updateMapFilterStatus(isPerformancePage() ? alarmsToPlot : []);
+    updateMapFilterStatus(alarmsToPlot);
     console.log('[alarm-map] Map updated with alarm data');
   } else {
     clearMarkers();
@@ -574,10 +581,14 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   updateMapFilterStatus([]);
 
-  const clearBtn = document.getElementById('clearAlarmFiltersBtn');
-  if (clearBtn) {
-    clearBtn.style.display = '';
-    clearBtn.disabled = true;
+  // Only manage button initialization for performance alarms page
+  // Communication alarms page handles its own button state in alarms.js
+  if (isPerformancePage()) {
+    const clearBtn = document.getElementById('clearAlarmFiltersBtn');
+    if (clearBtn) {
+      clearBtn.style.display = '';
+      clearBtn.disabled = true;
+    }
   }
 
   if (!map) {

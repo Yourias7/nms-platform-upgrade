@@ -33,14 +33,25 @@ function dispatchRowSelectionEvent() {
 
 function updateClearFiltersButtonState() {
   const clearBtn = document.getElementById('clearAlarmFiltersBtn');
-  if (!clearBtn) return;
-  clearBtn.disabled = selectedAlarmKeys.size === 0;
+  if (!clearBtn) {
+    console.log('[Alarms] updateClearFiltersButtonState: button not found');
+    return;
+  }
+  const newState = selectedAlarmKeys.size === 0;
+  console.log('[Alarms] updateClearFiltersButtonState:', {
+    selectedKeysSize: selectedAlarmKeys.size,
+    settingDisabledTo: newState,
+    wasDisabled: clearBtn.disabled
+  });
+  clearBtn.disabled = newState;
+  console.log('[Alarms] Button disabled is now:', clearBtn.disabled);
 }
 
 function clearAlarmFilters() {
   if (selectedAlarmKeys.size === 0) return;
   selectedAlarmKeys = new Set();
   renderAlarmsTable(currentAlarms);
+  updateClearFiltersButtonState();
   dispatchRowSelectionEvent();
 }
 
@@ -265,6 +276,9 @@ export function renderAlarmsTable(alarms) {
     Array.from(selectedAlarmKeys).filter(key => availableAlarmKeys.has(key))
   );
   
+  // Update button state after filtering selection
+  updateClearFiltersButtonState();
+  
   if (!alarms || alarms.length === 0) {
     selectedAlarmKeys = new Set();
     updateClearFiltersButtonState();
@@ -343,13 +357,18 @@ export function renderAlarmsTable(alarms) {
           `;
 
     row.addEventListener('click', () => {
+      console.log('[Alarms] Row clicked');
       if (selectedAlarmKeys.has(alarmKey)) {
         selectedAlarmKeys.delete(alarmKey);
+        console.log('[Alarms] Deleted key, new size:', selectedAlarmKeys.size);
       } else {
         selectedAlarmKeys.add(alarmKey);
+        console.log('[Alarms] Added key, new size:', selectedAlarmKeys.size);
       }
 
       renderAlarmsTable(currentAlarms);
+      console.log('[Alarms] After renderAlarmsTable, calling updateClearFiltersButtonState');
+      updateClearFiltersButtonState();
       dispatchRowSelectionEvent();
     });
 
@@ -371,60 +390,6 @@ export function renderAlarmsTable(alarms) {
     }
   }));
 }
-
-
-// /**
-//  * Render performance alarms table
-//  * @param {Array} per_alarms - Array of performance alarm objects
-//  */
-// export function renderPerformanceAlarmsTable(per_alarms) {
-//   const alarmsArea = document.getElementById('alarmsArea_performance');
-  
-//   if (!alarmsArea) {
-//     console.warn('[Alarms] Alarms area element not found');
-//     return;
-//   }
-  
-//   if (!per_alarms || per_alarms.length === 0) {
-//     alarmsArea.innerHTML = '<div class="text-center text-muted p-4">No active alarms</div>';
-//     return;
-//   }
-  
-//   // Create table
-//   const table = document.createElement('table');
-//   table.className = 'table table-sm table-striped';
-  
-//   // Create header
-//   const thead = document.createElement('thead');
-
-//   thead.innerHTML = `
-//     <tr>
-//       <th>Site</th>
-//       <th>Status</th>
-//     </tr>
-//   `;
-//   table.appendChild(thead);
-  
-//   // Create body
-//   const tbody = document.createElement('tbody');
-  
-  
-//   per_alarms.forEach(alarm => {
-//     const row = document.createElement('tr');
-//     row.innerHTML = `
-//       <td>${alarm.site}</td>
-//       <td><span class="badge bg-danger">${alarm.status}</span></td>
-//       <td>${alarm.lastUpdate ? new Date(alarm.lastUpdate).toISOString().replace('T', ' ').slice(0, 19) : 'Never'}</td>
-//           `;
-//     tbody.appendChild(row);
-//   });
-  
-//   table.appendChild(tbody);
-  
-//   // Clear and add table
-//   alarmsArea_performance.innerHTML = '';
-//   alarmsArea_performance.appendChild(table);
-// }
 
 /**
  * Update alarm count badge in navbar
