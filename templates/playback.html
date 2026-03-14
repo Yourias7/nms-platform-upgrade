@@ -130,7 +130,7 @@
                 <div>
                   <h5 class="card-title" style="margin: 0;">RSRP Data Playback</h5>
                   <p class="text-muted mb-0" style="font-size: 13px;">RSRP signal strength over time</p>
-                  <p class="text-muted mb-0" style="font-size: 11px;">Tip: Click multiple antennas to compare lines.</p>
+                  <p class="text-muted mb-0" style="font-size: 11px;">Tip: Click-drag to select multiple points, or click individual points.</p>
                 </div>
                 <div class="antenna-toggle" id="rsrpAntennaToggle">
                   <button class="antenna-toggle-btn active" data-antenna="best">Best</button>
@@ -148,6 +148,9 @@
                 </div>
               </div>
               <div id="playbackRSRPChartContainer" style="position: relative; height: 200px;">
+                <button id="clearChartSelectionBtn" class="btn btn-sm btn-danger" style="position: absolute; top: 5px; right: 5px; z-index: 10; font-size: 11px; padding: 3px 10px; display: none; opacity: 0.9;" title="Clear selected points">
+                  ✕ Clear
+                </button>
                 <canvas id="rsrpChart"></canvas>
               </div>
             </div>
@@ -158,7 +161,7 @@
                 <div>
                   <h5 class="card-title" style="margin: 0;">SINR Data Playback</h5>
                   <p class="text-muted mb-0" style="font-size: 13px;">SINR signal-to-noise ratio over time</p>
-                  <p class="text-muted mb-0" style="font-size: 11px;">Tip: Click multiple antennas to compare lines.</p>
+                  <p class="text-muted mb-0" style="font-size: 11px;">Tip: Click-drag to select multiple points, or click individual points.</p>
                 </div>
                 <div class="antenna-toggle" id="sinrAntennaToggle">
                   <button class="antenna-toggle-btn active" data-antenna="best">Best</button>
@@ -176,6 +179,9 @@
                 </div>
               </div>
               <div id="playbackSINRChartContainer" style="position: relative; height: 200px;">
+                <button id="clearChartSelectionBtn2" class="btn btn-sm btn-danger" style="position: absolute; top: 5px; right: 5px; z-index: 10; font-size: 11px; padding: 3px 10px; display: none; opacity: 0.9;" title="Clear selected points">
+                  ✕ Clear
+                </button>
                 <canvas id="sinrChart"></canvas>
               </div>
             </div>

@@ -12,6 +12,10 @@ let lassoLayerGroup = null;
 let activeLassoLayer = null;
 let lassoSelectedRecords = null;
 let currentRecords = [];
+let chartSelectedIndices = new Set(); // Track selected chart point indices
+let chartSelectionActive = false; // Track if chart selection is being used
+let chartSelectionMode = false; // Track if box selection mode is active
+let selectionBox = null; // Current selection box coordinates
 let coloringMode = 'rsrp'; // 'rsrp' or 'sinr'
 let serialNameMap = {};
 let mapLegend = null;
@@ -64,6 +68,10 @@ function getAllDatasetValues(datasets) {
 }
 
 function getActiveDisplayRecords() {
+  // Priority: chart selection > lasso selection > all records
+  if (chartSelectionActive && chartSelectedIndices.size > 0) {
+    return Array.from(chartSelectedIndices).map(idx => currentRecords[idx]).filter(r => r);
+  }
   return lassoSelectedRecords !== null ? lassoSelectedRecords : currentRecords;
 }
 
@@ -656,6 +664,9 @@ function buildEmptyChart(ctx) {
           interaction: {
             intersect: false,
             mode: 'index'
+          },
+          onClick: (event, activeElements, chart) => {
+            handleChartPointClick(event, chart);
           }
         }
       });
@@ -736,6 +747,9 @@ function buildEmptyChart(ctx) {
           interaction: {
             intersect: false,
             mode: 'index'
+          },
+          onClick: (event, activeElements, chart) => {
+            handleChartPointClick(event, chart);
           }
         }
       });
@@ -815,6 +829,10 @@ async function initChart() {
 
   chartInstance = buildEmptyChart(ctx);
   chartInstance2 = buildEmptyChart(ctx2);
+  
+  // Enable box selection on both charts
+  enableChartBoxSelection(chartInstance, 'rsrpChart');
+  enableChartBoxSelection(chartInstance2, 'sinrChart');
 }
 
 /**
@@ -904,12 +922,247 @@ function clearLassoSelection() {
   renderChartsAndDataCards(getActiveDisplayRecords());
 }
 
+function clearChartSelection() {
+  chartSelectedIndices.clear();
+  chartSelectionActive = false;
+  
+  // Hide clear buttons
+  const clearBtn = document.getElementById('clearChartSelectionBtn');
+  const clearBtn2 = document.getElementById('clearChartSelectionBtn2');
+  if (clearBtn) clearBtn.style.display = 'none';
+  if (clearBtn2) clearBtn2.style.display = 'none';
+  
+  // Reset point styles to default
+  if (chartInstance) {
+    chartInstance.data.datasets.forEach(dataset => {
+      dataset.pointRadius = 2;
+      dataset.pointHoverRadius = 4;
+      dataset.pointBorderWidth = 1;
+    });
+    chartInstance.update('none');
+  }
+  if (chartInstance2) {
+    chartInstance2.data.datasets.forEach(dataset => {
+      dataset.pointRadius = 2;
+      dataset.pointHoverRadius = 4;
+      dataset.pointBorderWidth = 1;
+    });
+    chartInstance2.update('none');
+  }
+  
+  // Update map and data cards
+  updateMapWithData(currentRecords);
+  renderChartsAndDataCards(getActiveDisplayRecords());
+  setPlaybackMessage('', 'muted');
+}
+
+function handleChartPointClick(event, chart) {
+  // Single click just toggles individual point selection
+  const points = chart.getElementsAtEventForMode(event, 'nearest', { intersect: true }, true);
+  
+  if (points.length > 0) {
+    const point = points[0];
+    const dataIndex = point.index;
+    
+    // Toggle selection
+    if (chartSelectedIndices.has(dataIndex)) {
+      chartSelectedIndices.delete(dataIndex);
+    } else {
+      chartSelectedIndices.add(dataIndex);
+    }
+    
+    chartSelectionActive = chartSelectedIndices.size > 0;
+    
+    // Show/hide clear buttons based on selection state
+    const clearBtn = document.getElementById('clearChartSelectionBtn');
+    const clearBtn2 = document.getElementById('clearChartSelectionBtn2');
+    if (clearBtn) clearBtn.style.display = chartSelectionActive ? 'block' : 'none';
+    if (clearBtn2) clearBtn2.style.display = chartSelectionActive ? 'block' : 'none';
+    
+    // Update point styles
+    updateChartPointStyles();
+    
+    // Update map and data display
+    const selectedRecords = getActiveDisplayRecords();
+    updateMapWithData(selectedRecords);
+    renderChartsAndDataCards(selectedRecords);
+    
+    if (chartSelectionActive) {
+      setPlaybackMessage(`${chartSelectedIndices.size} point(s) selected. Click-drag on chart to select multiple.`, 'primary');
+    } else {
+      setPlaybackMessage('', 'muted');
+    }
+  }
+}
+
+function enableChartBoxSelection(chart, canvasId) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  
+  let isDragging = false;
+  let startX, startY;
+  let overlayCanvas = null;
+  let overlayCtx = null;
+  
+  // Create overlay canvas for drawing selection box
+  const createOverlay = () => {
+    overlayCanvas = document.createElement('canvas');
+    overlayCanvas.style.position = 'absolute';
+    overlayCanvas.style.left = '0';
+    overlayCanvas.style.top = '0';
+    overlayCanvas.style.pointerEvents = 'none';
+    overlayCanvas.width = canvas.width;
+    overlayCanvas.height = canvas.height;
+    overlayCanvas.style.width = canvas.style.width;
+    overlayCanvas.style.height = canvas.style.height;
+    canvas.parentElement.appendChild(overlayCanvas);
+    overlayCtx = overlayCanvas.getContext('2d');
+  };
+  
+  const removeOverlay = () => {
+    if (overlayCanvas) {
+      overlayCanvas.remove();
+      overlayCanvas = null;
+      overlayCtx = null;
+    }
+  };
+  
+  canvas.addEventListener('mousedown', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    startX = e.clientX - rect.left;
+    startY = e.clientY - rect.top;
+    isDragging = true;
+    createOverlay();
+  });
+  
+  canvas.addEventListener('mousemove', (e) => {
+    if (!isDragging || !overlayCtx) return;
+    
+    const rect = canvas.getBoundingClientRect();
+    const currentX = e.clientX - rect.left;
+    const currentY = e.clientY - rect.top;
+    
+    // Clear and redraw selection box
+    overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+    overlayCtx.strokeStyle = '#0d6efd';
+    overlayCtx.fillStyle = 'rgba(13, 110, 253, 0.1)';
+    overlayCtx.lineWidth = 2;
+    overlayCtx.strokeRect(startX, startY, currentX - startX, currentY - startY);
+    overlayCtx.fillRect(startX, startY, currentX - startX, currentY - startY);
+  });
+  
+  canvas.addEventListener('mouseup', (e) => {
+    if (!isDragging) return;
+    
+    const rect = canvas.getBoundingClientRect();
+    const endX = e.clientX - rect.left;
+    const endY = e.clientY - rect.top;
+    
+    isDragging = false;
+    removeOverlay();
+    
+    // Selection box coordinates (normalize to ensure min/max)
+    const boxLeft = Math.min(startX, endX);
+    const boxRight = Math.max(startX, endX);
+    const boxTop = Math.min(startY, endY);
+    const boxBottom = Math.max(startY, endY);
+    
+    // Only select if box has some size (not just a click)
+    if (Math.abs(endX - startX) < 5 || Math.abs(endY - startY) < 5) {
+      return; // Too small, treat as click not drag
+    }
+    
+    // Find all points within the selection box
+    const chartArea = chart.chartArea;
+    const xScale = chart.scales.x;
+    const yScale = chart.scales.y;
+    
+    chart.data.datasets.forEach((dataset, datasetIndex) => {
+      dataset.data.forEach((value, index) => {
+        if (value === null || value === undefined) return;
+        
+        const xPixel = xScale.getPixelForValue(index);
+        const yPixel = yScale.getPixelForValue(value);
+        
+        // Check if point is within selection box
+        if (xPixel >= boxLeft && xPixel <= boxRight && yPixel >= boxTop && yPixel <= boxBottom) {
+          chartSelectedIndices.add(index);
+        }
+      });
+    });
+    
+    chartSelectionActive = chartSelectedIndices.size > 0;
+    
+    // Show/hide clear buttons
+    const clearBtn = document.getElementById('clearChartSelectionBtn');
+    const clearBtn2 = document.getElementById('clearChartSelectionBtn2');
+    if (clearBtn) clearBtn.style.display = chartSelectionActive ? 'block' : 'none';
+    if (clearBtn2) clearBtn2.style.display = chartSelectionActive ? 'block' : 'none';
+    
+    // Update visuals
+    updateChartPointStyles();
+    const selectedRecords = getActiveDisplayRecords();
+    updateMapWithData(selectedRecords);
+    renderChartsAndDataCards(selectedRecords);
+    
+    if (chartSelectionActive) {
+      setPlaybackMessage(`${chartSelectedIndices.size} point(s) selected. Click-drag to select more.`, 'primary');
+    }
+  });
+  
+  canvas.addEventListener('mouseleave', () => {
+    if (isDragging) {
+      isDragging = false;
+      removeOverlay();
+    }
+  });
+}
+
+function updateChartPointStyles() {
+  const updateChart = (chart) => {
+    if (!chart) return;
+    
+    chart.data.datasets.forEach(dataset => {
+      const pointRadii = [];
+      const pointBorderWidths = [];
+      const pointHoverRadii = [];
+      
+      for (let i = 0; i < dataset.data.length; i++) {
+        if (chartSelectedIndices.has(i)) {
+          pointRadii.push(6);
+          pointBorderWidths.push(3);
+          pointHoverRadii.push(8);
+        } else if (chartSelectionActive) {
+          pointRadii.push(1.5);
+          pointBorderWidths.push(1);
+          pointHoverRadii.push(3);
+        } else {
+          pointRadii.push(2);
+          pointBorderWidths.push(1);
+          pointHoverRadii.push(4);
+        }
+      }
+      
+      dataset.pointRadius = pointRadii;
+      dataset.pointBorderWidth = pointBorderWidths;
+      dataset.pointHoverRadius = pointHoverRadii;
+    });
+    
+    chart.update('none');
+  };
+  
+  updateChart(chartInstance);
+  updateChart(chartInstance2);
+}
+
 function clearActiveLasso() {
   if (lassoLayerGroup) {
     lassoLayerGroup.clearLayers();
   }
   activeLassoLayer = null;
   clearLassoSelection();
+  // Also clear chart selection when clearing lasso
+  clearChartSelection();
   setPlaybackMessage('', 'muted');
 }
 
@@ -1507,6 +1760,10 @@ async function init() {
       activeLassoLayer = null;
       lassoSelectedRecords = null;
 
+      // Clear chart selection
+      chartSelectedIndices.clear();
+      chartSelectionActive = false;
+
       // Clear data cards
       currentRecords = [];
       updateDataCards([]);
@@ -1541,6 +1798,20 @@ async function init() {
 
   // Initialize antenna toggles
   initAntennaToggles();
+
+  // Add event listeners for chart clear buttons
+  const clearChartBtn = document.getElementById('clearChartSelectionBtn');
+  const clearChartBtn2 = document.getElementById('clearChartSelectionBtn2');
+  if (clearChartBtn) {
+    clearChartBtn.addEventListener('click', () => {
+      clearChartSelection();
+    });
+  }
+  if (clearChartBtn2) {
+    clearChartBtn2.addEventListener('click', () => {
+      clearChartSelection();
+    });
+  }
 
   console.log('[Playback Page] Initialized');
 }
