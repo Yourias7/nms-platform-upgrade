@@ -204,10 +204,17 @@ export function renderDetailsTable(serial, data) {
 
   // Εμφάνιση κουμπιού export
   exportBtn.style.display = 'inline-block';
-  exportBtn.textContent = 'Export ZIP';
-  exportBtn.onclick = async (e) => {
+  exportBtn.textContent = 'Export CSV';
+  exportBtn.onclick = (e) => {
     e.preventDefault();
-    await exportSerialAsZip(serial);
+    // Direct download of CSV from server
+    const url = getExportUrl(serial);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${serial}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   };
   
   const table = document.createElement('table');

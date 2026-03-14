@@ -198,11 +198,10 @@ async function captureMapSnapshot(serials) {
  * @param {Object[]} data - Combined data array
  * @param {string[]} serials - Array of serial numbers
  */
-async function exportCombinedCSV(data, serials) {
+function exportCombinedCSV(data, serials) {
   if (!data || data.length === 0) return;
   
   // Create CSV content
-  // const cols = Object.keys(data[0]);
   const allowedCols = ['SERIAL', 'NAME', 'LATITUDE', 'LONGITUDE', 'DATETIME', 'EARFCN', 'PCI', 'ANTENNA USED', 'RSRP','RSRQ', 'SINR', 'TEMP','NODE_ID', 'SECTOR_ID'];
   const cols = allowedCols;
   
@@ -224,49 +223,21 @@ async function exportCombinedCSV(data, serials) {
   
   const csvContent = rows.join('\n');
   
-  // Capture map snapshot
-  const mapBlob = await captureMapSnapshot(serials);
-  
-  // Create zip file with both CSV and map image
-  if (!window.JSZip) {
-    console.error('JSZip library not loaded');
-    return;
-  }
-  
   // Generate timestamp for filename
   const now = new Date();
   const timestamp = now.toISOString().replace(/[:.]/g, '-').replace('T', '_').slice(0, 19);
+  const csvFilename = `LiveView_${timestamp}.csv`;
   
-  const zip = new JSZip();
-  const zipFilename = `LiveView_${timestamp}.zip`;
-  
-  const csvFilename = serials.length > 1 
-    ? `combined_${serials.join('_')}.csv`
-    : `${serials[0]}.csv`;
-  
-  const mapFilename = serials.length > 1 
-    ? `map_combined_${serials.join('_')}.png`
-    : `map_${serials[0]}.png`;
-  
-  // Add CSV to zip
-  zip.file(csvFilename, csvContent);
-  
-  // Add map snapshot if available
-  if (mapBlob) {
-    zip.file(mapFilename, mapBlob);
-  }
-  
-  // Generate and download zip
-  zip.generateAsync({ type: 'blob' }).then((content) => {
-    const url = URL.createObjectURL(content);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = zipFilename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  });
+  // Create and download CSV file
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = csvFilename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 /**
@@ -309,9 +280,9 @@ async function loadMultipleSerialDetails(serials) {
       return;
     }
     
-    // Show export button for multiple serials (will export combined data as ZIP)
+    // Show export button for multiple serials (will export combined data as CSV)
     exportBtn.style.display = 'inline-block';
-    exportBtn.textContent = 'Export ZIP';
+    exportBtn.textContent = 'Export CSV';
     exportBtn.onclick = (e) => {
       e.preventDefault();
       exportCombinedCSV(allData, serials);
