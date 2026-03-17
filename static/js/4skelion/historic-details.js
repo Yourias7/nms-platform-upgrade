@@ -5,8 +5,6 @@ const MAX_DAYS_BACK = 15;
 const PAGE_SIZE = 500;
 let allSerials = [];
 let serialNameMap = {};
-let sortColumn = null;
-let sortDirection = 'asc';
 let selectedSerial = 'all';
 let currentHistoricData = [];
 let headersAttached = false;
@@ -142,11 +140,7 @@ function setEndDateInputValue(date) {
   }
 }
 
-function sortByDatetime(records) {
-  return records
-    .filter((rec) => rec && rec.DATETIME)
-    .sort((a, b) => new Date(a.DATETIME) - new Date(b.DATETIME));
-}
+
 
 function setPlaybackMessage(message, tone = 'muted') {
   const el = document.getElementById('playbackMessage');
@@ -292,147 +286,11 @@ function hideDetailsLoading() {
   }
 }
 
-/**
- * Update sort indicators on table headers
- */
-function updateSortIndicators() {
-  const headers = document.querySelectorAll('#historicTableHead th');
-  headers.forEach(th => {
-    th.classList.remove('sort-asc', 'sort-desc');
-    const columnName = th.dataset.column;
-    
-    // Remove any existing arrow and reset to base column name
-    const baseColumnName = th.dataset.column;
-    th.textContent = baseColumnName;
-    
-    // Add arrow if this is the sorted column
-    if (columnName === sortColumn) {
-      th.classList.add(sortDirection === 'asc' ? 'sort-asc' : 'sort-desc');
-      const arrow = sortDirection === 'asc' ? ' ▲' : ' ▼';
-      th.textContent = baseColumnName + arrow;
-    }
-  });
-}
-
-/**
- * Attach click handlers to table headers for sorting
- */
-function attachHeaderClickHandlers() {
-  if (headersAttached) return; // Only attach once
-  
-  const headers = document.querySelectorAll('#historicTableHead th');
-  headers.forEach(th => {
-    const columnName = th.textContent.trim();
-    th.dataset.column = columnName; // Store base column name
-    th.style.cursor = 'pointer';
-    th.style.userSelect = 'none';
-    
-    // Add click listener
-    th.addEventListener('click', () => {
-      sortHistoric(columnName);
-    });
-  });
-  
-  headersAttached = true;
-}
 
 
-/**
- * Sort historic data by column
- * @param {string} column - Column name to sort by
- */
-function sortHistoric(column) {
-  if (sortColumn === column) {
-    sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
-  } else {
-    sortColumn = column;
-    sortDirection = 'asc';
-  }
-  
-  currentHistoricData.sort((a, b) => {
-    let valA, valB;
-    
-    switch(column) {
-      case 'SERIAL':
-        valA = (a.SERIAL || '').toLowerCase();
-        valB = (b.SERIAL || '').toLowerCase();
-        break;
-      case 'NAME':
-        valA = (a.NAME || '').toLowerCase();
-        valB = (b.NAME || '').toLowerCase();
-        break;
-      case 'DATETIME':
-        valA = a.DATETIME === 'Unknown' ? 0 : new Date(a.DATETIME).getTime();
-        valB = b.DATETIME === 'Unknown' ? 0 : new Date(b.DATETIME).getTime();
-        break;
-      case 'RSRP':
-        valA = a.RSRP === null ? -Infinity : a.RSRP;
-        valB = b.RSRP === null ? -Infinity : b.RSRP;
-        break;
-      case 'SINR':
-        valA = a.SINR === null ? -Infinity : a.SINR;
-        valB = b.SINR === null ? -Infinity : b.SINR;
-        break;
-      case 'TEMP':
-        valA = a.TEMP === null ? -Infinity : a.TEMP;
-        valB = b.TEMP === null ? -Infinity : b.TEMP;
-        break;
-      case 'HEADING':
-        valA = a.HEADING === null ? -Infinity : a.HEADING;
-        valB = b.HEADING === null ? -Infinity : b.HEADING;
-        break;
-      case 'LATITUDE':
-        valA = a.LATITUDE === null ? -Infinity : a.LATITUDE;
-        valB = b.LATITUDE === null ? -Infinity : b.LATITUDE;
-        break;
-      case 'LONGITUDE':
-        valA = a.LONGITUDE === null ? -Infinity : a.LONGITUDE;
-        valB = b.LONGITUDE === null ? -Infinity : b.LONGITUDE;
-        break;
-      case 'S0RSRP':
-        valA = a.S0RSRP === null ? -Infinity : a.S0RSRP;
-        valB = b.S0RSRP === null ? -Infinity : b.S0RSRP;
-        break;
-      case 'S0SINR':
-        valA = a.S0SINR === null ? -Infinity : a.S0SINR;
-        valB = b.S0SINR === null ? -Infinity : b.S0SINR;
-        break;
-      case 'S1RSRP':
-        valA = a.S1RSRP === null ? -Infinity : a.S1RSRP;
-        valB = b.S1RSRP === null ? -Infinity : b.S1RSRP;
-        break; 
-      case 'S1SINR':
-        valA = a.S1SINR === null ? -Infinity : a.S1SINR;
-        valB = b.S1SINR === null ? -Infinity : b.S1SINR;
-        break;
-      case 'S2RSRP':
-        valA = a.S2RSRP === null ? -Infinity : a.S2RSRP;
-        valB = b.S2RSRP === null ? -Infinity : b.S2RSRP;
-        break;
-      case 'S2SINR':
-        valA = a.S2SINR === null ? -Infinity : a.S2SINR;
-        valB = b.S2SINR === null ? -Infinity : b.S2SINR;
-        break;
-      case 'S3RSRP':
-        valA = a.S3RSRP === null ? -Infinity : a.S3RSRP;
-        valB = b.S3RSRP === null ? -Infinity : b.S3RSRP;
-        break;
-      case 'S3SINR':
-        valA = a.S3SINR === null ? -Infinity : a.S3SINR;
-        valB = b.S3SINR === null ? -Infinity : b.S3SINR;
-        break;
-      default:
-        return 0;
-    }
-    
-    if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
-    if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
-    return 0;
-  });
-  
-  renderHistoricTable(currentHistoricData, getSelectedSerial(), currentTotal);
-  updateSortIndicators();
-}
+
+
+
 
 
 /**
@@ -572,10 +430,6 @@ function renderHistoricTable(data, serial, total = null) {
   const totalPages = Math.ceil(total / PAGE_SIZE);
   renderPaginator(total, currentPage, PAGE_SIZE);
   setPlaybackMessage(`Page ${currentPage} of ${totalPages} — ${total} total records`, 'success');
-  
-  // Attach click handlers to headers for sorting
-  attachHeaderClickHandlers();
-  updateSortIndicators();
 }
 
 /**
