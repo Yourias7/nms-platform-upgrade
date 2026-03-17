@@ -1,9 +1,9 @@
 // static/js/map.js
 // Map initialization and marker management
 
-import { CONFIG } from '../config.js';
-import { fetchSerialData } from '../api.js';
-import { getFieldCaseInsensitive, safeParseFloat } from '../utils.js';
+import { CONFIG } from '../shared/config.js';
+import { fetchSerialData } from '../shared/api.js';
+import { getFieldCaseInsensitive, safeParseFloat } from '../shared/utils.js';
 
 // Module state
 let map = null;
