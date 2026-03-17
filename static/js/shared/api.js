@@ -137,6 +137,57 @@ export async function fetchAlarmSerialData(serial, early, latest, thresholds = n
 }
 
 /**
+ * Fetch paginated alarm records for a specific serial
+ * @param {string} serial - Serial number to fetch
+ * @param {string} early - Start datetime (ISO format)
+ * @param {string} latest - End datetime (ISO format)
+ * @param {number} page - 1-based page number
+ * @param {number} limit - Records per page
+ * @param {Object} thresholds - Optional threshold values {rsrp, sinr, temp}
+ * @param {AbortSignal} [signal] - Optional AbortSignal for cancellation
+ * @returns {Promise<{data: Object[], total: number}>}
+ */
+export async function fetchPagedAlarmSerialData(serial, early, latest, page = 1, limit = 500, thresholds = null, signal = null) {
+  let url = `${CONFIG.API.ALARM_SYSTEMS}/${encodeURIComponent(serial)}/${encodeURIComponent(early)}/${encodeURIComponent(latest)}?page=${page}&limit=${limit}`;
+  
+  // Add threshold parameters if provided
+  if (thresholds) {
+    if (thresholds.rsrp !== undefined) url += `&rsrp_threshold=${thresholds.rsrp}`;
+    if (thresholds.sinr !== undefined) url += `&sinr_threshold=${thresholds.sinr}`;
+    if (thresholds.temp !== undefined) url += `&temp_threshold=${thresholds.temp}`;
+  }
+  
+  const options = signal ? { signal } : {};
+  const res = await fetch(url, options);
+  return await res.json();
+}
+
+/**
+ * Fetch paginated alarm records for ALL systems ordered by datetime
+ * @param {string} early - Start datetime (ISO format)
+ * @param {string} latest - End datetime (ISO format)
+ * @param {number} page - 1-based page number
+ * @param {number} limit - Records per page
+ * @param {Object} thresholds - Optional threshold values {rsrp, sinr, temp}
+ * @param {AbortSignal} [signal] - Optional AbortSignal for cancellation
+ * @returns {Promise<{data: Object[], total: number}>}
+ */
+export async function fetchPagedAllAlarmData(early, latest, page = 1, limit = 500, thresholds = null, signal = null) {
+  let url = `/alarms/all/${encodeURIComponent(early)}/${encodeURIComponent(latest)}?page=${page}&limit=${limit}`;
+  
+  // Add threshold parameters if provided
+  if (thresholds) {
+    if (thresholds.rsrp !== undefined) url += `&rsrp_threshold=${thresholds.rsrp}`;
+    if (thresholds.sinr !== undefined) url += `&sinr_threshold=${thresholds.sinr}`;
+    if (thresholds.temp !== undefined) url += `&temp_threshold=${thresholds.temp}`;
+  }
+  
+  const options = signal ? { signal } : {};
+  const res = await fetch(url, options);
+  return await res.json();
+}
+
+/**
  * Fetch LED status data (RSRP/SINR/TEMP) for a serial
  * @param {string} serial - Serial number to check
  * @returns {Promise<{rsrp: number|null, sinr: number|null, temp: number|null, lat: number|null, lon: number|null}>}

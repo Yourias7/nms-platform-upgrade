@@ -189,7 +189,7 @@ export function isInAlarm(kpi, value) {
       result = numValue <= thresholds.rsrp;
       break;
     case 'sinr':
-      result = numValue < thresholds.sinr;
+      result = numValue <= thresholds.sinr;
       break;
     case 'temp':
       result = numValue >= thresholds.temp;

@@ -2,20 +2,26 @@
 // Performance alarms page logic
 
 import { CONFIG } from '../shared/config.js';
-import { fetchJSON, fetchAlarmSerialData , fetchSerialNameMap} from '../shared/api.js';
+import { fetchJSON, fetchAlarmSerialData, fetchPagedAlarmSerialData, fetchPagedAllAlarmData, fetchSerialNameMap} from '../shared/api.js';
 import { getThresholds, isInAlarm } from './settings.js';
+
+// Constants
+const PAGE_SIZE = 500;
+const MAX_DAYS_BACK = 15;
 
 // State management
 let allSerials = [];
 let serialNameMap = {};
 let currentPerformanceAlarms = [];
-let sortColumn = null;
-let sortDirection = 'asc';
 let selectedSerial = 'all';
 let selectedPerformanceAlarmKeys = new Set();
 let allPerformanceAlarms = [];
 let lassoFilteredAlarmKeys = null;
 let currentAbortController = null; // Track ongoing requests
+let currentPage = 1;
+let currentTotal = null; // total records across all pages
+let sortColumn = 'datetime'; // Default sort column
+let sortDirection = 'asc'; // 'asc' or 'desc'
 
 function getPerformanceAlarmKey(alarm) {
   if (!alarm) return null;
@@ -58,6 +64,114 @@ function clearPerformanceRowFilters() {
   dispatchPerformanceRowSelection();
 }
 
+/**
+ * Compare function for sorting alarm records
+ * @param {object} a - First alarm record
+ * @param {object} b - Second alarm record
+ * @param {string} column - Column key to sort by
+ * @param {string} direction - 'asc' or 'desc'
+ * @returns {number} Comparison result
+ */
+function compareAlarms(a, b, column, direction) {
+  let valA = a[column];
+  let valB = b[column];
+  
+  // Handle null/undefined values
+  if (valA === null || valA === undefined) valA = '';
+  if (valB === null || valB === undefined) valB = '';
+  
+  // Numeric comparison for RSRP, SINR, Temp
+  if (['rsrp', 'sinr', 'temp'].includes(column)) {
+    valA = parseFloat(valA) || 0;
+    valB = parseFloat(valB) || 0;
+  }
+  // Date comparison for datetime
+  else if (column === 'datetime') {
+    valA = new Date(valA).getTime() || 0;
+    valB = new Date(valB).getTime() || 0;
+  }
+  // String comparison for others
+  else {
+    valA = String(valA).toLowerCase();
+    valB = String(valB).toLowerCase();
+  }
+  
+  let result = 0;
+  if (valA < valB) result = -1;
+  else if (valA > valB) result = 1;
+  
+  return direction === 'asc' ? result : -result;
+}
+
+/**
+ * Sort alarm records by specified column
+ * @param {array} alarms - Array of alarm records to sort
+ * @param {string} column - Column key to sort by
+ * @param {string} direction - 'asc' or 'desc'
+ * @returns {array} Sorted alarms
+ */
+function sortPerformanceAlarms(alarms, column, direction) {
+  if (!alarms || alarms.length === 0) return alarms;
+  return [...alarms].sort((a, b) => compareAlarms(a, b, column, direction));
+}
+
+/**
+ * Handle table header click for sorting
+ * @param {string} column - Column key clicked
+ */
+function onPerformanceHeaderClick(column) {
+  if (sortColumn === column) {
+    // Toggle direction if same column clicked
+    sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+  } else {
+    // New column, default to ascending
+    sortColumn = column;
+    sortDirection = 'asc';
+  }
+  
+  // Re-render table with new sort
+  const alarmData = currentPerformanceAlarms || [];
+  const sortedAlarms = sortPerformanceAlarms(alarmData, sortColumn, sortDirection);
+  renderPerformanceAlarmsTable(sortedAlarms, currentTotal);
+}
+
+/**
+ * Update sort indicators on table headers
+ */
+function updateSortIndicators() {
+  const headers = document.querySelectorAll('th[data-column]');
+  headers.forEach(header => {
+    const col = header.dataset.column;
+    const arrow = header.querySelector('.sort-indicator');
+    
+    if (arrow) arrow.remove();
+    
+    if (col === sortColumn) {
+      const indicator = document.createElement('span');
+      indicator.className = 'sort-indicator ms-1';
+      indicator.textContent = sortDirection === 'asc' ? ' ↑' : ' ↓';
+      header.appendChild(indicator);
+      header.style.cursor = 'pointer';
+      header.style.fontWeight = 'bold';
+    } else {
+      header.style.cursor = 'pointer';
+      header.style.fontWeight = 'normal';
+    }
+  });
+}
+
+/**
+ * Attach click handlers to table headers for sorting
+ */
+function attachPerformanceHeaderClickHandlers() {
+  const headers = document.querySelectorAll('th[data-column]');
+  headers.forEach(header => {
+    const col = header.dataset.column;
+    header.addEventListener('click', () => onPerformanceHeaderClick(col));
+  });
+  updateSortIndicators();
+}
+
 function bindClearAlarmFiltersButton() {
   const clearBtn = document.getElementById('clearAlarmFiltersBtn');
   if (!clearBtn) return;
@@ -70,8 +184,273 @@ function bindClearAlarmFiltersButton() {
   });
 }
 
-// Date range constants
-const MAX_DAYS_BACK = 15;
+/**
+ * Render Bootstrap pagination controls below the alarms table
+ */
+function renderPaginator(total, page, pageSize) {
+  let container = document.getElementById('paginationControls');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'paginationControls';
+    const alarmsArea = document.getElementById('performanceAlarmsArea');
+    if (alarmsArea) alarmsArea.parentElement.appendChild(container);
+  }
+
+  const totalPages = Math.ceil(total / pageSize);
+  if (total <= pageSize || totalPages <= 1) {
+    container.innerHTML = '';
+    return;
+  }
+
+  const nav = document.createElement('nav');
+  nav.setAttribute('aria-label', 'Performance alarms pagination');
+  const ul = document.createElement('ul');
+  ul.className = 'pagination pagination-sm justify-content-center mt-2 flex-wrap';
+
+  // Prev button
+  const prevLi = document.createElement('li');
+  prevLi.className = `page-item${page === 1 ? ' disabled' : ''}`;
+  const prevBtn = document.createElement('button');
+  prevBtn.type = 'button';
+  prevBtn.className = 'page-link';
+  prevBtn.textContent = '← Prev';
+  if (page > 1) prevBtn.addEventListener('click', () => loadPerformanceAlarmsPage(page - 1));
+  prevLi.appendChild(prevBtn);
+  ul.appendChild(prevLi);
+
+  // Page info
+  const infoLi = document.createElement('li');
+  infoLi.className = 'page-item disabled';
+  const infoSpan = document.createElement('span');
+  infoSpan.className = 'page-link';
+  infoSpan.textContent = `Page ${page} of ${totalPages} — ${total} alarms`;
+  infoLi.appendChild(infoSpan);
+  ul.appendChild(infoLi);
+
+  // Next button
+  const nextLi = document.createElement('li');
+  nextLi.className = `page-item${page === totalPages ? ' disabled' : ''}`;
+  const nextBtn = document.createElement('button');
+  nextBtn.type = 'button';
+  nextBtn.className = 'page-link';
+  nextBtn.textContent = 'Next →';
+  if (page < totalPages) nextBtn.addEventListener('click', () => loadPerformanceAlarmsPage(page + 1));
+  nextLi.appendChild(nextBtn);
+  ul.appendChild(nextLi);
+
+  nav.appendChild(ul);
+  container.innerHTML = '';
+  container.appendChild(nav);
+}
+
+/**
+ * Fetch performance alarm records with pagination
+ * @param {string} startDate - Start date (YYYY-MM-DD)
+ * @param {string} endDate - End date (YYYY-MM-DD)
+ * @param {string} serial - Serial number or 'all'
+ * @param {number} page - Page number
+ * @returns {Promise<{data: Array, total: number}>} Paginated alarm records
+ */
+async function fetchPerformanceAlarmsPage(startDate, endDate, serial = 'all', page = 1) {
+  if (currentAbortController) {
+    currentAbortController.abort();
+  }
+  
+  currentAbortController = new AbortController();
+  const signal = currentAbortController.signal;
+  
+  const thresholds = getThresholds();
+  const startDateTime = startDate ? `${startDate}T00:00:00` : '';
+  const endDateTime = endDate ? `${endDate}T23:59:59` : '';
+  
+  console.log('[Performance Alarms] Fetching page', page, 'from', startDateTime, 'to', endDateTime);
+  console.log('[Performance Alarms] Thresholds:', thresholds);
+  console.log('[Performance Alarms] Serial:', serial);
+  
+  try {
+    let result;
+    
+    // Fetch from appropriate endpoint based on serial selection
+    if (serial === 'all') {
+      // Fetch all systems' alarm data
+      result = await fetchPagedAllAlarmData(
+        startDateTime,
+        endDateTime,
+        page,
+        PAGE_SIZE,
+        thresholds,
+        signal
+      );
+    } else {
+      // Fetch specific serial's alarm data
+      result = await fetchPagedAlarmSerialData(
+        serial,
+        startDateTime,
+        endDateTime,
+        page,
+        PAGE_SIZE,
+        thresholds,
+        signal
+      );
+    }
+    
+    // Process results to add status field based on alarm type
+    if (result.data) {
+      result.data = result.data.map(record => {
+        let rsrp = null;
+        let sinr = null;
+        let temp = null;
+        let lat = null;
+        let lon = null;
+        let datetime = null;
+        let name = null;
+        let recordSerial = null;
+        
+        // Extract values from record (case-insensitive)
+        for (const [key, val] of Object.entries(record)) {
+          const lower = key.toLowerCase();
+          if (lower === 'rsrp') rsrp = parseFloat(val);
+          if (lower === 'sinr') sinr = parseFloat(val);
+          if (lower === 'temp' || lower === 'temperature') temp = parseFloat(val);
+          if (lower === 'latitude' || lower === 'lat') lat = parseFloat(val);
+          if (lower === 'longitude' || lower === 'lon') lon = parseFloat(val);
+          if (lower === 'datetime') datetime = val;
+          if (lower === 'name') name = val;
+          if (lower === 'serial') recordSerial = val;
+        }
+        
+        // Calculate alarm type/status
+        const alarmType = getPerformanceAlarmType(rsrp, sinr, temp, lat, lon);
+        
+        // Return normalized object with all fields in lowercase
+        return {
+          serial: recordSerial || 'Unknown',
+          site: name || 'N/A',
+          datetime: datetime || 'Unknown',
+          status: alarmType,
+          rsrp: rsrp,
+          sinr: sinr,
+          temp: temp,
+          latitude: lat,
+          longitude: lon
+        };
+      });
+    }
+    
+    return result;
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      console.log('[Performance Alarms] Request cancelled');
+      throw err;
+    }
+    console.error('Error fetching performance alarms:', err);
+    throw err;
+  }
+}
+
+/**
+ * Fetch all performance alarms for filtering/mapping (no pagination, used for lasso selection)
+ * @param {string} startDate - Start date (YYYY-MM-DD)
+ * @param {string} endDate - End date (YYYY-MM-DD)
+ * @param {string|null} serial - Serial number or 'all'
+ * @returns {Promise<Array>} Array of all alarm objects
+ */
+async function fetchAllPerformanceAlarms(startDate, endDate, serial = 'all') {
+  try {
+    if (currentAbortController) {
+      currentAbortController.abort();
+    }
+    
+    currentAbortController = new AbortController();
+    const signal = currentAbortController.signal;
+    
+    const serials = serial === 'all' ? allSerials : [serial];
+    const alarms = [];
+    const thresholds = getThresholds();
+    
+    const startDateTime = startDate ? `${startDate}T00:00:00` : '';
+    const endDateTime = endDate ? `${endDate}T23:59:59` : '';
+    
+    console.log('[Performance Alarms] Checking alarms for', serials.length, 'systems');
+    console.log('[Performance Alarms] Date range:', startDateTime, 'to', endDateTime);
+    console.log('[Performance Alarms] Thresholds:', thresholds);
+    
+    for (const ser of serials) {
+      if (signal.aborted) {
+        throw new DOMException('Request cancelled', 'AbortError');
+      }
+      
+      try {
+        const records = await fetchAlarmSerialData(ser, startDateTime, endDateTime, thresholds, signal);
+        
+        if (!records || records.length === 0) continue;
+        
+        for (const record of records) {
+          let timestamp = null;
+          let site = 'N/A';
+          let lat = null;
+          let lon = null;
+          let rsrp = null;
+          let sinr = null;
+          let temp = null;
+          
+          for (const [key, val] of Object.entries(record)) {
+            const lower = key.toLowerCase();
+            if (lower === 'datetime' || lower === 'timestamp' || lower === 'time') {
+              timestamp = val;
+            }
+            if (lower === 'site' || lower === 'name') {
+              site = val;
+            }
+            if (lower === 'latitude' || lower === 'lat') {
+              lat = val;
+            }
+            if (lower === 'longitude' || lower === 'lon' || lower === 'long') {
+              lon = val;
+            }
+            if (lower === 'rsrp') {
+              rsrp = parseFloat(val);
+            }
+            if (lower === 'sinr') {
+              sinr = parseFloat(val);
+            }
+            if (lower === 'temp' || lower === 'temperature') {
+              temp = parseFloat(val);
+            }
+          }
+          
+          // Check if this record is in alarm
+          const alarmType = getPerformanceAlarmType(rsrp, sinr, temp, lat, lon);
+          if (alarmType) {
+            alarms.push({
+              site,
+              serial: ser,
+              datetime: timestamp || 'Unknown',
+              status: alarmType,
+              rsrp,
+              sinr,
+              temp,
+              latitude: lat,
+              longitude: lon
+            });
+          }
+        }
+      } catch (err) {
+        console.warn(`Failed to check alarms for ${ser}:`, err);
+      }
+    }
+    
+    console.log('[Performance Alarms] Found', alarms.length, 'alarms total');
+    return alarms;
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      console.log('[Performance Alarms] Request cancelled');
+      throw err;
+    }
+    console.error('Error fetching performance alarms:', err);
+    return [];
+  }
+}
 
 /**
  * Check if values indicate a performance alarm
@@ -315,176 +694,19 @@ async function initializeSerialDropdown() {
   }
 }
 
-/**
- * Fetch performance alarms for a date range
- * @param {string} startDate - Start date (YYYY-MM-DD)
- * @param {string} endDate - End date (YYYY-MM-DD)
- * @param {string|null} serial - Serial number or 'all'
- * @returns {Promise<Array>} Array of alarm objects
- */
-async function fetchPerformanceAlarms(startDate, endDate, serial = 'all') {
-  try {
-    // Cancel any ongoing request
-    if (currentAbortController) {
-      currentAbortController.abort();
-    }
-    
-    // Create new AbortController for this request
-    currentAbortController = new AbortController();
-    const signal = currentAbortController.signal;
-    
-    const serials = serial === 'all' ? allSerials : [serial];
-    const alarms = [];
-    const thresholds = getThresholds();
-    
-    // Convert dates to ISO format with time for proper range querying
-    // Start date at 00:00:00, end date at 23:59:59
-    const startDateTime = startDate ? `${startDate}T00:00:00` : '';
-    const endDateTime = endDate ? `${endDate}T23:59:59` : '';
-    
-    console.log('[Performance Alarms] Checking alarms for', serials.length, 'systems');
-    console.log('[Performance Alarms] Date range:', startDateTime, 'to', endDateTime);
-    console.log('[Performance Alarms] Thresholds:', thresholds);
-    
-    for (const ser of serials) {
-      // Check if request was cancelled
-      if (signal.aborted) {
-        throw new DOMException('Request cancelled', 'AbortError');
-      }
-      
-      try {
-        // Fetch alarm data for date range with thresholds, pass signal
-        const records = await fetchAlarmSerialData(ser, startDateTime, endDateTime, thresholds, signal);
-        
-        if (!records || records.length === 0) continue;
-        
-        // Check each record for alarms
-        for (const record of records) {
-          // Extract fields (case-insensitive)
-          let timestamp = null;
-          let site = 'N/A';
-          let lat = null;
-          let lon = null;
-          let rsrp = null;
-          let sinr = null;
-          let temp = null;
-          
-          for (const [key, val] of Object.entries(record)) {
-            const lower = key.toLowerCase();
-            if (lower === 'datetime' || lower === 'timestamp' || lower === 'time') {
-              timestamp = val;
-            }
-            if (lower === 'site' || lower === 'name') {
-              site = val;
-            }
-            if (lower === 'latitude' || lower === 'lat') {
-              lat = val;
-            }
-            if (lower === 'longitude' || lower === 'lon' || lower === 'long') {
-              lon = val;
-            }
-            if (lower === 'rsrp') {
-              rsrp = parseFloat(val);
-            }
-            if (lower === 'sinr') {
-              sinr = parseFloat(val);
-            }
-            if (lower === 'temp' || lower === 'temperature') {
-              temp = parseFloat(val);
-            }
-          }
-          
-          // Check if this record is in alarm
-          const alarmType = getPerformanceAlarmType(rsrp, sinr, temp, lat, lon);
-          if (alarmType) {
-            alarms.push({
-              site,
-              serial: ser,
-              datetime: timestamp || 'Unknown',
-              status: alarmType,
-              rsrp,
-              sinr,
-              temp,
-              latitude: lat,
-              longitude: lon
-            });
-          }
-        }
-      } catch (err) {
-        console.warn(`Failed to check alarms for ${ser}:`, err);
-      }
-    }
-    
-    console.log('[Performance Alarms] Found', alarms.length, 'alarms');
-    return alarms;
-  } catch (err) {
-    // Ignore abort errors (expected when cancelling)
-    if (err.name === 'AbortError') {
-      console.log('[Performance Alarms] Request cancelled');
-      throw err;
-    }
-    console.error('Error fetching performance alarms:', err);
-    return [];
-  }
-}
 
-/**
- * Sort performance alarms by column
- * @param {string} column - Column name to sort by
- */
-function sortPerformanceAlarms(column) {
-  if (sortColumn === column) {
-    sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
-  } else {
-    sortColumn = column;
-    sortDirection = 'asc';
-  }
-  
-  currentPerformanceAlarms.sort((a, b) => {
-    let valA, valB;
-    
-    switch(column) {
-      case 'site':
-        valA = (a.site || '').toLowerCase();
-        valB = (b.site || '').toLowerCase();
-        break;
-      case 'status':
-        valA = (a.status || '').toLowerCase();
-        valB = (b.status || '').toLowerCase();
-        break;
-      case 'datetime':
-        valA = a.datetime === 'Unknown' ? 0 : new Date(a.datetime).getTime();
-        valB = b.datetime === 'Unknown' ? 0 : new Date(b.datetime).getTime();
-        break;
-      case 'rsrp':
-        valA = a.rsrp === null ? -Infinity : a.rsrp;
-        valB = b.rsrp === null ? -Infinity : b.rsrp;
-        break;
-      case 'sinr':
-        valA = a.sinr === null ? -Infinity : a.sinr;
-        valB = b.sinr === null ? -Infinity : b.sinr;
-        break;
-      case 'temp':
-        valA = a.temp === null ? -Infinity : a.temp;
-        valB = b.temp === null ? -Infinity : b.temp;
-        break;
-      default:
-        return 0;
-    }
-    
-    if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
-    if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
-    return 0;
-  });
-  
-  renderPerformanceAlarmsTable(currentPerformanceAlarms);
-}
 
 /**
  * Render performance alarms table
  * @param {Array} alarms - Array of alarm objects
+ * @param {number|null} total - Total alarms across all pages
  */
-function renderPerformanceAlarmsTable(alarms) {
+/**
+ * Render performance alarms table
+ * @param {Array} alarms - Array of alarm objects
+ * @param {number|null} total - Total alarms across all pages
+ */
+function renderPerformanceAlarmsTable(alarms, total = null) {
   const alarmsArea = document.getElementById('performanceAlarmsArea');
   const alarmMessage = document.getElementById('alarmMessage');
   
@@ -492,9 +714,14 @@ function renderPerformanceAlarmsTable(alarms) {
   
   bindClearAlarmFiltersButton();
 
-  // Store alarms for sorting
+  // Store alarms for selection
   if (alarms !== currentPerformanceAlarms) {
     currentPerformanceAlarms = [...(alarms || [])];
+  }
+  
+  // Store total if provided
+  if (total !== null) {
+    currentTotal = total;
   }
 
   const availableKeys = new Set((alarms || []).map(getPerformanceAlarmKey));
@@ -518,9 +745,15 @@ function renderPerformanceAlarmsTable(alarms) {
   }
   
   // Update message
-  if (alarmMessage) {
+  if (alarmMessage && total !== null) {
+    const totalPages = Math.ceil(total / PAGE_SIZE);
+    alarmMessage.textContent = `Page ${currentPage} of ${totalPages} — ${total} total alarms`;
+  } else if (alarmMessage) {
     alarmMessage.textContent = `Found ${alarms.length} alarm${alarms.length !== 1 ? 's' : ''}`;
   }
+  
+  // Sort alarms by current sort column and direction
+  const sortedAlarms = sortPerformanceAlarms(alarms, sortColumn, sortDirection);
   
   // Create table
   const table = document.createElement('table');
@@ -542,21 +775,8 @@ function renderPerformanceAlarmsTable(alarms) {
   columns.forEach(col => {
     const th = document.createElement('th');
     th.textContent = col.label;
-    th.style.cursor = 'pointer';
-    th.style.userSelect = 'none';
     th.dataset.column = col.key;
-    
-    // Add sort indicator
-    if (sortColumn === col.key) {
-      const arrow = document.createElement('span');
-      arrow.textContent = sortDirection === 'asc' ? ' ▲' : ' ▼';
-      arrow.style.fontSize = '0.75em';
-      th.appendChild(arrow);
-    }
-    
-    // Add click handler
-    th.addEventListener('click', () => sortPerformanceAlarms(col.key));
-    
+    th.style.cursor = 'pointer';
     headerRow.appendChild(th);
   });
   
@@ -566,7 +786,7 @@ function renderPerformanceAlarmsTable(alarms) {
   // Create body
   const tbody = document.createElement('tbody');
   
-  alarms.forEach(alarm => {
+  sortedAlarms.forEach(alarm => {
     const row = document.createElement('tr');
     row.style.cursor = 'pointer';
     const alarmKey = getPerformanceAlarmKey(alarm);
@@ -584,18 +804,18 @@ function renderPerformanceAlarmsTable(alarms) {
     const statusCell = document.createElement('td');
     const badge = document.createElement('span');
     badge.className = 'badge';
-    badge.textContent = alarm.status;
+    badge.textContent = alarm.status || 'Unknown';
     
     // Color based on alarm type
-    if (alarm.status.includes('Multiple')) {
+    if (alarm.status && alarm.status.includes('Multiple')) {
       badge.classList.add('bg-danger');
-    } else if (alarm.status.includes('RSRP')) {
+    } else if (alarm.status && alarm.status.includes('RSRP')) {
       badge.classList.add('bg-warning');
-    } else if (alarm.status.includes('SINR')) {
+    } else if (alarm.status && alarm.status.includes('SINR')) {
       badge.classList.add('bg-warning');
-    } else if (alarm.status.includes('Temperature')) {
+    } else if (alarm.status && alarm.status.includes('Temperature')) {
       badge.classList.add('bg-danger');
-    } else if (alarm.status.includes('GPS')) {
+    } else if (alarm.status && alarm.status.includes('GPS')) {
       badge.classList.add('bg-warning');
     } else {
       badge.classList.add('bg-secondary');
@@ -658,7 +878,7 @@ function renderPerformanceAlarmsTable(alarms) {
         selectedPerformanceAlarmKeys.add(alarmKey);
       }
 
-      renderPerformanceAlarmsTable(currentPerformanceAlarms);
+      renderPerformanceAlarmsTable(currentPerformanceAlarms, currentTotal);
       updateClearAlarmFiltersButtonState();
       dispatchPerformanceRowSelection();
     });
@@ -673,6 +893,14 @@ function renderPerformanceAlarmsTable(alarms) {
   alarmsArea.appendChild(table);
   updateClearAlarmFiltersButtonState();
   
+  // Attach click handlers to headers for sorting
+  attachPerformanceHeaderClickHandlers();
+  
+  // Render pagination if we have total count
+  if (total !== null) {
+    renderPaginator(total, currentPage, PAGE_SIZE);
+  }
+  
   // Dispatch event to notify map
   window.dispatchEvent(new CustomEvent('performance-alarms:table-rendered', {
     detail: {
@@ -681,6 +909,42 @@ function renderPerformanceAlarmsTable(alarms) {
     }
   }));
   window.dispatchEvent(new CustomEvent('alarms:table-rendered', { detail: { alarms } }));
+}
+
+/**
+ * Load and display a specific page of performance alarms
+ * @param {number} page - Page number to load
+ */
+async function loadPerformanceAlarmsPage(page = 1) {
+  const startDateInput = document.getElementById('startDateInput');
+  const endDateInput = document.getElementById('endDateInput');
+  
+  if (!startDateInput || !endDateInput) return;
+  
+  const startDate = startDateInput.value;
+  const endDate = endDateInput.value;
+  
+  if (!startDate || !endDate) {
+    showError('Please select both start and end dates');
+    return;
+  }
+  
+  showLoading();
+  currentPage = page;
+  
+  try {
+    const result = await fetchPerformanceAlarmsPage(startDate, endDate, selectedSerial, page);
+    if (result.data) {
+      renderPerformanceAlarmsTable(result.data, result.total);
+    }
+  } catch (err) {
+    // Don't show error message if request was cancelled
+    if (err.name === 'AbortError') {
+      return;
+    }
+    console.error('Error loading performance alarms:', err);
+    showError('Error loading performance alarms');
+  }
 }
 
 /**
@@ -701,12 +965,17 @@ async function loadPerformanceAlarms() {
   }
   
   showLoading();
+  currentPage = 1;
   
   try {
-    const alarms = await fetchPerformanceAlarms(startDate, endDate, selectedSerial);
-    allPerformanceAlarms = alarms || [];
+    const result = await fetchPerformanceAlarmsPage(startDate, endDate, selectedSerial, 1);
+    if (result.data) {
+      renderPerformanceAlarmsTable(result.data, result.total);
+    }
+    
+    // Also fetch all alarms for lasso filtering on the map
+    allPerformanceAlarms = await fetchAllPerformanceAlarms(startDate, endDate, selectedSerial);
     lassoFilteredAlarmKeys = null;
-    renderPerformanceAlarmsTable(getVisiblePerformanceAlarms());
   } catch (err) {
     // Don't show error message if request was cancelled
     if (err.name === 'AbortError') {
@@ -771,12 +1040,16 @@ async function init() {
 
     if (!hasLasso) {
       lassoFilteredAlarmKeys = null;
-      renderPerformanceAlarmsTable(getVisiblePerformanceAlarms());
+      const visibleAlarms = getVisiblePerformanceAlarms();
+      // When filtering with lasso, don't show pagination (show all filtered results)
+      renderPerformanceAlarmsTable(visibleAlarms, null);
       return;
     }
 
     lassoFilteredAlarmKeys = new Set(selectedKeys);
-    renderPerformanceAlarmsTable(getVisiblePerformanceAlarms());
+    const visibleAlarms = getVisiblePerformanceAlarms();
+    // When filtering with lasso, don't show pagination (show all filtered results)
+    renderPerformanceAlarmsTable(visibleAlarms, null);
   });
 }
 

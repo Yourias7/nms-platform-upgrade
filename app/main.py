@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Request, Response
 import logging
-from app.data_source import get_alarm_records_by_serial, get_alarm_statistics, get_earliest_datetime_for_serial, get_latest_datetime_for_serial, get_historic_records_by_serial, get_all_historic_records, get_live_records_by_serial, list_live_serial_name_pairs, list_live_serials, list_historic_serials, export_live_csv, export_historic_csv, live_serials_with_locations, historic_serials_with_locations
+from app.data_source import get_alarm_records_by_serial, get_all_alarm_records, get_alarm_statistics, get_earliest_datetime_for_serial, get_latest_datetime_for_serial, get_historic_records_by_serial, get_all_historic_records, get_live_records_by_serial, list_live_serial_name_pairs, list_live_serials, list_historic_serials, export_live_csv, export_historic_csv, live_serials_with_locations, historic_serials_with_locations
 from fastapi.responses import StreamingResponse, FileResponse, RedirectResponse
 import io
 import mimetypes
@@ -47,10 +47,19 @@ def get_system(serial: str, early: str, latest: str, page: int = 1, limit: int =
     return result
 
 @app.get("/alarms/systems/{serial}/{early}/{latest}")
-def get_alarm_systems(serial: str, early: str, latest: str, rsrp_threshold: float = -120, sinr_threshold: float = 0, temp_threshold: float = 75):
-    data = get_alarm_records_by_serial(serial, early=early, latest=latest, rsrp_threshold=rsrp_threshold, sinr_threshold=sinr_threshold, temp_threshold=temp_threshold)
-    logger.info(f"Retrieved {len(data)} alarm records for SERIAL: {serial} with thresholds RSRP<={rsrp_threshold}, SINR<={sinr_threshold}, TEMP>={temp_threshold}")
-    return data
+def get_alarm_systems(serial: str, early: str, latest: str, page: int = 1, limit: int = 500, rsrp_threshold: float = -120, sinr_threshold: float = 0, temp_threshold: float = 75):
+    offset = (page - 1) * limit
+    result = get_alarm_records_by_serial(serial, early=early, latest=latest, rsrp_threshold=rsrp_threshold, sinr_threshold=sinr_threshold, temp_threshold=temp_threshold, limit=limit, offset=offset)
+    logger.info(f"Retrieved {len(result['data'])} alarm records (page {page}) out of {result['total']} total for SERIAL: {serial} with thresholds RSRP<={rsrp_threshold}, SINR<={sinr_threshold}, TEMP>={temp_threshold}")
+    return result
+
+@app.get("/alarms/all/{early}/{latest}")
+def get_all_alarm_systems(early: str, latest: str, page: int = 1, limit: int = 500, rsrp_threshold: float = -120, sinr_threshold: float = 0, temp_threshold: float = 75):
+    """Return paginated alarm records for all systems ordered by datetime."""
+    offset = (page - 1) * limit
+    result = get_all_alarm_records(early=early, latest=latest, rsrp_threshold=rsrp_threshold, sinr_threshold=sinr_threshold, temp_threshold=temp_threshold, limit=limit, offset=offset)
+    logger.info(f"Retrieved {len(result['data'])} alarm records (page {page}) out of {result['total']} total for ALL SYSTEMS with thresholds RSRP<={rsrp_threshold}, SINR<={sinr_threshold}, TEMP>={temp_threshold}")
+    return result
 
 @app.get("/alarms/statistics")
 def get_alarm_statistics_endpoint(early: str = None, latest: str = None, rsrp_threshold: float = -120, sinr_threshold: float = 0, temp_threshold: float = 75):
