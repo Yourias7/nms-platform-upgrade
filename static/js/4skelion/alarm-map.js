@@ -1,7 +1,7 @@
 // static/js/alarms-map.js
 // Leaflet map for alarms pages (communication + performance)
 
-import { safeParseFloat } from './utils.js';
+import { safeParseFloat } from '../shared/utils.js';
 
 let map;
 let markersLayer;

@@ -1,9 +1,9 @@
 // static/js/app.js
 // Main orchestrator for NMS Dashboard Page
 
-import { CONFIG } from './config.js';
-import { fetchSerialsList, fetchSerialData } from './api.js';
-import { debounce } from './utils.js';
+import { CONFIG } from '../shared/config.js';
+import { fetchSerialsList, fetchSerialData } from '../shared/api.js';
+import { debounce } from '../shared/utils.js';
 import { initMap, preloadCustomIcon, updateMapMarkers, getMarkers, getMap, hideMapLoading } from './map.js';
 import { 
   getSerials, 

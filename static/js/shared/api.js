@@ -1,7 +1,7 @@
 // static/js/api.js
 // Centralized API calls for the NMS Platform
 
-import { CONFIG } from './config.js';
+import { CONFIG } from '../config.js';
 
 /**
  * Generic JSON fetch utility

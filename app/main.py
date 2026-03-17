@@ -98,10 +98,10 @@ def home(request: Request):
     return templates.TemplateResponse("home.html", {"request": request})
 
 
-@app.get("/liveview")
+@app.get("/4skelion/liveview")
 def liveview(request: Request):
     """Render the live view UI."""
-    return templates.TemplateResponse("liveview.html", {"request": request})
+    return templates.TemplateResponse("4skelion/liveview.html", {"request": request})
 
 
 @app.get("/coming_soon")
@@ -110,36 +110,36 @@ def coming_soon(request: Request):
     return templates.TemplateResponse("coming_soon.html", {"request": request})
 
 
-@app.get("/alarms")
+@app.get("/4skelion/alarms")
 def alarms(request: Request):
-    return RedirectResponse(url="/alarms/summary")
+    return RedirectResponse(url="4kselion/alarms/summary")
 
-@app.get("/alarms/communication")
+@app.get("/4skelion/alarms/communication")
 def communication_alarms(request: Request):
-    return templates.TemplateResponse("communication_alarm.html", {"request": request})
+    return templates.TemplateResponse("4kselion/communication_alarm.html", {"request": request})
 
-@app.get("/alarms/summary")
+@app.get("/4skelion/alarms/summary")
 def total_alarms(request: Request):
-    return templates.TemplateResponse("alarm_summary.html", {"request": request})
+    return templates.TemplateResponse("4kselion/alarm_summary.html", {"request": request})
 
-@app.get("/alarms/performance")
+@app.get("/4skelion/alarms/performance")
 def performance_alarms(request: Request):
-    return templates.TemplateResponse("performance_alarm.html", {"request": request})
+    return templates.TemplateResponse("4kselion/performance_alarm.html", {"request": request})
 
-@app.get("/playback")
+@app.get("/4skelion/playback")
 def playback(request: Request):
     """Render the playback UI."""
-    return templates.TemplateResponse("playback.html", {"request": request})
+    return templates.TemplateResponse("4kselion/playback.html", {"request": request})
 
-@app.get("/settings")
+@app.get("/4kselion/settings")
 def settings(request: Request):
     """Render the settings UI."""
-    return templates.TemplateResponse("settings.html", {"request": request})
+    return templates.TemplateResponse("4kselion/settings.html", {"request": request})
 
-@app.get("/details")
+@app.get("/4kselion/details")
 def details(request: Request):
     """Render the Historic Details UI"""
-    return templates.TemplateResponse("historic_details.html", {"request": request})
+    return templates.TemplateResponse("4kselion/historic_details.html", {"request": request})
 
 @app.get("/export/Live/{serial}")
 def export_serial(serial: str):

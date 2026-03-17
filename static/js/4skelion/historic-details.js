@@ -1,5 +1,5 @@
-import { fetchJSON, fetchHistoricSerialsList , fetchSerialNameMap, fetchHistoricSerialData, fetchPagedHistoricAllData, getHistoricExportUrl } from './api.js';
-import { CONFIG } from './config.js';
+import { fetchJSON, fetchHistoricSerialsList , fetchSerialNameMap, fetchHistoricSerialData, fetchPagedHistoricAllData, getHistoricExportUrl } from '../shared/api.js';
+import { CONFIG } from '../shared/config.js';
 
 const MAX_DAYS_BACK = 15;
 const PAGE_SIZE = 500;

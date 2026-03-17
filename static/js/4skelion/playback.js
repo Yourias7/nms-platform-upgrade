@@ -1,8 +1,8 @@
 // static/js/playback.js
 // Playback page - RSRP time-series visualization
-import { CONFIG } from './config.js';
-import { fetchSerialData, fetchSerialNameMap, fetchEarliestSerialData, fetchLatestSerialData } from './api.js';
-import { fetchHistoricSerialsList, fetchHistoricSerialData } from './api.js';
+import { CONFIG } from '../shared/config.js';
+import { fetchSerialData, fetchSerialNameMap, fetchEarliestSerialData, fetchLatestSerialData } from '../shared/api.js';
+import { fetchHistoricSerialsList, fetchHistoricSerialData } from '../shared/api.js';
 
 let chartInstance = null;
 let chartInstance2 = null;

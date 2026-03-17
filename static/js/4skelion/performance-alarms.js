@@ -1,8 +1,8 @@
 // static/js/performance-alarms.js
 // Performance alarms page logic
 
-import { CONFIG } from './config.js';
-import { fetchJSON, fetchAlarmSerialData , fetchSerialNameMap} from './api.js';
+import { CONFIG } from '../shared/config.js';
+import { fetchJSON, fetchAlarmSerialData , fetchSerialNameMap} from '../shared/api.js';
 import { getThresholds, isInAlarm } from './settings.js';
 
 // State management

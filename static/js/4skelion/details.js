@@ -1,7 +1,7 @@
 // static/js/details.js
 // Details table rendering and export functionality
 
-import { fetchSerialData, getExportUrl } from './api.js';
+import { fetchSerialData, getExportUrl } from '../api.js';
 import { getMarkers, getMap } from './map.js';
 
 // Sorting state

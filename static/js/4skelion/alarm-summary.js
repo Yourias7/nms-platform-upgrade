@@ -1,8 +1,8 @@
 // static/js/alarm-summary.js
 // Alarm summary page with statistics chart
 
-import { CONFIG } from './config.js';
-import { fetchJSON } from './api.js';
+import { CONFIG } from '../shared/config.js';
+import { fetchJSON } from '../shared/api.js';
 import { getThresholds } from './settings.js';
 
 // State management

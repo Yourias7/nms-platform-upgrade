@@ -1,8 +1,8 @@
 // static/js/alarms.js
 // Alarm detection and display logic
 
-import { CONFIG } from './config.js';
-import { fetchJSON } from './api.js';
+import { CONFIG } from '../shared/config.js';
+import { fetchJSON } from '../shared/api.js';
 import { getThresholds, isInAlarm } from './settings.js';
 
 const COMMUNICATION_ALARM_THRESHOLD_HOURS = 3;

@@ -1,12 +1,12 @@
 // static/js/serials.js
 // Serial list rendering and LED indicator logic
 
-import { CONFIG } from './config.js';
-import { fetchSerialData, fetchSerialNameMap } from './api.js';
+import { CONFIG } from '../config.js';
+import { fetchSerialData, fetchSerialNameMap } from '../api.js';
 import { buildMarkerTooltipContent, clearMapMarkers, updateMapMarkers, tooltipHtmlToPlainText } from './map.js';
 import { getThresholds, isInAlarm } from './settings.js';
 import { clearDetails } from './details.js';
-import { getFieldCaseInsensitive } from './utils.js';
+import { getFieldCaseInsensitive } from '../utils.js';
 
 // import { fetchCommunicationAlarms } from './alarms.js';
 // import { isCommunicationAlarm,result } from './alarms.js';

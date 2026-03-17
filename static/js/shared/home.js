@@ -29,7 +29,7 @@ document.addEventListener('DOMContentLoaded', function() {
       sessionStorage.setItem('selectedPlatform', selectedOption);
       
       // Navigate based on selected option
-      let destination = '/liveview'; // Default for 4skelion
+      let destination = '/4skelion/liveview'; // Default for 4skelion
       
       if (selectedOption === '3skelion' || selectedOption === 'f-steering' || selectedOption === 'f-qual') {
         destination = '/coming_soon';
