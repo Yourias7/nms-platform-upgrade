@@ -104,6 +104,12 @@ def liveview(request: Request):
     return templates.TemplateResponse("liveview.html", {"request": request})
 
 
+@app.get("/coming_soon")
+def coming_soon(request: Request):
+    """Render the coming soon page."""
+    return templates.TemplateResponse("coming_soon.html", {"request": request})
+
+
 @app.get("/alarms")
 def alarms(request: Request):
     return RedirectResponse(url="/alarms/summary")
