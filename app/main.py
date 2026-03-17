@@ -125,56 +125,56 @@ def coming_soon(request: Request):
 @app.get("/4skelion/alarms")
 def alarms(request: Request):
     try:
-        return RedirectResponse(url="4kselion/alarms/summary")
+        return RedirectResponse(url="/4skelion/alarms/summary")
     except Exception:
         return templates.TemplateResponse("coming_soon.html", {"request": request})
     
 @app.get("/3skelion/alarms")
 def alarms(request: Request):
     try:
-        return RedirectResponse(url="3kselion/alarms/summary")
+        return RedirectResponse(url="/3skelion/alarms/summary")
     except Exception:
         return templates.TemplateResponse("coming_soon.html", {"request": request})
 
 @app.get("/4skelion/alarms/communication")
 def communication_alarms(request: Request):
     try:
-        return templates.TemplateResponse("4kselion/communication_alarm.html", {"request": request})
+        return templates.TemplateResponse("4skelion/communication_alarm.html", {"request": request})
     except Exception:
         return templates.TemplateResponse("coming_soon.html", {"request": request})
     
 @app.get("/3skelion/alarms/communication")
 def communication_alarms(request: Request):
     try:
-        return templates.TemplateResponse("3kselion/communication_alarm.html", {"request": request})
+        return templates.TemplateResponse("3skelion/communication_alarm.html", {"request": request})
     except Exception:
         return templates.TemplateResponse("coming_soon.html", {"request": request})
 
 @app.get("/4skelion/alarms/summary")
 def total_alarms(request: Request):
     try:
-        return templates.TemplateResponse("4kselion/alarm_summary.html", {"request": request})
+        return templates.TemplateResponse("4skelion/alarm_summary.html", {"request": request})
     except Exception:
         return templates.TemplateResponse("coming_soon.html", {"request": request})
     
 @app.get("/3skelion/alarms/summary")
 def total_alarms(request: Request):
     try:
-        return templates.TemplateResponse("3kselion/alarm_summary.html", {"request": request})
+        return templates.TemplateResponse("3skelion/alarm_summary.html", {"request": request})
     except Exception:
         return templates.TemplateResponse("coming_soon.html", {"request": request})
 
 @app.get("/4skelion/alarms/performance")
 def performance_alarms(request: Request):
     try:
-        return templates.TemplateResponse("4kselion/performance_alarm.html", {"request": request})
+        return templates.TemplateResponse("4skelion/performance_alarm.html", {"request": request})
     except Exception:
         return templates.TemplateResponse("coming_soon.html", {"request": request})
     
 @app.get("/3skelion/alarms/performance")
 def performance_alarms(request: Request):
     try:
-        return templates.TemplateResponse("3kselion/performance_alarm.html", {"request": request})
+        return templates.TemplateResponse("3skelion/performance_alarm.html", {"request": request})
     except Exception:
         return templates.TemplateResponse("coming_soon.html", {"request": request})
 
@@ -182,7 +182,7 @@ def performance_alarms(request: Request):
 def playback(request: Request):
     """Render the playback UI."""
     try:
-        return templates.TemplateResponse("4kselion/playback.html", {"request": request})
+        return templates.TemplateResponse("4skelion/playback.html", {"request": request})
     except Exception:
         return templates.TemplateResponse("coming_soon.html", {"request": request})
 
@@ -190,39 +190,39 @@ def playback(request: Request):
 def playback(request: Request):
     """Render the playback UI."""
     try:
-        return templates.TemplateResponse("3kselion/playback.html", {"request": request})
+        return templates.TemplateResponse("3skelion/playback.html", {"request": request})
     except Exception:
         return templates.TemplateResponse("coming_soon.html", {"request": request})
 
-@app.get("/4kselion/settings")
+@app.get("/4skelion/settings")
 def settings(request: Request):
     """Render the settings UI."""
     try:
-        return templates.TemplateResponse("4kselion/settings.html", {"request": request})
+        return templates.TemplateResponse("4skelion/settings.html", {"request": request})
     except Exception:
         return templates.TemplateResponse("coming_soon.html", {"request": request})
     
-@app.get("/3kselion/settings")
+@app.get("/3skelion/settings")
 def settings(request: Request):
     """Render the settings UI."""
     try:
-        return templates.TemplateResponse("3kselion/settings.html", {"request": request})
+        return templates.TemplateResponse("3skelion/settings.html", {"request": request})
     except Exception:
         return templates.TemplateResponse("coming_soon.html", {"request": request})
 
-@app.get("/4kselion/details")
+@app.get("/4skelion/details")
 def details(request: Request):
     """Render the Historic Details UI"""
     try:
-        return templates.TemplateResponse("4kselion/historic_details.html", {"request": request})
+        return templates.TemplateResponse("4skelion/historic_details.html", {"request": request})
     except Exception:
         return templates.TemplateResponse("coming_soon.html", {"request": request})
     
-@app.get("/3kselion/details")
+@app.get("/3skelion/details")
 def details(request: Request):
     """Render the Historic Details UI"""
     try:
-        return templates.TemplateResponse("3kselion/historic_details.html", {"request": request})
+        return templates.TemplateResponse("3skelion/historic_details.html", {"request": request})
     except Exception:
         return templates.TemplateResponse("coming_soon.html", {"request": request})
 
