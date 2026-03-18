@@ -381,62 +381,93 @@ async function fetchAllPerformanceAlarms(startDate, endDate, serial = 'all') {
       }
       
       try {
-        const records = await fetchAlarmSerialData(ser, startDateTime, endDateTime, thresholds, signal);
+        // Fetch all pages of alarm data for this serial
+        let page = 1;
+        let totalRecords = 0;
+        let hasMorePages = true;
         
-        if (!records || records.length === 0) continue;
-        
-        for (const record of records) {
-          let timestamp = null;
-          let site = 'N/A';
-          let lat = null;
-          let lon = null;
-          let rsrp = null;
-          let sinr = null;
-          let temp = null;
+        while (hasMorePages) {
+          if (signal.aborted) {
+            throw new DOMException('Request cancelled', 'AbortError');
+          }
           
-          for (const [key, val] of Object.entries(record)) {
-            const lower = key.toLowerCase();
-            if (lower === 'datetime' || lower === 'timestamp' || lower === 'time') {
-              timestamp = val;
-            }
-            if (lower === 'site' || lower === 'name') {
-              site = val;
-            }
-            if (lower === 'latitude' || lower === 'lat') {
-              lat = val;
-            }
-            if (lower === 'longitude' || lower === 'lon' || lower === 'long') {
-              lon = val;
-            }
-            if (lower === 'rsrp') {
-              rsrp = parseFloat(val);
-            }
-            if (lower === 'sinr') {
-              sinr = parseFloat(val);
-            }
-            if (lower === 'temp' || lower === 'temperature') {
-              temp = parseFloat(val);
+          const response = await fetchPagedAlarmSerialData(ser, startDateTime, endDateTime, page, PAGE_SIZE, thresholds, signal);
+          
+          // Handle both object response {data: [...], total: N} and array response [...]
+          let records = [];
+          if (response) {
+            if (Array.isArray(response)) {
+              records = response;
+              totalRecords = response.length;
+            } else if (typeof response === 'object' && response.data) {
+              records = Array.isArray(response.data) ? response.data : [];
+              totalRecords = response.total || 0;
             }
           }
           
-          // Check if this record is in alarm
-          const alarmType = getPerformanceAlarmType(rsrp, sinr, temp, lat, lon);
-          if (alarmType) {
-            alarms.push({
-              site,
-              serial: ser,
-              datetime: timestamp || 'Unknown',
-              status: alarmType,
-              rsrp,
-              sinr,
-              temp,
-              latitude: lat,
-              longitude: lon
-            });
+          if (!Array.isArray(records) || records.length === 0) break;
+          
+          for (const record of records) {
+            // Skip invalid records
+            if (!record || typeof record !== 'object') continue;
+            
+            let timestamp = null;
+            let site = 'N/A';
+            let lat = null;
+            let lon = null;
+            let rsrp = null;
+            let sinr = null;
+            let temp = null;
+            
+            for (const [key, val] of Object.entries(record)) {
+              const lower = key.toLowerCase();
+              if (lower === 'datetime' || lower === 'timestamp' || lower === 'time') {
+                timestamp = val;
+              }
+              if (lower === 'site' || lower === 'name') {
+                site = val;
+              }
+              if (lower === 'latitude' || lower === 'lat') {
+                lat = val;
+              }
+              if (lower === 'longitude' || lower === 'lon' || lower === 'long') {
+                lon = val;
+              }
+              if (lower === 'rsrp') {
+                rsrp = parseFloat(val);
+              }
+              if (lower === 'sinr') {
+                sinr = parseFloat(val);
+              }
+              if (lower === 'temp' || lower === 'temperature') {
+                temp = parseFloat(val);
+              }
+            }
+            
+            // Check if this record is in alarm
+            const alarmType = getPerformanceAlarmType(rsrp, sinr, temp, lat, lon);
+            if (alarmType) {
+              alarms.push({
+                site,
+                serial: ser,
+                datetime: timestamp || 'Unknown',
+                status: alarmType,
+                rsrp,
+                sinr,
+                temp,
+                latitude: lat,
+                longitude: lon
+              });
+            }
           }
+          
+          // Check if there are more pages
+          const recordsFetched = page * PAGE_SIZE;
+          hasMorePages = recordsFetched < totalRecords;
+          page++;
         }
       } catch (err) {
-        console.warn(`Failed to check alarms for ${ser}:`, err);
+        console.warn(`Failed to check alarms for ${ser}:`, err.message || err);
       }
     }
     
@@ -745,10 +776,7 @@ function renderPerformanceAlarmsTable(alarms, total = null) {
   }
   
   // Update message
-  if (alarmMessage && total !== null) {
-    const totalPages = Math.ceil(total / PAGE_SIZE);
-    alarmMessage.textContent = `Page ${currentPage} of ${totalPages} — ${total} total alarms`;
-  } else if (alarmMessage) {
+  if (alarmMessage) {
     alarmMessage.textContent = `Found ${alarms.length} alarm${alarms.length !== 1 ? 's' : ''}`;
   }
   
@@ -896,11 +924,6 @@ function renderPerformanceAlarmsTable(alarms, total = null) {
   // Attach click handlers to headers for sorting
   attachPerformanceHeaderClickHandlers();
   
-  // Render pagination if we have total count
-  if (total !== null) {
-    renderPaginator(total, currentPage, PAGE_SIZE);
-  }
-  
   // Dispatch event to notify map
   window.dispatchEvent(new CustomEvent('performance-alarms:table-rendered', {
     detail: {
@@ -912,43 +935,7 @@ function renderPerformanceAlarmsTable(alarms, total = null) {
 }
 
 /**
- * Load and display a specific page of performance alarms
- * @param {number} page - Page number to load
- */
-async function loadPerformanceAlarmsPage(page = 1) {
-  const startDateInput = document.getElementById('startDateInput');
-  const endDateInput = document.getElementById('endDateInput');
-  
-  if (!startDateInput || !endDateInput) return;
-  
-  const startDate = startDateInput.value;
-  const endDate = endDateInput.value;
-  
-  if (!startDate || !endDate) {
-    showError('Please select both start and end dates');
-    return;
-  }
-  
-  showLoading();
-  currentPage = page;
-  
-  try {
-    const result = await fetchPerformanceAlarmsPage(startDate, endDate, selectedSerial, page);
-    if (result.data) {
-      renderPerformanceAlarmsTable(result.data, result.total);
-    }
-  } catch (err) {
-    // Don't show error message if request was cancelled
-    if (err.name === 'AbortError') {
-      return;
-    }
-    console.error('Error loading performance alarms:', err);
-    showError('Error loading performance alarms');
-  }
-}
-
-/**
- * Load and display performance alarms
+ * Load and display all performance alarms (no pagination)
  */
 async function loadPerformanceAlarms() {
   const startDateInput = document.getElementById('startDateInput');
@@ -965,17 +952,14 @@ async function loadPerformanceAlarms() {
   }
   
   showLoading();
-  currentPage = 1;
   
   try {
-    const result = await fetchPerformanceAlarmsPage(startDate, endDate, selectedSerial, 1);
-    if (result.data) {
-      renderPerformanceAlarmsTable(result.data, result.total);
-    }
-    
-    // Also fetch all alarms for lasso filtering on the map
+    // Fetch all alarms at once (no pagination)
     allPerformanceAlarms = await fetchAllPerformanceAlarms(startDate, endDate, selectedSerial);
     lassoFilteredAlarmKeys = null;
+    
+    // Render all alarms (no pagination, no total count)
+    renderPerformanceAlarmsTable(allPerformanceAlarms, null);
   } catch (err) {
     // Don't show error message if request was cancelled
     if (err.name === 'AbortError') {

@@ -588,7 +588,8 @@ async function loadHistoricData(serial, startDate, endDate) {
   currentAbortController = new AbortController();
   const signal = currentAbortController.signal;
 
-  const records = await fetchHistoricSerialData(serial, startDate, endDate, signal);
+  const response = await fetchHistoricSerialData(serial, startDate, endDate, 1, 500, signal);
+  const records = response.data || response || [];
   return { serial, records: sortByDatetime(records || []) };
 }
 
