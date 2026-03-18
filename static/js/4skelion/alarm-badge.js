@@ -1,8 +1,8 @@
 // static/js/alarm-badge.js
 // Global alarm badge updater that runs on all pages
 
-import { CONFIG } from './config.js';
-import { fetchJSON } from './api.js';
+import { CONFIG } from '../shared/config.js';
+import { fetchJSON } from '../shared/api.js';
 
 const COMMUNICATION_ALARM_THRESHOLD_HOURS = 3;
 const BADGE_REFRESH_INTERVAL = 60000; // 60 seconds

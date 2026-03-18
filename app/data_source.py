@@ -1,6 +1,6 @@
 import logging
 import threading
-from sqlalchemy.sql import func, text
+from sqlalchemy.sql import func, text, case
 import time
 from datetime import datetime, timedelta
 from .database import SessionLocal
@@ -61,6 +61,40 @@ def list_live_serial_name_pairs():
         db.close()
 
 
+def list_historic_alarm_serials():
+    """Return list of all distinct SERIAL values from database."""
+    global _historic_serials_cache, _historic_serials_cache_ts
+
+    now = time.monotonic()
+    with _historic_serials_lock:
+        if _historic_serials_cache is not None and (now - _historic_serials_cache_ts) < _HISTORIC_SERIALS_CACHE_TTL_SEC:
+            logger.info("Returning cached historic serials")
+            return list(_historic_serials_cache)
+
+    db = SessionLocal()
+    try:
+        cutoff = datetime.utcnow() - timedelta(days=15)
+        rows = (
+            db.query(HistoricMeasurement.SERIAL)
+            .filter(
+                HistoricMeasurement.DATETIME >= func.dateadd(
+                    text("DAY"), -15, func.sysutcdatetime()
+                )
+            )
+            .filter((HistoricMeasurement.RSRP <= -120) | (HistoricMeasurement.SINR <= 0) | (HistoricMeasurement.LONGITUDE == 0) | (HistoricMeasurement.LATITUDE == 0) | (HistoricMeasurement.TEMP >= 75))
+            .filter(HistoricMeasurement.SERIAL != None)
+            .distinct()
+            .all()
+        )
+        serials = [r[0] for r in rows if r[0] is not None]
+        logger.info(f"Retrieved {len(serials)} distinct serials from database (last 15 days)")
+        with _historic_serials_lock:
+            _historic_serials_cache = list(serials)
+            _historic_serials_cache_ts = time.monotonic()
+        return serials
+    finally:
+        db.close()
+
 def list_historic_serials():
     """Return list of all distinct SERIAL values from database."""
     global _historic_serials_cache, _historic_serials_cache_ts
@@ -81,6 +115,7 @@ def list_historic_serials():
                     text("DAY"), -15, func.sysutcdatetime()
                 )
             )
+            .filter(HistoricMeasurement.SERIAL != None)
             .distinct()
             .all()
         )
@@ -93,14 +128,143 @@ def list_historic_serials():
     finally:
         db.close()
 
-def get_historic_records_by_serial(serial: str, early: str = None, latest: str = None):
-    """Return list of measurement records for a given SERIAL from database."""
+def get_historic_records_by_serial(serial: str, early: str = None, latest: str = None, limit: int = 500, offset: int = 0):
+    """Return paginated measurement records for a given SERIAL from database."""
     db = SessionLocal()
     try:
         ser = str(serial).strip()
         sdate = datetime.fromisoformat(early) if early else None
         edate = datetime.fromisoformat(latest) if latest else None
         cutoff = datetime.utcnow() - timedelta(days=15)
+        base_query = (
+            db.query(
+                HistoricMeasurement.SERIAL.label("SERIAL"),
+                HistoricMeasurement.NAME.label("NAME"),
+                HistoricMeasurement.LATITUDE.label("LATITUDE"),
+                HistoricMeasurement.LONGITUDE.label("LONGITUDE"),
+                HistoricMeasurement.DATETIME.label("DATETIME"),
+                HistoricMeasurement.HEADING.label("HEADING"),
+                HistoricMeasurement.RSRP.label("RSRP"),
+                HistoricMeasurement.SINR.label("SINR"),
+                HistoricMeasurement.TEMP.label("TEMP"),
+                HistoricMeasurement.S0RSRP.label("S0RSRP"),
+                HistoricMeasurement.S0SINR.label("S0SINR"),
+                HistoricMeasurement.S1RSRP.label("S1RSRP"),
+                HistoricMeasurement.S1SINR.label("S1SINR"),
+                HistoricMeasurement.S2RSRP.label("S2RSRP"),
+                HistoricMeasurement.S2SINR.label("S2SINR"),
+                HistoricMeasurement.S3RSRP.label("S3RSRP"),
+                HistoricMeasurement.S3SINR.label("S3SINR"),
+            )
+            .filter(HistoricMeasurement.SERIAL == ser)
+            .filter(HistoricMeasurement.DATETIME >= cutoff)
+            .filter(HistoricMeasurement.DATETIME >= sdate if sdate else True)
+            .filter(HistoricMeasurement.DATETIME <= edate if edate else True)
+        )
+        total = base_query.count()
+        rows = base_query.order_by(HistoricMeasurement.DATETIME.asc()).limit(limit).offset(offset).all()
+
+        result = []
+        for row in rows:
+            rec = {
+                "SERIAL": row.SERIAL,
+                "NAME": row.NAME,
+                "LATITUDE": row.LATITUDE,
+                "LONGITUDE": row.LONGITUDE,
+                "DATETIME": row.DATETIME.isoformat() if row.DATETIME else None,
+                "HEADING": row.HEADING,
+                "RSRP": row.RSRP,
+                "SINR": row.SINR,
+                "TEMP": row.TEMP,
+                "S0RSRP": row.S0RSRP,
+                "S0SINR": row.S0SINR,
+                "S1RSRP": row.S1RSRP,
+                "S1SINR": row.S1SINR,
+                "S2RSRP": row.S2RSRP,
+                "S2SINR": row.S2SINR,
+                "S3RSRP": row.S3RSRP,
+                "S3SINR": row.S3SINR
+            }
+            result.append(rec)
+
+        logger.info(f"Retrieved {len(result)} records (offset={offset}, limit={limit}) out of {total} total for SERIAL: {ser}")
+        return {"data": result, "total": total}
+    finally:
+        db.close()
+
+def get_all_historic_records(early: str = None, latest: str = None, limit: int = 500, offset: int = 0):
+    """Return paginated measurement records for ALL serials within the specified date range."""
+    db = SessionLocal()
+    try:
+        sdate = datetime.fromisoformat(early) if early else None
+        edate = datetime.fromisoformat(latest) if latest else None
+        cutoff = datetime.utcnow() - timedelta(days=15)
+        base_query = (
+            db.query(
+                HistoricMeasurement.SERIAL.label("SERIAL"),
+                HistoricMeasurement.NAME.label("NAME"),
+                HistoricMeasurement.LATITUDE.label("LATITUDE"),
+                HistoricMeasurement.LONGITUDE.label("LONGITUDE"),
+                HistoricMeasurement.DATETIME.label("DATETIME"),
+                HistoricMeasurement.HEADING.label("HEADING"),
+                HistoricMeasurement.RSRP.label("RSRP"),
+                HistoricMeasurement.SINR.label("SINR"),
+                HistoricMeasurement.TEMP.label("TEMP"),
+                HistoricMeasurement.S0RSRP.label("S0RSRP"),
+                HistoricMeasurement.S0SINR.label("S0SINR"),
+                HistoricMeasurement.S1RSRP.label("S1RSRP"),
+                HistoricMeasurement.S1SINR.label("S1SINR"),
+                HistoricMeasurement.S2RSRP.label("S2RSRP"),
+                HistoricMeasurement.S2SINR.label("S2SINR"),
+                HistoricMeasurement.S3RSRP.label("S3RSRP"),
+                HistoricMeasurement.S3SINR.label("S3SINR"),
+            )
+            .filter(HistoricMeasurement.DATETIME >= cutoff)
+            .filter(HistoricMeasurement.DATETIME >= sdate if sdate else True)
+            .filter(HistoricMeasurement.DATETIME <= edate if edate else True)
+        )
+        total = base_query.count()
+        rows = base_query.order_by(HistoricMeasurement.DATETIME.asc()).limit(limit).offset(offset).all()
+
+        result = []
+        for row in rows:
+            rec = {
+                "SERIAL": row.SERIAL,
+                "NAME": row.NAME,
+                "LATITUDE": row.LATITUDE,
+                "LONGITUDE": row.LONGITUDE,
+                "DATETIME": row.DATETIME.isoformat() if row.DATETIME else None,
+                "HEADING": row.HEADING,
+                "RSRP": row.RSRP,
+                "SINR": row.SINR,
+                "TEMP": row.TEMP,
+                "S0RSRP": row.S0RSRP,
+                "S0SINR": row.S0SINR,
+                "S1RSRP": row.S1RSRP,
+                "S1SINR": row.S1SINR,
+                "S2RSRP": row.S2RSRP,
+                "S2SINR": row.S2SINR,
+                "S3RSRP": row.S3RSRP,
+                "S3SINR": row.S3SINR,
+            }
+            result.append(rec)
+
+        logger.info(f"Retrieved {len(result)} records (offset={offset}, limit={limit}) out of {total} total for ALL serials")
+        return {"data": result, "total": total}
+    finally:
+        db.close()
+
+def get_alarm_records_by_serial(serial: str, early: str = None, latest: str = None, rsrp_threshold: float = -120, sinr_threshold: float = 0, temp_threshold: float = 75):
+    """Return list of alarm records for a given SERIAL from database."""
+    db = SessionLocal()
+    try:
+        ser = str(serial).strip()
+        sdate = datetime.fromisoformat(early) if early else None
+        edate = datetime.fromisoformat(latest) if latest else None
+        cutoff = datetime.utcnow() - timedelta(days=15)
+        
+        # Log thresholds being used
+        logger.info(f"Fetching alarm records for {ser} with thresholds - RSRP: {rsrp_threshold}, SINR: {sinr_threshold}, TEMP: {temp_threshold}")
         rows = (
             db.query(
                 HistoricMeasurement.SERIAL.label("SERIAL"),
@@ -125,6 +289,7 @@ def get_historic_records_by_serial(serial: str, early: str = None, latest: str =
             .filter(HistoricMeasurement.DATETIME >= cutoff)
             .filter(HistoricMeasurement.DATETIME >= sdate if sdate else True)
             .filter(HistoricMeasurement.DATETIME <= edate if edate else True)
+            .filter((HistoricMeasurement.RSRP <= rsrp_threshold) | (HistoricMeasurement.SINR <= sinr_threshold) | (HistoricMeasurement.LONGITUDE == 0) | (HistoricMeasurement.LATITUDE == 0) | (HistoricMeasurement.TEMP >= temp_threshold))
             .order_by(HistoricMeasurement.DATETIME.asc())
             .all()
         )
@@ -336,6 +501,91 @@ def export_live_csv(serial: str) -> str:
             ])
         
         return output.getvalue()
+    finally:
+        db.close()
+
+
+def get_alarm_statistics(early: str = None, latest: str = None, rsrp_threshold: float = -120, sinr_threshold: float = 0, temp_threshold: float = 75):
+    """Return alarm statistics for all systems (total samples vs alarm samples).
+    
+    Optimized version using single SQL query with conditional aggregation instead of N+1 queries.
+    """
+    db = SessionLocal()
+    try:
+        sdate = datetime.fromisoformat(early) if early else None
+        edate = datetime.fromisoformat(latest) if latest else None
+        cutoff = datetime.utcnow() - timedelta(days=15)
+        
+        # Log thresholds being used
+        logger.info(f"Alarm statistics thresholds - RSRP: {rsrp_threshold}, SINR: {sinr_threshold}, TEMP: {temp_threshold}")
+        
+        # Define alarm condition for conditional aggregation
+        alarm_condition = (
+            (HistoricMeasurement.RSRP <= rsrp_threshold) | 
+            (HistoricMeasurement.SINR <= sinr_threshold) | 
+            (HistoricMeasurement.LONGITUDE == 0) | 
+            (HistoricMeasurement.LATITUDE == 0) | 
+            (HistoricMeasurement.TEMP >= temp_threshold)
+        )
+        rsrp_condition = (HistoricMeasurement.RSRP <= rsrp_threshold)
+        sinr_condition = (HistoricMeasurement.SINR <= sinr_threshold)
+        gps_condition = (HistoricMeasurement.LONGITUDE == 0) | (HistoricMeasurement.LATITUDE == 0)
+        temp_condition = (HistoricMeasurement.TEMP >= temp_threshold)
+        
+        # Single query with GROUP BY and conditional aggregation
+        # Uses CASE WHEN in SQL to count alarms in a single pass
+        query = (
+            db.query(
+                HistoricMeasurement.SERIAL,
+                HistoricMeasurement.NAME,
+                func.count(HistoricMeasurement.SERIAL).label('total_samples'),
+                func.sum(case((alarm_condition, 1), else_=0)).label('alarm_samples'),
+                func.sum(case((rsrp_condition, 1), else_=0)).label('rsrp_alarms'),
+                func.sum(case((sinr_condition, 1), else_=0)).label('sinr_alarms'),
+                func.sum(case((gps_condition, 1), else_=0)).label('gps_alarms'),
+                func.sum(case((temp_condition, 1), else_=0)).label('temp_alarms')
+
+            )
+            .filter(HistoricMeasurement.DATETIME >= cutoff)
+            .filter(HistoricMeasurement.SERIAL != None)
+        )
+        
+        # Apply optional date filters
+        if sdate:
+            query = query.filter(HistoricMeasurement.DATETIME >= sdate)
+        if edate:
+            query = query.filter(HistoricMeasurement.DATETIME <= edate)
+        
+        # Group by serial and name to aggregate counts per system
+        query = query.group_by(HistoricMeasurement.SERIAL, HistoricMeasurement.NAME)
+        
+        results = query.all()
+        logger.info(f"Found {len(results)} systems for statistics (optimized single query)")
+        
+        # Build statistics list from query results
+        statistics = []
+        for row in results:
+            serial, name, total_count, alarm_count, rsrp_alarms, sinr_alarms, gps_alarms, temp_alarms = row
+            percentage = (alarm_count / total_count * 100) if total_count > 0 else 0
+            
+            statistics.append({
+                "serial": serial,
+                "name": name or serial,
+                "total_samples": total_count,
+                "alarm_samples": alarm_count,
+                "alarm_percentage": round(percentage, 2),
+                "rsrp_alarms": rsrp_alarms,
+                "sinr_alarms": sinr_alarms,
+                "gps_alarms": gps_alarms,
+                "temp_alarms": temp_alarms
+            })
+        
+        # Sort by alarm percentage descending
+        statistics.sort(key=lambda x: x["alarm_percentage"], reverse=True)
+        
+        logger.info(f"Calculated statistics for {len(statistics)} systems")
+        return statistics
+        
     finally:
         db.close()
 

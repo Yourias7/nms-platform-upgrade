@@ -195,12 +195,20 @@ body {
   align-items: center;
   gap: 1rem;
   transition: all 0.3s ease;
+  cursor: pointer;
 }
 
 .feature-card:hover {
   transform: translateY(-5px);
   border-color: rgba(102, 126, 234, 0.5);
   box-shadow: 0 10px 40px rgba(102, 126, 234, 0.2);
+}
+
+.feature-card.selected {
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.2) 0%, rgba(118, 75, 162, 0.2) 100%);
+  border-color: rgba(102, 126, 234, 0.8);
+  box-shadow: 0 0 20px rgba(102, 126, 234, 0.4), inset 0 0 20px rgba(102, 126, 234, 0.1);
+  transform: translateY(-8px);
 }
 
 .feature-icon {
@@ -276,6 +284,40 @@ body {
 
 .launch-button:hover .button-icon {
   transform: translateX(5px);
+}
+
+.launch-button:disabled {
+  background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.launch-button:disabled:hover {
+  transform: none;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.coming-soon-content {
+  margin: 2rem 0 3rem 0;
+  animation: fadeInUp 1s ease-out 0.6s both;
+}
+
+.coming-soon-message {
+  background: var(--card-bg);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 2rem;
+  margin: 0 auto;
+  max-width: 500px;
+}
+
+.coming-soon-text {
+  font-size: 1.5rem;
+  color: var(--text-primary);
+  margin: 0;
+  font-weight: 500;
 }
 
 .version-info {

@@ -1,9 +1,9 @@
 // static/js/map.js
 // Map initialization and marker management
 
-import { CONFIG } from './config.js';
-import { fetchSerialData } from './api.js';
-import { getFieldCaseInsensitive, safeParseFloat } from './utils.js';
+import { CONFIG } from '../shared/config.js';
+import { fetchSerialData } from '../shared/api.js';
+import { getFieldCaseInsensitive, safeParseFloat } from '../shared/utils.js';
 
 // Module state
 let map = null;
@@ -14,6 +14,63 @@ let customIconUrl = null;
 
 // Used to cancel outdated async updates (prevents “snap back” after click)
 let updateSeq = 0;
+
+function getLastUpdatedText(dateValue) {
+  const lastUpdate = dateValue ? new Date(dateValue) : null;
+  const now = new Date();
+  let timeDiffText = 'N/A';
+
+  if (lastUpdate instanceof Date && !isNaN(lastUpdate.getTime())) {
+    const diffInSeconds = Math.floor((now - lastUpdate) / 1000);
+    if (diffInSeconds < 60) timeDiffText = `${diffInSeconds}s ago`;
+    else if (diffInSeconds < 3600) timeDiffText = `${Math.floor(diffInSeconds / 60)}m ago`;
+    else if (diffInSeconds < 86400) timeDiffText = `${Math.floor(diffInSeconds / 3600)}h ago`;
+    else timeDiffText = `${Math.floor(diffInSeconds / 86400)}d ago`;
+  }
+
+  return timeDiffText;
+}
+
+export function buildMarkerTooltipContent(row, serial) {
+  const lat = getFieldCaseInsensitive(row, ['latitude', 'lat']);
+  const lon = getFieldCaseInsensitive(row, ['longitude', 'lon']);
+  const rsrp = getFieldCaseInsensitive(row, ['rsrp', 'RSRP']);
+  const sinr = getFieldCaseInsensitive(row, ['sinr', 'SINR']);
+  const temp = getFieldCaseInsensitive(row, ['temp', 'TEMP', 'temperature']);
+  const name = getFieldCaseInsensitive(row, ['name', 'NAME']);
+  const earfcn = getFieldCaseInsensitive(row, ['earfcn', 'EARFCN']);
+  const pci = getFieldCaseInsensitive(row, ['pci', 'PCI']);
+  const antennaUsed = getFieldCaseInsensitive(row, ['antenna used', 'ANTENNA USED']);
+  const cid = getFieldCaseInsensitive(row, ['cid', 'CID']);
+  const date = getFieldCaseInsensitive(row, ['datetime', 'DATETIME']);
+
+  const latf = safeParseFloat(lat);
+  const lonf = safeParseFloat(lon);
+  const rsrpVal = rsrp !== null ? safeParseFloat(rsrp).toFixed(1) : 'N/A';
+  const sinrVal = sinr !== null ? safeParseFloat(sinr).toFixed(1) : 'N/A';
+  const tempVal = temp !== null ? safeParseFloat(temp).toFixed(1) : 'N/A';
+  const timeDiffText = getLastUpdatedText(date);
+
+  return (
+    `<b>${name ?? ''}</b><br>${serial}` +
+    `<br>Lat: ${latf}, Lon: ${lonf}` +
+    `<br>RSRP: ${rsrpVal} dBm` +
+    `<br>SINR: ${sinrVal} dB` +
+    `<br>TEMP: ${tempVal}°C` +
+    `<br>EARFCN: ${earfcn ?? ''}` +
+    `<br>PCI: ${pci ?? ''}` +
+    `<br>Antenna Used: ${antennaUsed ?? ''}` +
+    `<br>CID: ${cid ?? ''}` +
+    `<br>Last Updated: ${timeDiffText}`
+  );
+}
+
+export function tooltipHtmlToPlainText(html) {
+  return String(html)
+    .replace(/<br\s*\/?\s*>/gi, '\n')
+    .replace(/<\/?b>/gi, '')
+    .trim();
+}
 
 /**
  * Initialize Leaflet map
@@ -220,30 +277,7 @@ export async function updateMapMarkers(serialList, { fit = true } = {}) {
           marker = L.marker([latf, lonf]).addTo(map);
         }
 
-        // “Last updated” string (safe for missing/invalid date)
-        const lastUpdate = date ? new Date(date) : null;
-        const now = new Date();
-        let timeDiffText = 'N/A';
-
-        if (lastUpdate instanceof Date && !isNaN(lastUpdate.getTime())) {
-          const diffInSeconds = Math.floor((now - lastUpdate) / 1000);
-          if (diffInSeconds < 60) timeDiffText = `${diffInSeconds}s ago`;
-          else if (diffInSeconds < 3600) timeDiffText = `${Math.floor(diffInSeconds / 60)}m ago`;
-          else if (diffInSeconds < 86400) timeDiffText = `${Math.floor(diffInSeconds / 3600)}h ago`;
-          else timeDiffText = `${Math.floor(diffInSeconds / 86400)}d ago`;
-        }
-
-        const tooltipContent =
-          `<b>${name ?? ''}</b><br>${serial}` +
-          `<br>Lat: ${latf}, Lon: ${lonf}` +
-          `<br>RSRP: ${rsrpVal} dBm` +
-          `<br>SINR: ${sinrVal} dB` +
-          `<br>TEMP: ${tempVal}°C` +
-          `<br>EARFCN: ${earfcn ?? ''}` +
-          `<br>PCI: ${pci ?? ''}` +
-          `<br>Antenna Used: ${antenna_used ?? ''}` +
-          `<br>CID: ${cid ?? ''}` +
-          `<br>Last Updated: ${timeDiffText}`;
+        const tooltipContent = buildMarkerTooltipContent(row, serial);
 
         // Bind popup for click interaction
         marker.bindPopup(tooltipContent);

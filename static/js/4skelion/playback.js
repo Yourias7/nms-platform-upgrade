@@ -1,21 +1,110 @@
 // static/js/playback.js
 // Playback page - RSRP time-series visualization
-import { CONFIG } from './config.js';
-import { fetchSerialData, fetchSerialNameMap, fetchEarliestSerialData, fetchLatestSerialData } from './api.js';
-import { fetchHistoricSerialsList, fetchHistoricSerialData } from './api.js';
+import { CONFIG } from '../shared/config.js';
+import { fetchSerialData, fetchSerialNameMap, fetchEarliestSerialData, fetchLatestSerialData } from '../shared/api.js';
+import { fetchHistoricSerialsList, fetchHistoricSerialData } from '../shared/api.js';
 
 let chartInstance = null;
 let chartInstance2 = null;
 let mapInstance = null;
 let mapMarkers = [];
+let lassoLayerGroup = null;
+let activeLassoLayer = null;
+let lassoSelectedRecords = null;
 let currentRecords = [];
+let chartSelectedIndices = new Set(); // Track selected chart point indices
+let chartSelectionActive = false; // Track if chart selection is being used
+let chartSelectionMode = false; // Track if box selection mode is active
+let selectionBox = null; // Current selection box coordinates
 let coloringMode = 'rsrp'; // 'rsrp' or 'sinr'
 let serialNameMap = {};
 let mapLegend = null;
+let selectedRSRPAntennas = ['best']; // any of: 'best', '0', '1', '2', '3'
+let selectedSINRAntennas = ['best']; // any of: 'best', '0', '1', '2', '3'
+let currentAbortController = null; // Track ongoing requests
+
+const CHART_SERIES_COLORS = ['#0d6efd', '#198754', '#fd7e14', '#6f42c1', '#dc3545'];
+
+function getAntennaLabel(antenna, metric) {
+  return antenna === 'best'
+    ? `Best ${metric}`
+    : `Antenna ${parseInt(antenna, 10) + 1} ${metric}`;
+}
+
+function getAntennaFieldName(antenna, metric) {
+  return antenna === 'best' ? metric : `S${antenna}${metric}`;
+}
+
+function buildMetricChartData(records, selectedAntennas, metric, unit) {
+  const labels = records.map((rec) => {
+    const dt = new Date(rec.DATETIME);
+    return dt.toLocaleString('en-US', { month: 'short', day: '2-digit' });
+  });
+
+  const datasets = selectedAntennas.map((antenna, idx) => {
+    const fieldName = getAntennaFieldName(antenna, metric);
+    const color = CHART_SERIES_COLORS[idx % CHART_SERIES_COLORS.length];
+    return {
+      label: `${getAntennaLabel(antenna, metric)} (${unit})`,
+      data: records.map((rec) => rec[fieldName]),
+      borderColor: color,
+      backgroundColor: `${color}1A`,
+      borderWidth: 2,
+      fill: false,
+      pointRadius: 2,
+      pointHoverRadius: 4,
+      pointBackgroundColor: color,
+      pointBorderColor: color,
+      pointBorderWidth: 1,
+      tension: 0.35,
+      spanGaps: false
+    };
+  });
+
+  return { labels, datasets };
+}
+
+function getAllDatasetValues(datasets) {
+  return (datasets || []).flatMap((dataset) => dataset.data || []);
+}
+
+function getActiveDisplayRecords() {
+  // Priority: chart selection > lasso selection > all records
+  if (chartSelectionActive && chartSelectedIndices.size > 0) {
+    return Array.from(chartSelectedIndices).map(idx => currentRecords[idx]).filter(r => r);
+  }
+  return lassoSelectedRecords !== null ? lassoSelectedRecords : currentRecords;
+}
+
+function renderChartsAndDataCards(records) {
+  const safeRecords = records || [];
+
+  const rsrpChartData = buildRSRPChartData(safeRecords, selectedRSRPAntennas);
+  const yBounds = computeRSRPYAxisBounds(getAllDatasetValues(rsrpChartData.datasets));
+
+  if (chartInstance) {
+    chartInstance.data.labels = rsrpChartData.labels;
+    chartInstance.data.datasets = rsrpChartData.datasets;
+    chartInstance.options.scales.y.min = yBounds.min;
+    chartInstance.options.scales.y.max = yBounds.max;
+    chartInstance.update();
+  }
+
+  const sinrChartData = buildSINRChartData(safeRecords, selectedSINRAntennas);
+  const yBoundsSINR = computeSINRYAxisBounds(getAllDatasetValues(sinrChartData.datasets));
+
+  if (chartInstance2) {
+    chartInstance2.data.labels = sinrChartData.labels;
+    chartInstance2.data.datasets = sinrChartData.datasets;
+    chartInstance2.options.scales.y.min = yBoundsSINR.min;
+    chartInstance2.options.scales.y.max = yBoundsSINR.max;
+    chartInstance2.update();
+  }
+
+  updateDataCards(safeRecords);
+}
 
 function updateDataCards(records) {
-  if (!records || records.length === 0) return;
-
   // Helper function to calculate average
   const getAverage = (field) => {
     const values = records.map(r => r[field]).filter(v => v !== null && v !== undefined);
@@ -42,6 +131,21 @@ function updateDataCards(records) {
   const ant3DetailsSINR = document.getElementById('ant3DetailsSINR');
   const ant4DetailsRSRP = document.getElementById('ant4DetailsRSRP');
   const ant4DetailsSINR = document.getElementById('ant4DetailsSINR');
+
+  if (!records || records.length === 0) {
+    bestDetailsRSRP.textContent = 'N/A';
+    bestDetailsSINR.textContent = 'N/A';
+    ant1DetailsRSRP.textContent = 'N/A';
+    ant1DetailsSINR.textContent =  'N/A';
+    ant2DetailsRSRP.textContent = 'N/A';
+    ant2DetailsSINR.textContent = 'N/A';
+    ant3DetailsRSRP.textContent = 'N/A';
+    ant3DetailsSINR.textContent = 'N/A';
+    ant4DetailsRSRP.textContent = 'N/A';
+    ant4DetailsSINR.textContent = 'N/A';
+    return;
+  }
+
   if (bestDetailsRSRP) bestDetailsRSRP.textContent = bestRSRP !== null && bestRSRP !== undefined ? `${bestRSRP.toFixed(2)} dBm` : 'N/A';
   if (bestDetailsSINR) bestDetailsSINR.textContent = bestSINR !== null && bestSINR !== undefined ? `${bestSINR.toFixed(2)} dB` : 'N/A';
   if (ant1DetailsRSRP) ant1DetailsRSRP.textContent = ant1RSRP !== null && ant1RSRP !== undefined ? `${ant1RSRP.toFixed(2)} dBm` : 'N/A';
@@ -189,70 +293,20 @@ function sortByDatetime(records) {
     .sort((a, b) => new Date(a.DATETIME) - new Date(b.DATETIME));
 }
 
-function buildRSRPChartData(records) {
+function buildRSRPChartData(records, selectedAntennas = ['best']) {
   showRSRPLoading();
-  const labels = [];
-  const rsrpValues = [];
-
-  records.forEach((rec) => {
-    const dt = new Date(rec.DATETIME);
-    labels.push(dt.toLocaleString('en-US', { month: 'short', day: '2-digit',}));
-    rsrpValues.push(rec.RSRP);
-  });
-  console.log('Built RSRP chart data with %d points', rsrpValues.length);
+  const chartData = buildMetricChartData(records, selectedAntennas, 'RSRP', 'dBm');
+  console.log('Built RSRP chart data for %d antennas with %d points', selectedAntennas.length, records.length);
   hideRSRPLoading();
-  return {
-    labels,
-    datasets: [
-      {
-        label: 'RSRP (dBm)',
-        data: rsrpValues,
-        borderColor: '#0d6efd',
-        backgroundColor: 'rgba(13, 110, 253, 0.1)',
-        borderWidth: 2,
-        fill: true,
-        pointRadius: 3,
-        pointBackgroundColor: '#0d6efd',
-        pointBorderColor: '#fff',
-        pointBorderWidth: 1,
-        tension: 0.4,
-        spanGaps: false
-      }
-    ]
-  };
+  return chartData;
 }
 
-function buildSINRChartData(records) {
+function buildSINRChartData(records, selectedAntennas = ['best']) {
   showSINRLoading();
-  const labels = [];
-  const sinrValues = [];
-
-  records.forEach((rec) => {
-    const dt = new Date(rec.DATETIME);
-    labels.push(dt.toLocaleString('en-US', { month: 'short', day: '2-digit',}));
-    sinrValues.push(rec.SINR);
-  });
-  console.log('Built SINR chart data with %d points', sinrValues.length);
+  const chartData = buildMetricChartData(records, selectedAntennas, 'SINR', 'dB');
+  console.log('Built SINR chart data for %d antennas with %d points', selectedAntennas.length, records.length);
   hideSINRLoading();
-  return {
-    labels,
-    datasets: [
-      {
-        label: 'SINR (dB)',
-        data: sinrValues,
-        borderColor: '#0d6efd',
-        backgroundColor: 'rgba(13, 110, 253, 0.1)',
-        borderWidth: 2,
-        fill: true,
-        pointRadius: 3,
-        pointBackgroundColor: '#0d6efd',
-        pointBorderColor: '#fff',
-        pointBorderWidth: 1,
-        tension: 0.4,
-        spanGaps: false
-      }
-    ]
-  };
+  return chartData;
 }
 
 function computeRSRPYAxisBounds(values) {
@@ -286,8 +340,8 @@ function computeSINRYAxisBounds(values) {
   const max = Math.ceil(maxValue + padding);
 
   return {
-    min: Math.max(40, min),
-    max: Math.min(-20, max)
+    min: Math.max(-20, min),
+    max: Math.min(40, max)
   };
 }
 
@@ -525,7 +579,16 @@ async function loadHistoricData(serial, startDate, endDate) {
     return { serial: '', records: [] };
   }
 
-  const records = await fetchHistoricSerialData(serial, startDate, endDate);
+  // Cancel any ongoing request
+  if (currentAbortController) {
+    currentAbortController.abort();
+  }
+  
+  // Create new AbortController for this request
+  currentAbortController = new AbortController();
+  const signal = currentAbortController.signal;
+
+  const records = await fetchHistoricSerialData(serial, startDate, endDate, signal);
   return { serial, records: sortByDatetime(records || []) };
 }
 
@@ -543,13 +606,13 @@ function buildEmptyChart(ctx) {
             {
               label: 'RSRP (dBm)',
               data: [],
-              borderColor: '#85c6f1',
+              borderColor: '#764ba2',
               backgroundColor: 'rgba(13, 110, 253, 0.1)',
               borderWidth: 2,
               fill: true,
               pointRadius: 3,
-              pointBackgroundColor: '#85c6f1',
-              pointBorderColor: '#85c6f1',
+              pointBackgroundColor: '#764ba2',
+              pointBorderColor: '#764ba2',
               pointBorderWidth: 1,
               tension: 0.4,
               spanGaps: false
@@ -611,6 +674,9 @@ function buildEmptyChart(ctx) {
           interaction: {
             intersect: false,
             mode: 'index'
+          },
+          onClick: (event, activeElements, chart) => {
+            handleChartPointClick(event, chart);
           }
         }
       });
@@ -623,13 +689,13 @@ function buildEmptyChart(ctx) {
             {
               label: 'SINR (dB)',
               data: [],
-              borderColor: '#85c6f1',
+              borderColor: '#764ba2',
               backgroundColor: 'rgba(13, 110, 253, 0.1)',
               borderWidth: 2,
               fill: true,
               pointRadius: 3,
-              pointBackgroundColor: '#85c6f1',
-              pointBorderColor: '#85c6f1',
+              pointBackgroundColor: '#764ba2',
+              pointBorderColor: '#764ba2',
               pointBorderWidth: 1,
               tension: 0.4,
               spanGaps: false
@@ -691,6 +757,9 @@ function buildEmptyChart(ctx) {
           interaction: {
             intersect: false,
             mode: 'index'
+          },
+          onClick: (event, activeElements, chart) => {
+            handleChartPointClick(event, chart);
           }
         }
       });
@@ -729,50 +798,46 @@ async function renderChartForSerial(serial) {
   const endDateTime = `${endDate}T23:59:59`;
 
   setPlaybackMessage('Loading data...', 'muted');
-  const { records } = await loadHistoricData(serial, startDateTime, endDateTime);
+  
+  try {
+    const { records } = await loadHistoricData(serial, startDateTime, endDateTime);
 
-  if (!records || records.length === 0) {
-    setPlaybackMessage('No historic records found for the selected date range.', 'muted');
-    // Hide loading overlays
+    if (!records || records.length === 0) {
+      setPlaybackMessage('No historic records found for the selected date range.', 'muted');
+      // Hide loading overlays
+      hideMapLoading();
+      hideRSRPLoading();
+      hideSINRLoading();
+      return;
+    }
+
+    // Update map with data points
+    currentRecords = records;
+    updateMapWithData(records);
+
+    if (!activeLassoLayer) {
+      lassoSelectedRecords = null;
+      renderChartsAndDataCards(records);
+      setPlaybackMessage('', 'muted');
+    }
+
+    console.log('[Playback] Chart updated', serial ? `for ${serial}` : '');
+    // Hide loading overlays after data is loaded
     hideMapLoading();
     hideRSRPLoading();
     hideSINRLoading();
-    return;
+  } catch (error) {
+    // Don't show error message if request was cancelled
+    if (error.name === 'AbortError') {
+      console.log('[Playback] Request cancelled');
+      return;
+    }
+    console.error('[Playback] Error loading data:', error);
+    setPlaybackMessage('Error loading data.', 'danger');
+    hideMapLoading();
+    hideRSRPLoading();
+    hideSINRLoading();
   }
-
-  const rsrpChartData = buildRSRPChartData(records);
-  const yBounds = computeRSRPYAxisBounds(rsrpChartData.datasets[0].data);
-
-  if (chartInstance) {
-    chartInstance.data.labels = rsrpChartData.labels;
-    chartInstance.data.datasets[0].data = rsrpChartData.datasets[0].data;
-    chartInstance.options.scales.y.min = yBounds.min;
-    chartInstance.options.scales.y.max = yBounds.max;
-    chartInstance.update();
-  }
-
-  const sinrChartData = buildSINRChartData(records);
-  const yBoundsSINR = computeSINRYAxisBounds(sinrChartData.datasets[0].data);
-
-  if (chartInstance2) {
-    chartInstance2.data.labels = sinrChartData.labels;
-    chartInstance2.data.datasets[0].data = sinrChartData.datasets[0].data;
-    chartInstance2.options.scales.y.min = yBoundsSINR.min;
-    chartInstance2.options.scales.y.max = yBoundsSINR.max;
-    chartInstance2.update();
-  }
-
-  // Update map with data points
-  currentRecords = records;
-  updateMapWithData(records);
-  updateDataCards(records);
-
-  setPlaybackMessage('', 'muted');
-  console.log('[Playback] Chart updated', serial ? `for ${serial}` : '');
-  // Hide loading overlays after data is loaded
-  hideMapLoading();
-  hideRSRPLoading();
-  hideSINRLoading();
 }
 
 async function initChart() {
@@ -788,6 +853,10 @@ async function initChart() {
 
   chartInstance = buildEmptyChart(ctx);
   chartInstance2 = buildEmptyChart(ctx2);
+  
+  // Enable box selection on both charts
+  enableChartBoxSelection(chartInstance, 'rsrpChart');
+  enableChartBoxSelection(chartInstance2, 'sinrChart');
 }
 
 /**
@@ -824,10 +893,401 @@ function initMap() {
 
   // Add legend to the map
   addMapLegend();
+  initLassoTool();
 
   console.log('[Playback] Map initialized');
   hideMapLoading();
   return mapInstance;
+}
+
+function getMarkerBaseColor(rec) {
+  if (coloringMode === 'sinr') {
+    return getColorForSINR(rec?.SINR);
+  }
+  return getColorForRSRP(rec?.RSRP);
+}
+
+function applyDefaultMarkerStyle(marker) {
+  const rec = marker?._record || {};
+  const markerColor = getMarkerBaseColor(rec);
+  marker.setStyle({
+    radius: 6,
+    fillColor: markerColor,
+    color: markerColor,
+    weight: 1,
+    opacity: 1,
+    fillOpacity: 0.8
+  });
+}
+
+function isLatLngInPolygon(point, polygonLatLngs) {
+  const x = point.lng;
+  const y = point.lat;
+  let inside = false;
+
+  for (let i = 0, j = polygonLatLngs.length - 1; i < polygonLatLngs.length; j = i++) {
+    const xi = polygonLatLngs[i].lng;
+    const yi = polygonLatLngs[i].lat;
+    const xj = polygonLatLngs[j].lng;
+    const yj = polygonLatLngs[j].lat;
+
+    const intersects = ((yi > y) !== (yj > y))
+      && (x < ((xj - xi) * (y - yi)) / ((yj - yi) || Number.EPSILON) + xi);
+
+    if (intersects) inside = !inside;
+  }
+
+  return inside;
+}
+
+function clearLassoSelection() {
+  lassoSelectedRecords = null;
+  mapMarkers.forEach((marker) => applyDefaultMarkerStyle(marker));
+  renderChartsAndDataCards(getActiveDisplayRecords());
+}
+
+function clearChartSelection() {
+  chartSelectedIndices.clear();
+  chartSelectionActive = false;
+  
+  // Hide clear buttons
+  const clearBtn = document.getElementById('clearChartSelectionBtn');
+  const clearBtn2 = document.getElementById('clearChartSelectionBtn2');
+  if (clearBtn) clearBtn.style.display = 'none';
+  if (clearBtn2) clearBtn2.style.display = 'none';
+  
+  // Reset point styles to default
+  if (chartInstance) {
+    chartInstance.data.datasets.forEach(dataset => {
+      dataset.pointRadius = 2;
+      dataset.pointHoverRadius = 4;
+      dataset.pointBorderWidth = 1;
+    });
+    chartInstance.update('none');
+  }
+  if (chartInstance2) {
+    chartInstance2.data.datasets.forEach(dataset => {
+      dataset.pointRadius = 2;
+      dataset.pointHoverRadius = 4;
+      dataset.pointBorderWidth = 1;
+    });
+    chartInstance2.update('none');
+  }
+  
+  // Update map and data cards
+  updateMapWithData(currentRecords);
+  renderChartsAndDataCards(getActiveDisplayRecords());
+  setPlaybackMessage('', 'muted');
+}
+
+function handleChartPointClick(event, chart) {
+  // Single click just toggles individual point selection
+  const points = chart.getElementsAtEventForMode(event, 'nearest', { intersect: true }, true);
+  
+  if (points.length > 0) {
+    const point = points[0];
+    const dataIndex = point.index;
+    
+    // Toggle selection
+    if (chartSelectedIndices.has(dataIndex)) {
+      chartSelectedIndices.delete(dataIndex);
+    } else {
+      chartSelectedIndices.add(dataIndex);
+    }
+    
+    chartSelectionActive = chartSelectedIndices.size > 0;
+    
+    // Show/hide clear buttons based on selection state
+    const clearBtn = document.getElementById('clearChartSelectionBtn');
+    const clearBtn2 = document.getElementById('clearChartSelectionBtn2');
+    if (clearBtn) clearBtn.style.display = chartSelectionActive ? 'block' : 'none';
+    if (clearBtn2) clearBtn2.style.display = chartSelectionActive ? 'block' : 'none';
+    
+    // Update point styles
+    updateChartPointStyles();
+    
+    // Update map and data display
+    const selectedRecords = getActiveDisplayRecords();
+    updateMapWithData(selectedRecords);
+    renderChartsAndDataCards(selectedRecords);
+    
+    if (chartSelectionActive) {
+      setPlaybackMessage(`${chartSelectedIndices.size} point(s) selected. Click-drag on chart to select multiple.`, 'primary');
+    } else {
+      setPlaybackMessage('', 'muted');
+    }
+  }
+}
+
+function enableChartBoxSelection(chart, canvasId) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  
+  let isDragging = false;
+  let startX, startY;
+  let overlayCanvas = null;
+  let overlayCtx = null;
+  
+  // Create overlay canvas for drawing selection box
+  const createOverlay = () => {
+    overlayCanvas = document.createElement('canvas');
+    overlayCanvas.style.position = 'absolute';
+    overlayCanvas.style.left = '0';
+    overlayCanvas.style.top = '0';
+    overlayCanvas.style.pointerEvents = 'none';
+    overlayCanvas.width = canvas.width;
+    overlayCanvas.height = canvas.height;
+    overlayCanvas.style.width = canvas.style.width;
+    overlayCanvas.style.height = canvas.style.height;
+    canvas.parentElement.appendChild(overlayCanvas);
+    overlayCtx = overlayCanvas.getContext('2d');
+  };
+  
+  const removeOverlay = () => {
+    if (overlayCanvas) {
+      overlayCanvas.remove();
+      overlayCanvas = null;
+      overlayCtx = null;
+    }
+  };
+  
+  canvas.addEventListener('mousedown', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    startX = e.clientX - rect.left;
+    startY = e.clientY - rect.top;
+    isDragging = true;
+    createOverlay();
+  });
+  
+  canvas.addEventListener('mousemove', (e) => {
+    if (!isDragging || !overlayCtx) return;
+    
+    const rect = canvas.getBoundingClientRect();
+    const currentX = e.clientX - rect.left;
+    const currentY = e.clientY - rect.top;
+    
+    // Clear and redraw selection box
+    overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+    overlayCtx.strokeStyle = '#0d6efd';
+    overlayCtx.fillStyle = 'rgba(13, 110, 253, 0.1)';
+    overlayCtx.lineWidth = 2;
+    overlayCtx.strokeRect(startX, startY, currentX - startX, currentY - startY);
+    overlayCtx.fillRect(startX, startY, currentX - startX, currentY - startY);
+  });
+  
+  canvas.addEventListener('mouseup', (e) => {
+    if (!isDragging) return;
+    
+    const rect = canvas.getBoundingClientRect();
+    const endX = e.clientX - rect.left;
+    const endY = e.clientY - rect.top;
+    
+    isDragging = false;
+    removeOverlay();
+    
+    // Selection box coordinates (normalize to ensure min/max)
+    const boxLeft = Math.min(startX, endX);
+    const boxRight = Math.max(startX, endX);
+    const boxTop = Math.min(startY, endY);
+    const boxBottom = Math.max(startY, endY);
+    
+    // Only select if box has some size (not just a click)
+    if (Math.abs(endX - startX) < 5 || Math.abs(endY - startY) < 5) {
+      return; // Too small, treat as click not drag
+    }
+    
+    // Find all points within the selection box
+    const chartArea = chart.chartArea;
+    const xScale = chart.scales.x;
+    const yScale = chart.scales.y;
+    
+    chart.data.datasets.forEach((dataset, datasetIndex) => {
+      dataset.data.forEach((value, index) => {
+        if (value === null || value === undefined) return;
+        
+        const xPixel = xScale.getPixelForValue(index);
+        const yPixel = yScale.getPixelForValue(value);
+        
+        // Check if point is within selection box
+        if (xPixel >= boxLeft && xPixel <= boxRight && yPixel >= boxTop && yPixel <= boxBottom) {
+          chartSelectedIndices.add(index);
+        }
+      });
+    });
+    
+    chartSelectionActive = chartSelectedIndices.size > 0;
+    
+    // Show/hide clear buttons
+    const clearBtn = document.getElementById('clearChartSelectionBtn');
+    const clearBtn2 = document.getElementById('clearChartSelectionBtn2');
+    if (clearBtn) clearBtn.style.display = chartSelectionActive ? 'block' : 'none';
+    if (clearBtn2) clearBtn2.style.display = chartSelectionActive ? 'block' : 'none';
+    
+    // Update visuals
+    updateChartPointStyles();
+    const selectedRecords = getActiveDisplayRecords();
+    updateMapWithData(selectedRecords);
+    renderChartsAndDataCards(selectedRecords);
+    
+    if (chartSelectionActive) {
+      setPlaybackMessage(`${chartSelectedIndices.size} point(s) selected. Click-drag to select more.`, 'primary');
+    }
+  });
+  
+  canvas.addEventListener('mouseleave', () => {
+    if (isDragging) {
+      isDragging = false;
+      removeOverlay();
+    }
+  });
+}
+
+function updateChartPointStyles() {
+  const updateChart = (chart) => {
+    if (!chart) return;
+    
+    chart.data.datasets.forEach(dataset => {
+      const pointRadii = [];
+      const pointBorderWidths = [];
+      const pointHoverRadii = [];
+      
+      for (let i = 0; i < dataset.data.length; i++) {
+        if (chartSelectedIndices.has(i)) {
+          pointRadii.push(6);
+          pointBorderWidths.push(3);
+          pointHoverRadii.push(8);
+        } else if (chartSelectionActive) {
+          pointRadii.push(1.5);
+          pointBorderWidths.push(1);
+          pointHoverRadii.push(3);
+        } else {
+          pointRadii.push(2);
+          pointBorderWidths.push(1);
+          pointHoverRadii.push(4);
+        }
+      }
+      
+      dataset.pointRadius = pointRadii;
+      dataset.pointBorderWidth = pointBorderWidths;
+      dataset.pointHoverRadius = pointHoverRadii;
+    });
+    
+    chart.update('none');
+  };
+  
+  updateChart(chartInstance);
+  updateChart(chartInstance2);
+}
+
+function clearActiveLasso() {
+  if (lassoLayerGroup) {
+    lassoLayerGroup.clearLayers();
+  }
+  activeLassoLayer = null;
+  clearLassoSelection();
+  // Also clear chart selection when clearing lasso
+  clearChartSelection();
+  setPlaybackMessage('', 'muted');
+}
+
+function applyLassoSelection(layer) {
+  if (!layer || mapMarkers.length === 0) return;
+
+  const latLngs = layer.getLatLngs();
+  const polygon = Array.isArray(latLngs[0]) ? latLngs[0] : latLngs;
+  let selectedCount = 0;
+  const selectedRecords = [];
+
+  mapMarkers.forEach((marker) => {
+    const inside = isLatLngInPolygon(marker.getLatLng(), polygon);
+    if (inside) {
+      selectedCount += 1;
+      if (marker._record) {
+        selectedRecords.push(marker._record);
+      }
+      marker.setStyle({
+        radius: 8,
+        fillColor: '#00d4ff',
+        color: '#111827',
+        weight: 2,
+        opacity: 1,
+        fillOpacity: 0.95
+      });
+    } else {
+      applyDefaultMarkerStyle(marker);
+    }
+  });
+
+  lassoSelectedRecords = selectedRecords;
+  renderChartsAndDataCards(selectedRecords);
+
+  setPlaybackMessage(`${selectedCount} point(s) selected by lasso.`, 'primary');
+}
+
+function initLassoTool() {
+  if (!mapInstance || typeof L.Control.Draw === 'undefined') {
+    console.warn('[Playback] Leaflet.Draw not available; lasso disabled');
+    return;
+  }
+
+  lassoLayerGroup = new L.FeatureGroup();
+  mapInstance.addLayer(lassoLayerGroup);
+
+  const drawControl = new L.Control.Draw({
+    position: 'topleft',
+    draw: {
+      polygon: {
+        allowIntersection: false,
+        showArea: true,
+        shapeOptions: {
+          color: '#0d6efd',
+          weight: 2,
+          fillOpacity: 0.08
+        }
+      },
+      polyline: false,
+      rectangle: false,
+      circle: false,
+      marker: false,
+      circlemarker: false
+    },
+    edit: false
+  });
+
+  mapInstance.addControl(drawControl);
+
+  const ClearLassoControl = L.Control.extend({
+    options: { position: 'topleft' },
+    onAdd: function () {
+      const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
+      const link = L.DomUtil.create('a', '', container);
+      link.href = '#';
+      link.title = 'Clear lasso';
+      link.setAttribute('role', 'button');
+      link.setAttribute('aria-label', 'Clear lasso');
+      link.innerHTML = '&times;';
+      link.style.fontSize = '18px';
+      link.style.lineHeight = '26px';
+      link.style.textAlign = 'center';
+
+      L.DomEvent.disableClickPropagation(container);
+      L.DomEvent.on(link, 'click', (e) => {
+        L.DomEvent.preventDefault(e);
+        clearActiveLasso();
+      });
+
+      return container;
+    }
+  });
+
+  mapInstance.addControl(new ClearLassoControl());
+
+  mapInstance.on(L.Draw.Event.CREATED, (event) => {
+    lassoLayerGroup.clearLayers();
+    lassoLayerGroup.addLayer(event.layer);
+    activeLassoLayer = event.layer;
+    applyLassoSelection(activeLassoLayer);
+  });
 }
 
 /**
@@ -880,6 +1340,7 @@ function updateMapWithData(records) {
       opacity: 1,
       fillOpacity: 0.8
     });
+    marker._record = rec;
 
     const dt = new Date(rec.DATETIME);
     marker.bindPopup(`
@@ -900,6 +1361,10 @@ function updateMapWithData(records) {
     const group = new L.featureGroup(mapMarkers);
     mapInstance.fitBounds(group.getBounds(), { padding: [20, 20] });
     updateLegendContent();
+
+    if (activeLassoLayer) {
+      applyLassoSelection(activeLassoLayer);
+    }
   }
 }
 
@@ -1087,6 +1552,84 @@ function initToggle() {
 }
 
 /**
+ * Initialize antenna toggle buttons
+ */
+function initAntennaToggles() {
+  const toggleAntennaSelection = (selectedAntennas, antenna) => {
+    const exists = selectedAntennas.includes(antenna);
+    if (exists) {
+      if (selectedAntennas.length === 1) {
+        return selectedAntennas;
+      }
+      return selectedAntennas.filter((a) => a !== antenna);
+    }
+    return [...selectedAntennas, antenna];
+  };
+
+  const setButtonStates = (buttons, selectedAntennas) => {
+    buttons.forEach((b) => {
+      b.classList.toggle('active', selectedAntennas.includes(b.dataset.antenna));
+    });
+  };
+
+  // RSRP Antenna Toggle
+  const rsrpToggle = document.getElementById('rsrpAntennaToggle');
+  if (rsrpToggle) {
+    const rsrpButtons = rsrpToggle.querySelectorAll('.antenna-toggle-btn');
+    rsrpButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const antenna = btn.dataset.antenna;
+        selectedRSRPAntennas = toggleAntennaSelection(selectedRSRPAntennas, antenna);
+        setButtonStates(rsrpButtons, selectedRSRPAntennas);
+        
+        // Re-render chart with new antenna data
+        if (currentRecords && currentRecords.length > 0) {
+          const rsrpChartData = buildRSRPChartData(getActiveDisplayRecords(), selectedRSRPAntennas);
+          const yBounds = computeRSRPYAxisBounds(getAllDatasetValues(rsrpChartData.datasets));
+          
+          if (chartInstance) {
+            chartInstance.data.labels = rsrpChartData.labels;
+            chartInstance.data.datasets = rsrpChartData.datasets;
+            chartInstance.options.scales.y.min = yBounds.min;
+            chartInstance.options.scales.y.max = yBounds.max;
+            chartInstance.update();
+          }
+        }
+      });
+    });
+  }
+
+  // SINR Antenna Toggle
+  const sinrToggle = document.getElementById('sinrAntennaToggle');
+  if (sinrToggle) {
+    const sinrButtons = sinrToggle.querySelectorAll('.antenna-toggle-btn');
+    sinrButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const antenna = btn.dataset.antenna;
+        selectedSINRAntennas = toggleAntennaSelection(selectedSINRAntennas, antenna);
+        setButtonStates(sinrButtons, selectedSINRAntennas);
+        
+        // Re-render chart with new antenna data
+        if (currentRecords && currentRecords.length > 0) {
+          const sinrChartData = buildSINRChartData(getActiveDisplayRecords(), selectedSINRAntennas);
+          const yBoundsSINR = computeSINRYAxisBounds(getAllDatasetValues(sinrChartData.datasets));
+          
+          if (chartInstance2) {
+            chartInstance2.data.labels = sinrChartData.labels;
+            chartInstance2.data.datasets = sinrChartData.datasets;
+            chartInstance2.options.scales.y.min = yBoundsSINR.min;
+            chartInstance2.options.scales.y.max = yBoundsSINR.max;
+            chartInstance2.update();
+          }
+        }
+      });
+    });
+  }
+  
+  console.log('[Playback] Antenna toggles initialized');
+}
+
+/**
  * Initialize the playback page
  */
 async function init() {
@@ -1197,8 +1740,102 @@ async function init() {
     startDateInput.addEventListener('change', updateEndDateMin);
   }
 
+  // Add event listener for clear button
+  const clearBtn = document.getElementById('clearSelectedBtn');
+  if (clearBtn) {
+    clearBtn.addEventListener('click', () => {
+      // Clear all input fields
+      const serialInput = document.getElementById('serialInput');
+      const startDateInput = document.getElementById('startDateInput');
+      const endDateInput = document.getElementById('endDateInput');
+      
+      if (serialInput) {
+        serialInput.value = '';
+        delete serialInput.dataset.selectedSerial;
+      }
+      if (startDateInput) startDateInput.value = '';
+      if (endDateInput) endDateInput.value = '';
+
+      // Clear URL parameters
+      window.history.replaceState({}, '', window.location.pathname);
+
+      // Clear charts
+      if (chartInstance) {
+        chartInstance.data.labels = [];
+        chartInstance.data.datasets = [chartInstance.data.datasets[0]];
+        chartInstance.data.datasets[0].data = [];
+        chartInstance.data.datasets[0].label = 'RSRP (dBm)';
+        chartInstance.update();
+      }
+      if (chartInstance2) {
+        chartInstance2.data.labels = [];
+        chartInstance2.data.datasets = [chartInstance2.data.datasets[0]];
+        chartInstance2.data.datasets[0].data = [];
+        chartInstance2.data.datasets[0].label = 'SINR (dB)';
+        chartInstance2.update();
+      }
+
+      // Clear map markers
+      mapMarkers.forEach(marker => mapInstance.removeLayer(marker));
+      mapMarkers = [];
+      if (lassoLayerGroup) {
+        lassoLayerGroup.clearLayers();
+      }
+      activeLassoLayer = null;
+      lassoSelectedRecords = null;
+
+      // Clear chart selection
+      chartSelectedIndices.clear();
+      chartSelectionActive = false;
+
+      // Clear data cards
+      currentRecords = [];
+      updateDataCards([]);
+
+      // Reset antenna selection to "best"
+      selectedRSRPAntennas = ['best'];
+      selectedSINRAntennas = ['best'];
+      
+      // Reset antenna toggle buttons
+      const rsrpToggle = document.getElementById('rsrpAntennaToggle');
+      if (rsrpToggle) {
+        rsrpToggle.querySelectorAll('.antenna-toggle-btn').forEach(btn => {
+          btn.classList.toggle('active', selectedRSRPAntennas.includes(btn.dataset.antenna));
+        });
+      }
+      const sinrToggle = document.getElementById('sinrAntennaToggle');
+      if (sinrToggle) {
+        sinrToggle.querySelectorAll('.antenna-toggle-btn').forEach(btn => {
+          btn.classList.toggle('active', selectedSINRAntennas.includes(btn.dataset.antenna));
+        });
+      }
+
+      // Reset message
+      setPlaybackMessage('Select a serial to load data.', 'muted');
+
+      console.log('[Playback] Cleared all filters and data');
+    });
+  }
+
   // Initialize the map mode toggle
   initToggle();
+
+  // Initialize antenna toggles
+  initAntennaToggles();
+
+  // Add event listeners for chart clear buttons
+  const clearChartBtn = document.getElementById('clearChartSelectionBtn');
+  const clearChartBtn2 = document.getElementById('clearChartSelectionBtn2');
+  if (clearChartBtn) {
+    clearChartBtn.addEventListener('click', () => {
+      clearChartSelection();
+    });
+  }
+  if (clearChartBtn2) {
+    clearChartBtn2.addEventListener('click', () => {
+      clearChartSelection();
+    });
+  }
 
   console.log('[Playback Page] Initialized');
 }

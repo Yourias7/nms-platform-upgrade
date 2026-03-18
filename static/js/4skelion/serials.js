@@ -1,11 +1,12 @@
 // static/js/serials.js
 // Serial list rendering and LED indicator logic
 
-import { CONFIG } from './config.js';
-import { fetchLEDStatus, fetchSerialNameMap } from './api.js';
-import { clearMapMarkers, updateMapMarkers } from './map.js';
+import { CONFIG } from '../shared/config.js';
+import { fetchSerialData, fetchSerialNameMap } from '../shared/api.js';
+import { buildMarkerTooltipContent, clearMapMarkers, updateMapMarkers, tooltipHtmlToPlainText } from './map.js';
 import { getThresholds, isInAlarm } from './settings.js';
 import { clearDetails } from './details.js';
+import { getFieldCaseInsensitive } from '../shared/utils.js';
 
 // import { fetchCommunicationAlarms } from './alarms.js';
 // import { isCommunicationAlarm,result } from './alarms.js';
@@ -15,6 +16,8 @@ let serials = [];
 let currentFilter = '';
 let selectedSerials = [];
 let serialNameMap = {};
+let serialAlarmCache = new Map();
+let currentlyRenderedSerials = [];
 
 /**
  * Get all serials
@@ -30,6 +33,12 @@ export function getSerials() {
  */
 export function setSerials(newSerials) {
   serials = newSerials;
+  const serialSet = new Set(newSerials);
+  serialAlarmCache.forEach((_, serial) => {
+    if (!serialSet.has(serial)) {
+      serialAlarmCache.delete(serial);
+    }
+  });
 }
 
 /**
@@ -99,6 +108,14 @@ export function clearSelectedSerials() {
   selectedSerials = [];
 }
 
+/**
+ * Select all currently rendered serials
+ */
+export function selectAllRenderedSerials() {
+  selectedSerials = [...currentlyRenderedSerials];
+  selectedSerials.sort();
+}
+
 const THREE_HOURS_MS = 3 * 60 * 60 * 1000;//3 hours in milliseconds
 
 function parseBackendDate(value) {// Parses date string from backend, handling both ISO and space-separated formats
@@ -111,6 +128,10 @@ function parseBackendDate(value) {// Parses date string from backend, handling b
 
 function getDisplayName(serial) {
   return serialNameMap?.[serial] || serial;
+}
+
+export function isSerialInAlarm(serial) {
+  return serialAlarmCache.get(serial) === true;
 }
 
 
@@ -174,19 +195,55 @@ function bindClearButton(onSelectSerial) {
   });
 }
 
+function bindSelectAllButton(onSelectSerial, loadMultipleDetails) {
+  const btn = document.getElementById('selectAllBtn');
+  if (!btn) return;
+
+  // μην ξαναδένεις handler πολλές φορές
+  if (btn.dataset.bound === '1') return;
+  btn.dataset.bound = '1';
+
+  btn.addEventListener('click', async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    // 1) Select all currently rendered serials
+    selectAllRenderedSerials();
+
+    // 2) Add selected class to all cards
+    document.querySelectorAll('.serial-card')
+      .forEach(el => el.classList.add('selected'));
+
+    // 3) Show the clear button
+    showClearBtn(true);
+
+    // 4) Update map to show selected serials
+    updateMapMarkers(selectedSerials);
+
+    // 5) Load details for all selected serials
+    if (loadMultipleDetails) {
+      await loadMultipleDetails(selectedSerials);
+    }
+  });
+}
+
 
 
 /**
  * Render serial list with LED indicators
  * @param {string[]} data - Array of serial numbers to render
  * @param {Function} onSelectSerial - Callback when serial is selected
+ * @param {Function} loadMultipleDetails - Function to load details for multiple serials
  */
-export async function renderSerials(data, onSelectSerial) {
+export async function renderSerials(data, onSelectSerial, loadMultipleDetails = null) {
   const serialListEl = document.getElementById('serialList');
   const serialCountEl = document.getElementById('serialCount');
   serialListEl.innerHTML = '';
 
+  currentlyRenderedSerials = data;
+
   bindClearButton(onSelectSerial);
+  bindSelectAllButton(onSelectSerial, loadMultipleDetails);
   showClearBtn(selectedSerials.length > 0);
   
   if (!data || data.length === 0) {
@@ -235,15 +292,6 @@ export async function renderSerials(data, onSelectSerial) {
     ledRow.appendChild(led);
     ledRow.appendChild(icon);
 
-    // Fetch RSRP/SINR/TEMP to determine LED color
-    try {
-      const { rsrp, sinr, temp, lat, lon } = await fetchLEDStatus(s);
-      led.className = `serial-card-led ${getLEDClass(rsrp, sinr, temp, lat, lon)}`;
-    } catch (err) {
-      console.warn(`Failed to fetch LED status for ${s}:`, err);
-    }
-    
-
     const text = document.createElement('div');
     text.className = 'serial-card-text';
     text.textContent = maxLen(serialNameMap[s] || s, 20);
@@ -252,17 +300,36 @@ export async function renderSerials(data, onSelectSerial) {
     // text.textContent = s;
 
     try {
-      const { rsrp, sinr, temp, lat, lon, datetime } = await fetchLEDStatus(s);
-      led.className = `serial-card-led ${getLEDClass(rsrp, sinr, temp, lat, lon)}`;
+      const records = await fetchSerialData(s);
+      const latest = records && records.length > 0 ? records[0] : null;
+
+      const rsrp = latest ? getFieldCaseInsensitive(latest, ['rsrp', 'RSRP']) : null;
+      const sinr = latest ? getFieldCaseInsensitive(latest, ['sinr', 'SINR']) : null;
+      const temp = latest ? getFieldCaseInsensitive(latest, ['temp', 'TEMP', 'temperature']) : null;
+      const lat = latest ? getFieldCaseInsensitive(latest, ['latitude', 'lat']) : null;
+      const lon = latest ? getFieldCaseInsensitive(latest, ['longitude', 'lon']) : null;
+      const datetime = latest ? getFieldCaseInsensitive(latest, ['datetime', 'DATETIME']) : null;
+
+      const ledClass = getLEDClass(rsrp, sinr, temp, lat, lon);
+      led.className = `serial-card-led ${ledClass}`;
+
+      if (latest) {
+        const tooltipHtml = buildMarkerTooltipContent(latest, s);
+        card.title = tooltipHtmlToPlainText(tooltipHtml);
+      }
       
       const last = parseBackendDate(datetime);
+      const inCommunicationAlarm = !last || (Date.now() - last.getTime() > THREE_HOURS_MS);
+      const inKpiAlarm = ledClass === 'led-red';
+      serialAlarmCache.set(s, inCommunicationAlarm || inKpiAlarm);
+
       if (last && (Date.now() - last.getTime() > THREE_HOURS_MS)) {
         // icon.className = 'serial-card-led led-red';
         icon.style.color = '#dc3545';
         // text.className = 'serial-card-text_red';
-        card.title = `Last update: ${last.toLocaleString()}`;
       }
     } catch (err) {
+      serialAlarmCache.set(s, false);
       console.warn(`Failed to fetch LED status for ${s}:`, err);
     }
 
@@ -296,17 +363,28 @@ export async function renderSerials(data, onSelectSerial) {
 
 /**
  * Filter serials by search query
+ * Searches both serial numbers and system names
  * @param {string} query - Search string
  * @param {Function} onSelectSerial - Callback for serial selection
+ * @param {Function} loadMultipleDetails - Function to load details for multiple serials
  */
-export function filterSerials(query, onSelectSerial) {
+export function filterSerials(query, onSelectSerial, options = {}, loadMultipleDetails = null) {
+  const { alarmOnly = false } = options;
   currentFilter = query;
   const ql = query.toLowerCase();
+  let filtered = serials;
   
-  if (!ql) {
-    renderSerials(serials, onSelectSerial);
-  } else {
-    const filtered = serials.filter(s => s.toLowerCase().includes(ql));
-    renderSerials(filtered, onSelectSerial);
+  if (ql) {
+    filtered = filtered.filter(s => {
+      const serialMatch = s.toLowerCase().includes(ql);
+      const nameMatch = serialNameMap[s]?.toLowerCase().includes(ql) || false;
+      return serialMatch || nameMatch;
+    });
   }
+
+  if (alarmOnly) {
+    filtered = filtered.filter(s => isSerialInAlarm(s));
+  }
+
+  renderSerials(filtered, onSelectSerial, loadMultipleDetails);
 }

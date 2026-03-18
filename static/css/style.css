@@ -157,6 +157,27 @@ body::after {
   width: 8px;
 }
 
+::-webkit-scrollbar-track {
+  background: rgba(10, 14, 39, 0.4);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(102, 126, 234, 0.4);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(102, 126, 234, 0.6);
+}
+
+/* Alarms area scrollable container */
+#alarmsArea,
+#performanceAlarmsArea {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(102, 126, 234, 0.4) rgba(10, 14, 39, 0.4);
+}
+
 /* Glowing orbs in background */
 .glow-orb {
   position: fixed;
@@ -286,15 +307,6 @@ body::after {
   overflow: auto;
 }
 
-#map {
-  width: 100%;
-  height: 65vh;
-  max-height: 80vh;
-  border-radius: 12px;
-  border: 2px solid rgba(102, 126, 234, 0.3);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-}
-
 /* LED indicator colors */
 .led-green {
   background: #28a745;
@@ -348,8 +360,7 @@ body::after {
 /* Map container styles */
 #map {
   width: 100%;
-  height: 72vh;
-  max-height: 80vh;
+  height: 100%;
   border-radius: 12px;
   border: 2px solid rgba(102, 126, 234, 0.3);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
@@ -372,8 +383,6 @@ body::after {
   border-top-color: #333 !important;
 }
 
-
-
 /* ==============================================AlarmView Styles============================================== */
 
 
@@ -387,6 +396,36 @@ body::after {
   background: linear-gradient(135deg, rgba(102, 126, 234, 0.3), rgba(118, 75, 162, 0.3)) !important;
   color: #ffffff !important;
   border-color: rgba(102, 126, 234, 0.3) !important;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+/* Sortable table headers */
+.table thead th[data-column] {
+  transition: background-color 0.2s ease;
+}
+
+.table thead th[data-column]:hover {
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.5), rgba(118, 75, 162, 0.5)) !important;
+}
+
+/* Sort indicators for clickable headers */
+.table thead th {
+  position: relative;
+}
+
+.table thead th.sort-asc::after,
+.table thead th.sort-desc::after {
+  content: '';
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
 }
 
 .table tbody tr {
@@ -410,6 +449,11 @@ body::after {
 
 .table tbody tr:hover {
   background-color: rgba(102, 126, 234, 0.2) !important;
+}
+
+.table tbody tr.alarm-row-selected {
+  background-color: rgba(220, 53, 69, 0.28) !important;
+  outline: 1px solid rgba(220, 53, 69, 0.7);
 }
 
 /* Alarm badge on navbar */
@@ -606,6 +650,26 @@ body::after {
   display: none;
 }
 
+/* Details loading overlay */
+.details-loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(10, 14, 39, 0.95);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  backdrop-filter: blur(5px);
+  border-radius: inherit;
+}
+
+.details-loading-overlay.hidden {
+  display: none;
+}
+
 /* Map legend */
 .map-legend {
   background: rgba(30, 41, 59, 0.95);
@@ -653,9 +717,10 @@ body::after {
   width: 150px;
   height: 36px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid rgb(25, 0, 117);
-  box-shadow: 0 6px 18px rgba(0,0,0,0.15);
+  background: rgba(10, 14, 39, 0.95);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(102, 126, 234, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -689,12 +754,67 @@ body::after {
   width: calc(50% - 6px);
   height: calc(100% - 6px);
   border-radius: 999px;
-  background: #5397fc;
-  border: 2px solid rgba(0,0,0,0.10);
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  border: 2px solid rgba(102, 126, 234, 0.5);
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
   transition: transform 180ms ease;
   z-index: 1;
 }
 
 .seg-toggle.is-right .seg-knob{
   transform: translateX(calc(100% + 6px));
+}
+
+/* Antenna Toggle Buttons */
+.antenna-toggle {
+  display: inline-flex;
+  gap: 4px;
+  background: rgba(10, 14, 39, 0.5);
+  padding: 4px;
+  border-radius: 8px;
+  border: 1px solid rgba(102, 126, 234, 0.3);
+}
+
+.antenna-toggle-btn {
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7);
+  white-space: nowrap;
+}
+
+.antenna-toggle-btn:hover {
+  background: rgba(102, 126, 234, 0.2);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.antenna-toggle-btn.active {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: #fff;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
+}
+
+/* Back button styling (matching antenna-toggle-btn) */
+.back-btn {
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: #fff;
+  white-space: nowrap;
+}
+
+.back-btn:hover {
+  background: rgba(102, 126, 234, 0.2);
+  color: rgba(255, 255, 255, 0.9);
 }

@@ -9,10 +9,11 @@ export const CONFIG = {
     SERIAL_NAME_MAP: '/systems/Live/names',
     EXPORT: '/export/Live',
     LOCATIONS: '/systems/Live/locations',
-    HISTORIC_SERIALS: '/systems/Historic/serials',
-    HISTORIC_SYSTEMS: '/Systems/Historic',
+    HISTORIC_SERIALS: '/playback/Historic/serials',
+    HISTORIC_SYSTEMS: '/playback/Historic',
+    ALARM_SYSTEMS: '/alarms/systems',
     HISTORIC_EXPORT: '/export/Historic',
-    HISTORIC_LOCATIONS: '/systems/Historic/locations',
+    HISTORIC_LOCATIONS: '/playback/Historic/locations',
   },
 
   // Map settings

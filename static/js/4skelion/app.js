@@ -1,9 +1,9 @@
 // static/js/app.js
 // Main orchestrator for NMS Dashboard Page
 
-import { CONFIG } from './config.js';
-import { fetchSerialsList, fetchSerialData } from './api.js';
-import { debounce } from './utils.js';
+import { CONFIG } from '../shared/config.js';
+import { fetchSerialsList, fetchSerialData } from '../shared/api.js';
+import { debounce } from '../shared/utils.js';
 import { initMap, preloadCustomIcon, updateMapMarkers, getMarkers, getMap, hideMapLoading } from './map.js';
 import { 
   getSerials, 
@@ -16,13 +16,30 @@ import {
   removeSelectedSerial,
   clearSelectedSerials,
   renderSerials, 
-  filterSerials 
+  filterSerials,
+  isSerialInAlarm
 } from './serials.js';
 import { loadSerialDetails, clearDetails } from './details.js';
 
 // DOM elements
 const filterEl = document.getElementById('filter');
+const alarmOnlyFilterBtn = document.getElementById('alarmOnlyFilterBtn');
 let autoRefreshTimer = null;
+let alarmOnlyFilterActive = false;
+
+function updateAlarmOnlyFilterButton() {
+  if (!alarmOnlyFilterBtn) return;
+
+  alarmOnlyFilterBtn.classList.toggle('btn-danger', alarmOnlyFilterActive);
+  alarmOnlyFilterBtn.classList.toggle('btn-outline-danger', !alarmOnlyFilterActive);
+  alarmOnlyFilterBtn.setAttribute('aria-pressed', alarmOnlyFilterActive ? 'true' : 'false');
+  alarmOnlyFilterBtn.textContent = alarmOnlyFilterActive ? 'Showing Alarms Only' : 'Show Alarms Only';
+}
+
+function applyActiveFilters() {
+  const currentFilter = getCurrentFilter() || '';
+  filterSerials(currentFilter, handleSerialSelect, { alarmOnly: alarmOnlyFilterActive }, loadMultipleSerialDetails);
+}
 
 /**
  * Fetch and render all serials
@@ -31,14 +48,9 @@ async function fetchAndRenderSerials() {
   try {
     const serialsList = await fetchSerialsList();
     setSerials(serialsList);
-    
-    // Apply any active filter so user view isn't reset by auto-refresh
-    const currentFilter = getCurrentFilter();
-    if (currentFilter && currentFilter.trim() !== '') {
-      filterSerials(currentFilter, handleSerialSelect);
-    } else {
-      renderSerials(serialsList, handleSerialSelect);
-    }
+
+    // Apply active filters so user view isn't reset by auto-refresh
+    applyActiveFilters();
     
     // Reload details for all selected serials
     const selected = getSelectedSerials();
@@ -71,7 +83,14 @@ async function handleSerialSelect(serial, card) {
       // No selections - show all serials
       const currentFilter = getCurrentFilter();
       const allSerials = getSerials();
-      const displaySerials = currentFilter ? allSerials.filter(s => s.toLowerCase().includes(currentFilter.toLowerCase())) : allSerials;
+      let displaySerials = currentFilter
+        ? allSerials.filter(s => s.toLowerCase().includes(currentFilter.toLowerCase()))
+        : allSerials;
+
+      if (alarmOnlyFilterActive) {
+        displaySerials = displaySerials.filter(s => isSerialInAlarm(s));
+      }
+
       updateMapMarkers(displaySerials);
       clearDetails();
     } else {
@@ -99,7 +118,13 @@ async function handleSerialSelect(serial, card) {
  */
 function handleFilter() {
   const query = filterEl.value.trim();
-  filterSerials(query, handleSerialSelect);
+  filterSerials(query, handleSerialSelect, { alarmOnly: alarmOnlyFilterActive }, loadMultipleSerialDetails);
+}
+
+function handleAlarmOnlyToggle() {
+  alarmOnlyFilterActive = !alarmOnlyFilterActive;
+  updateAlarmOnlyFilterButton();
+  applyActiveFilters();
 }
 
 /**
@@ -173,11 +198,10 @@ async function captureMapSnapshot(serials) {
  * @param {Object[]} data - Combined data array
  * @param {string[]} serials - Array of serial numbers
  */
-async function exportCombinedCSV(data, serials) {
+function exportCombinedCSV(data, serials) {
   if (!data || data.length === 0) return;
   
   // Create CSV content
-  // const cols = Object.keys(data[0]);
   const allowedCols = ['SERIAL', 'NAME', 'LATITUDE', 'LONGITUDE', 'DATETIME', 'EARFCN', 'PCI', 'ANTENNA USED', 'RSRP','RSRQ', 'SINR', 'TEMP','NODE_ID', 'SECTOR_ID'];
   const cols = allowedCols;
   
@@ -199,49 +223,21 @@ async function exportCombinedCSV(data, serials) {
   
   const csvContent = rows.join('\n');
   
-  // Capture map snapshot
-  const mapBlob = await captureMapSnapshot(serials);
-  
-  // Create zip file with both CSV and map image
-  if (!window.JSZip) {
-    console.error('JSZip library not loaded');
-    return;
-  }
-  
   // Generate timestamp for filename
   const now = new Date();
   const timestamp = now.toISOString().replace(/[:.]/g, '-').replace('T', '_').slice(0, 19);
+  const csvFilename = `LiveView_${timestamp}.csv`;
   
-  const zip = new JSZip();
-  const zipFilename = `LiveView_${timestamp}.zip`;
-  
-  const csvFilename = serials.length > 1 
-    ? `combined_${serials.join('_')}.csv`
-    : `${serials[0]}.csv`;
-  
-  const mapFilename = serials.length > 1 
-    ? `map_combined_${serials.join('_')}.png`
-    : `map_${serials[0]}.png`;
-  
-  // Add CSV to zip
-  zip.file(csvFilename, csvContent);
-  
-  // Add map snapshot if available
-  if (mapBlob) {
-    zip.file(mapFilename, mapBlob);
-  }
-  
-  // Generate and download zip
-  zip.generateAsync({ type: 'blob' }).then((content) => {
-    const url = URL.createObjectURL(content);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = zipFilename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  });
+  // Create and download CSV file
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = csvFilename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 /**
@@ -284,9 +280,9 @@ async function loadMultipleSerialDetails(serials) {
       return;
     }
     
-    // Show export button for multiple serials (will export combined data as ZIP)
+    // Show export button for multiple serials (will export combined data as CSV)
     exportBtn.style.display = 'inline-block';
-    exportBtn.textContent = 'Export ZIP';
+    exportBtn.textContent = 'Export CSV';
     exportBtn.onclick = (e) => {
       e.preventDefault();
       exportCombinedCSV(allData, serials);
@@ -427,6 +423,13 @@ table.appendChild(tbody);
 function init() {
   console.log('[Dashboard] Initializing');
   
+  // Only initialize dashboard features if we have the serial list element (liveview page)
+  const serialListEl = document.getElementById('serialList');
+  if (!serialListEl) {
+    console.log('[Dashboard] Not on dashboard page, skipping initialization');
+    return;
+  }
+  
   // Initialize map and load custom icon
   preloadCustomIcon();
   initMap();
@@ -442,7 +445,14 @@ function init() {
   });
   
   // Setup filter input listener
-  filterEl.addEventListener('input', debounce(handleFilter, CONFIG.UI.FILTER_DEBOUNCE_MS));
+  if (filterEl) {
+    filterEl.addEventListener('input', debounce(handleFilter, CONFIG.UI.FILTER_DEBOUNCE_MS));
+  }
+
+  updateAlarmOnlyFilterButton();
+  if (alarmOnlyFilterBtn) {
+    alarmOnlyFilterBtn.addEventListener('click', handleAlarmOnlyToggle);
+  }
   
   const runAutoRefresh = () => {
     console.log('[Dashboard] Auto-refreshing data...');

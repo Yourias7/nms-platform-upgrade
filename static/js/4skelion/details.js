@@ -1,8 +1,59 @@
 // static/js/details.js
 // Details table rendering and export functionality
 
-import { fetchSerialData, getExportUrl } from './api.js';
+import { fetchSerialData, getExportUrl } from '../shared/api.js';
 import { getMarkers, getMap } from './map.js';
+
+// Sorting state
+let currentDetailsData = [];
+let currentSerial = null;
+let sortColumn = null;
+let sortDirection = 'asc';
+const allowedCols = ['SERIAL', 'NAME', 'LATITUDE', 'LONGITUDE', 'DATETIME', 'EARFCN', 'PCI', 'ANTENNA USED', 'RSRP','RSRQ', 'SINR', 'TEMP','NODE_ID', 'SECTOR_ID'];
+
+/**
+ * Sort details table by column
+ * @param {string} column - Column name to sort by
+ */
+function sortDetailsTable(column) {
+  // Toggle direction if same column, otherwise default to ascending
+  if (sortColumn === column) {
+    sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+  } else {
+    sortColumn = column;
+    sortDirection = 'asc';
+  }
+  
+  currentDetailsData.sort((a, b) => {
+    let valA = a[column];
+    let valB = b[column];
+    
+    // Handle null/undefined
+    if (valA === null || valA === undefined) valA = '';
+    if (valB === null || valB === undefined) valB = '';
+    
+    // Parse numbers for numeric columns
+    const numericCols = ['RSRP', 'RSRQ', 'SINR', 'TEMP', 'LATITUDE', 'LONGITUDE', 'EARFCN', 'PCI'];
+    if (numericCols.includes(column)) {
+      valA = valA === '' ? -Infinity : parseFloat(valA);
+      valB = valB === '' ? -Infinity : parseFloat(valB);
+    } else if (column === 'DATETIME') {
+      // Parse dates
+      valA = valA === '' ? 0 : new Date(valA).getTime();
+      valB = valB === '' ? 0 : new Date(valB).getTime();
+    } else {
+      // String comparison
+      valA = String(valA).toLowerCase();
+      valB = String(valB).toLowerCase();
+    }
+    
+    if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
+    if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
+    return 0;
+  });
+  
+  renderDetailsTable(currentSerial, currentDetailsData);
+}
 
 /**
  * Capture and export map as PNG snapshot
@@ -124,8 +175,6 @@ async function exportSerialAsZip(serial) {
 
 /**
  * Render data table for selected serial
- /**
- * Render data table for selected serial
  * @param {string} serial - Serial number
  * @param {Object[]} data - Array of data records
  */
@@ -133,14 +182,17 @@ export function renderDetailsTable(serial, data) {
   const detailsEl = document.getElementById('detailsArea');
   const exportBtn = document.getElementById('exportBtn');
   
+  // Store data for sorting
+  if (data !== currentDetailsData) {
+    currentDetailsData = data;
+    currentSerial = serial;
+  }
+  
   if (!data || data.length === 0) {
     detailsEl.innerHTML = '<div class="text-muted">No records found.</div>';
     exportBtn.style.display = 'none';
     return;
   }
-
-  // Ορισμός των στηλών που επιτρέπουμε
-  const allowedCols = ['SERIAL', 'NAME', 'LATITUDE', 'LONGITUDE', 'DATETIME', 'EARFCN', 'PCI', 'ANTENNA USED', 'RSRP','RSRQ', 'SINR', 'TEMP','NODE_ID', 'SECTOR_ID'];
   
   // Ορισμός labels για τις κεφαλίδες (αν θες να αλλάξεις το κείμενο που φαίνεται)
   const colLabels = {
@@ -152,22 +204,43 @@ export function renderDetailsTable(serial, data) {
 
   // Εμφάνιση κουμπιού export
   exportBtn.style.display = 'inline-block';
-  exportBtn.textContent = 'Export ZIP';
-  exportBtn.onclick = async (e) => {
+  exportBtn.textContent = 'Export CSV';
+  exportBtn.onclick = (e) => {
     e.preventDefault();
-    await exportSerialAsZip(serial);
+    // Direct download of CSV from server
+    const url = getExportUrl(serial);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${serial}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   };
   
   const table = document.createElement('table');
   table.className = 'table table-sm table-striped';
   
-  // Δημιουργία Header
+  // Δημιουργία Header με sortable columns
   const thead = document.createElement('thead');
   const trh = document.createElement('tr');
   allowedCols.forEach(colKey => {
     const th = document.createElement('th');
-    // Χρήση label αν υπάρχει, αλλιώς το όνομα της στήλης
-    th.textContent = colLabels[colKey] || colKey; 
+    th.textContent = colLabels[colKey] || colKey;
+    th.style.cursor = 'pointer';
+    th.style.userSelect = 'none';
+    th.dataset.column = colKey;
+    
+    // Add sort indicator
+    if (sortColumn === colKey) {
+      const arrow = document.createElement('span');
+      arrow.textContent = sortDirection === 'asc' ? ' ▲' : ' ▼';
+      arrow.style.fontSize = '0.75em';
+      th.appendChild(arrow);
+    }
+    
+    // Add click handler
+    th.addEventListener('click', () => sortDetailsTable(colKey));
+    
     trh.appendChild(th);
   });
   thead.appendChild(trh);
@@ -247,6 +320,12 @@ export function clearDetails() {
   detailsEl.innerHTML = 'Select a serial to view records.';
   exportBtn.style.display = 'none';
   exportBtn.href = '#';
+  
+  // Reset sorting state
+  currentDetailsData = [];
+  currentSerial = null;
+  sortColumn = null;
+  sortDirection = 'asc';
 }
 
 /**

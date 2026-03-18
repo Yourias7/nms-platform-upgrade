@@ -6,10 +6,12 @@ import { CONFIG } from './config.js';
 /**
  * Generic JSON fetch utility
  * @param {string} url - URL to fetch
+ * @param {AbortSignal} [signal] - Optional AbortSignal for cancellation
  * @returns {Promise<any>} Parsed JSON response
  */
-export async function fetchJSON(url) {
-  const res = await fetch(url);
+export async function fetchJSON(url, signal = null) {
+  const options = signal ? { signal } : {};
+  const res = await fetch(url, options);
   return await res.json();
 }
 
@@ -36,15 +38,18 @@ export async function fetchHistoricSerialsList() {
 /**
  * Fetch all records for a specific serial
  * @param {string} serial - Serial number to fetch
+ * @param {AbortSignal} [signal] - Optional AbortSignal for cancellation
  * @returns {Promise<Object[]>} Array of record objects
  */
-export async function fetchSerialData(serial) {
-  const res = await fetch(`${CONFIG.API.SYSTEMS}/${encodeURIComponent(serial)}`);
+export async function fetchSerialData(serial, signal = null) {
+  const options = signal ? { signal } : {};
+  const res = await fetch(`${CONFIG.API.SYSTEMS}/${encodeURIComponent(serial)}`, options);
   return await res.json();
 }
 
-export async function fetchSerialDataWithLimit(serial, limit) {
-  const res = await fetch(`${CONFIG.API.SYSTEMS}/${encodeURIComponent(serial)}?limit=${encodeURIComponent(limit)}`);
+export async function fetchSerialDataWithLimit(serial, limit, signal = null) {
+  const options = signal ? { signal } : {};
+  const res = await fetch(`${CONFIG.API.SYSTEMS}/${encodeURIComponent(serial)}?limit=${encodeURIComponent(limit)}`, options);
   return await res.json();
 }
 
@@ -62,14 +67,72 @@ export async function fetchLatestSerialData(serial) {
 }
 
 /**
+ * Fetch paginated historic records for ALL systems
+ * @param {string} early - Start date (YYYY-MM-DD)
+ * @param {string} latest - End date (YYYY-MM-DD)
+ * @param {number} page - 1-based page number
+ * @param {number} limit - Records per page
+ * @param {AbortSignal} [signal] - Optional AbortSignal for cancellation
+ * @returns {Promise<{data: Object[], total: number}>}
+ */
+export async function fetchPagedHistoricAllData(early, latest, page = 1, limit = 500, signal = null) {
+  const options = signal ? { signal } : {};
+  const url = `/playback/Historic/all/${encodeURIComponent(early)}/${encodeURIComponent(latest)}?page=${page}&limit=${limit}`;
+  const res = await fetch(url, options);
+  return await res.json();
+}
+
+/**
  * Fetch all historic records for a specific serial
  * @param {string} serial - Serial number to fetch
  * @param {string} early - Start datetime (ISO format)
  * @param {string} latest - End datetime (ISO format)
+ * @param {AbortSignal} [signal] - Optional AbortSignal for cancellation
  * @returns {Promise<Object[]>} Array of record objects
  */
-export async function fetchHistoricSerialData(serial,early,latest) {
-  const res = await fetch(`${CONFIG.API.HISTORIC_SYSTEMS}/${encodeURIComponent(serial)}/${encodeURIComponent(early)}/${encodeURIComponent(latest)}`);
+/**
+ * Fetch paginated historic records for a specific serial
+ * @param {string} serial - Serial number to fetch
+ * @param {string} early - Start datetime (ISO format)
+ * @param {string} latest - End datetime (ISO format)
+ * @param {number} page - 1-based page number
+ * @param {number} limit - Records per page
+ * @param {AbortSignal} [signal] - Optional AbortSignal for cancellation
+ * @returns {Promise<{data: Object[], total: number}>}
+ */
+export async function fetchHistoricSerialData(serial, early, latest, page = 1, limit = 500, signal = null) {
+  const options = signal ? { signal } : {};
+  const url = `${CONFIG.API.HISTORIC_SYSTEMS}/${encodeURIComponent(serial)}/${encodeURIComponent(early)}/${encodeURIComponent(latest)}?page=${page}&limit=${limit}`;
+  const res = await fetch(url, options);
+  return await res.json();
+}
+
+/**
+ * Fetch all alarm records for a specific serial
+ * @param {string} serial - Serial number to fetch
+ * @param {string} early - Start datetime (ISO format)
+ * @param {string} latest - End datetime (ISO format)
+ * @param {Object} thresholds - Optional threshold values {rsrp, sinr, temp}
+ * @param {AbortSignal} [signal] - Optional AbortSignal for cancellation
+ * @returns {Promise<Object[]>} Array of record objects
+ */
+export async function fetchAlarmSerialData(serial, early, latest, thresholds = null, signal = null) {
+  let url = `${CONFIG.API.ALARM_SYSTEMS}/${encodeURIComponent(serial)}/${encodeURIComponent(early)}/${encodeURIComponent(latest)}`;
+  
+  // Add threshold parameters if provided
+  if (thresholds) {
+    const params = new URLSearchParams();
+    if (thresholds.rsrp !== undefined) params.append('rsrp_threshold', thresholds.rsrp);
+    if (thresholds.sinr !== undefined) params.append('sinr_threshold', thresholds.sinr);
+    if (thresholds.temp !== undefined) params.append('temp_threshold', thresholds.temp);
+    const queryString = params.toString();
+    if (queryString) {
+      url += `?${queryString}`;
+    }
+  }
+  
+  const options = signal ? { signal } : {};
+  const res = await fetch(url, options);
   return await res.json();
 }
 

@@ -7,7 +7,9 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="/static/css/style.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <!-- favicon (ICO) -->
@@ -22,13 +24,30 @@
 
     <!-- optional: theme color for some browsers -->
     <meta name="theme-color" content="#0d6efd">
+    
+    <style>
+      .info-btn-hover {
+        transition: all 0.3s ease;
+      }
+      .info-btn-hover:hover {
+        transform: scale(1.15) rotate(10deg);
+        box-shadow: 0 0 20px rgba(13, 110, 253, 0.6);
+      }
+      .info-btn-hover:hover svg {
+        animation: pulse 0.6s ease-in-out;
+      }
+      @keyframes pulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.1); }
+      }
+    </style>
   </head>
   <body>
     <!-- Loading overlay -->
     <div id="loadingOverlay" class="loading-overlay">
       <div class="loading-spinner">
         <div class="spinner-circle"></div>
-        <div class="loading-text">Loading serials...</div>
+        <div class="loading-text">Loading systems...</div>
       </div>
     </div>
 
@@ -40,7 +59,7 @@
     <nav class="navbar mb-4">
       <div class="container-fluid">
         <a class="navbar-brand d-flex align-items-center" href="#">
-          <img src="static\img\New folder\Picture1.png" alt="logo" style="height:24px; width:24px; margin-right:8px;"/>
+          <img src="/static/img/New%20folder/Picture1.png" alt="logo" style="height:24px; width:24px; margin-right:8px;"/>
           <span>NMS Platform</span>
         </a>
         <ul class="nav nav-pills">
@@ -48,27 +67,27 @@
             <a class="nav-link" href="/">Home</a>
           </li>
           <li class="nav-item">
-            <a class="nav-link" href="/liveview">Live View</a>
+            <a class="nav-link" href="/4skelion/liveview">Live View</a>
           </li>
           <li class="nav-item">
-            <a class="nav-link" id="tab-alarms" href="/alarms">Alarms</a>
+            <a class="nav-link" id="tab-alarms" href="/4skelion/alarms">Alarms</a>
           </li>
           <li class="nav-item">
-            <a class="nav-link active" href="/playback">Playback</a>
+            <a class="nav-link active" href="/4skelion/playback">Playback</a>
           </li>
           <li class="nav-item">
-            <a class="nav-link" href="/settings">Settings</a>
+            <a class="nav-link" href="/4skelion/settings">Settings</a>
           </li>
         </ul>
       </div>
     </nav>
 
-    <main class="container-fluid">
+    <main class="container">
       <!-- Playback Content -->
       <div class="row g-2 align-items-end mb-3">
         <div class="col-12 col-md-3" style="position: relative;">
-          <label for="serialInput" class="form-label">Name</label>
-          <input id="serialInput" class="form-control" placeholder="Select or type a ship name"/>
+          <label for="serialInput" class="form-label">System Name</label>
+          <input id="serialInput" class="form-control" placeholder="Select or type a system name"/>
           <div id="serialOptions" class="dropdown-menu" style="position: absolute; top: 100%; left: 0; right: 0; display: none; z-index: 11; max-height: 300px; overflow-y: auto; box-shadow: 0 2px 8px rgba(0,0,0,0.15); background: rgba(10, 14, 39, 0.95); border: 1px solid rgba(102, 126, 234, 0.3);"></div>
         </div>
         <div class="col-12 col-md-3" style="width: auto;">
@@ -82,18 +101,45 @@
         <div class="col-12 col-md-3" style="width: auto;">
           <button id="serialLoadBtn" class="btn btn-primary w-100" type="button">Load</button>
         </div>
+        <!-- Clear Selected Button -->
+        <div class="col-12 col-md-3" style="width: auto;">
+          <button id="clearSelectedBtn" type="button" class="btn btn-sm btn-outline-secondary" style="width: auto; height: 38px;">
+            Clear
+          </button>
+        </div>
         <div class="col-12 col-md-3">
-          <div id="playbackMessage" class="text-muted small"></div>
+          <div id="playbackMessage" class="text-muted small" style="text-align: left;"></div>
+        </div>
+        <!-- Circular Info Button - positioned on the right -->
+        <div class="col-12 col-md-3 ms-auto" style="width: auto;">
+          <a href="/4skelion/details" class="btn btn-primary rounded-circle info-btn-hover" style="width: 42px; height: 42px; display: inline-flex; align-items: center; justify-content: center; text-decoration: none; padding: 0;" title="View Historic Details">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+              <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+              <path d="m8.93 6.588-2.29.287-.082.38.45.083c.294.07.352.176.288.469l-.738 3.468c-.194.897.105 1.319.808 1.319.545 0 1.178-.252 1.465-.598l.088-.416c-.2.176-.492.246-.686.246-.275 0-.375-.193-.304-.533L8.93 6.588zM9 4.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>
+            </svg>
+          </a>
         </div>
       </div>
       
       <div class="row">
         <!-- Left side: Charts -->
-        <div class="col-12 col-lg-6">
-          <div class="card mb-3">
+        <div class="col-md-6">
+          <div class="card mb-3" style="height: 304px;">
             <div class="card-body">
-              <h5 class="card-title">RSRP Data Playback</h5>
-              <p class="text-muted mb-3">Historical RSRP signal strength over time</p>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <div>
+                  <h5 class="card-title" style="margin: 0;">RSRP Data Playback</h5>
+                  <p class="text-muted mb-0" style="font-size: 13px;">RSRP signal strength over time</p>
+                  <p class="text-muted mb-0" style="font-size: 11px;">Tip: Click-drag to select multiple points, or click individual points.</p>
+                </div>
+                <div class="antenna-toggle" id="rsrpAntennaToggle">
+                  <button class="antenna-toggle-btn active" data-antenna="best">Best</button>
+                  <button class="antenna-toggle-btn" data-antenna="0">Ant 1</button>
+                  <button class="antenna-toggle-btn" data-antenna="1">Ant 2</button>
+                  <button class="antenna-toggle-btn" data-antenna="2">Ant 3</button>
+                  <button class="antenna-toggle-btn" data-antenna="3">Ant 4</button>
+                </div>
+              </div>
               <!-- RSRP Chart loading overlay -->
               <div id="rsrpLoadingOverlay" class="rsrp-loading-overlay hidden">
                 <div class="loading-spinner">
@@ -102,14 +148,29 @@
                 </div>
               </div>
               <div id="playbackRSRPChartContainer" style="position: relative; height: 200px;">
+                <button id="clearChartSelectionBtn" class="btn btn-sm btn-danger" style="position: absolute; top: 5px; right: 5px; z-index: 10; font-size: 11px; padding: 3px 10px; display: none; opacity: 0.9;" title="Clear selected points">
+                  ✕ Clear
+                </button>
                 <canvas id="rsrpChart"></canvas>
               </div>
             </div>
           </div>
-          <div class="card">
+          <div class="card" style="height: 304px;">
             <div class="card-body">
-              <h5 class="card-title">SINR Data Playback</h5>
-              <p class="text-muted mb-3">Historical SINR signal-to-noise ratio over time</p>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <div>
+                  <h5 class="card-title" style="margin: 0;">SINR Data Playback</h5>
+                  <p class="text-muted mb-0" style="font-size: 13px;">SINR signal-to-noise ratio over time</p>
+                  <p class="text-muted mb-0" style="font-size: 11px;">Tip: Click-drag to select multiple points, or click individual points.</p>
+                </div>
+                <div class="antenna-toggle" id="sinrAntennaToggle">
+                  <button class="antenna-toggle-btn active" data-antenna="best">Best</button>
+                  <button class="antenna-toggle-btn" data-antenna="0">Ant 1</button>
+                  <button class="antenna-toggle-btn" data-antenna="1">Ant 2</button>
+                  <button class="antenna-toggle-btn" data-antenna="2">Ant 3</button>
+                  <button class="antenna-toggle-btn" data-antenna="3">Ant 4</button>
+                </div>
+              </div>
               <!-- SINR Chart loading overlay -->
               <div id="sinrLoadingOverlay" class="sinr-loading-overlay hidden">
                 <div class="loading-spinner">
@@ -118,6 +179,9 @@
                 </div>
               </div>
               <div id="playbackSINRChartContainer" style="position: relative; height: 200px;">
+                <button id="clearChartSelectionBtn2" class="btn btn-sm btn-danger" style="position: absolute; top: 5px; right: 5px; z-index: 10; font-size: 11px; padding: 3px 10px; display: none; opacity: 0.9;" title="Clear selected points">
+                  ✕ Clear
+                </button>
                 <canvas id="sinrChart"></canvas>
               </div>
             </div>
@@ -147,7 +211,8 @@
         </div>
       </div>
       <div class="row justify-content-md-center">
-        <div class="col-12 col-lg-2">
+        <div class="col-12" style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+        <div style="flex: 0 0 auto; width: 19%; min-width: 180px;">
           <div id="bestDetails" class="card mt-3 mb-5 hidden">
             <div class="card-body">
               <h5 class="card-title" style="text-align: center;">Best Antenna</h5>
@@ -164,7 +229,7 @@
             </div>
           </div>
         </div>
-        <div class="col-12 col-lg-2">
+        <div style="flex: 0 0 auto; width: 19%; min-width: 180px;">
           <div id="ant1Details" class="card mt-3 mb-5 hidden">
             <div class="card-body">
               <h5 class="card-title" style="text-align: center;">Antenna 1</h5>
@@ -181,7 +246,7 @@
             </div>
           </div>
         </div>
-        <div class="col-12 col-lg-2">
+        <div style="flex: 0 0 auto; width: 19%; min-width: 180px;">
           <div id="ant2Details" class="card mt-3 mb-5 hidden">
             <div class="card-body">
               <h5 class="card-title" style="text-align: center;">Antenna 2</h5>
@@ -198,7 +263,7 @@
             </div>
           </div>
         </div>
-        <div class="col-12 col-lg-2">
+        <div style="flex: 0 0 auto; width: 19%; min-width: 180px;">
           <div id="ant3Details" class="card mt-3 mb-5 hidden">
             <div class="card-body">
               <h5 class="card-title" style="text-align: center;">Antenna 3</h5>
@@ -215,7 +280,7 @@
             </div>
           </div>
         </div>
-        <div class="col-12 col-lg-2">
+        <div style="flex: 0 0 auto; width: 19%; min-width: 180px;">
           <div id="ant4Details" class="card mt-3 mb-5 hidden">
             <div class="card-body">
               <h5 class="card-title" style="text-align: center;">Antenna 4</h5>
@@ -237,13 +302,13 @@
     <!-- style="position: absolute; top: 10px; right: 10px; bottom: 10px; z-index: 20;" -->
 
     <!-- Load alarm badge (runs on all pages) -->
-    <script type="module" src="/static/js/alarm-badge.js"></script>
+    <script type="module" src="/static/js/4skelion/alarm-badge.js"></script>
     
     <!-- Chart.js library -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     
     <!-- Load playback module -->
-    <script type="module" src="/static/js/playback.js"></script>
+    <script type="module" src="/static/js/4skelion/playback.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
   </body>
 </html>
