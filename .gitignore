@@ -60,3 +60,5 @@ htmlcov/
 
 # OS
 Thumbs.db
+app/data_source.py
+app/main.py

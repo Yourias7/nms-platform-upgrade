@@ -1,0 +1,126 @@
+=<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Alarms - NMS Platform</title>
+
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+      integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN"
+      crossorigin="anonymous"
+    />
+    <link rel="stylesheet" href="/static/css/style.css" />
+
+    <link rel="icon" href="/static/img/favicon.ico" type="image/x-icon" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/img/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/static/img/favicon-16x16.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/static/img/apple-touch-icon.png" />
+
+    <meta name="theme-color" content="#0d6efd" />
+
+    <!-- Fallback map sizing in case your CSS doesn't define it -->
+    <style>
+      #map {
+        width: 100%;
+        min-height: 420px;
+        border-radius: 0.75rem;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="glow-orb glow-orb-1" aria-hidden="true"></div>
+    <div class="glow-orb glow-orb-2" aria-hidden="true"></div>
+    <div class="glow-orb glow-orb-3" aria-hidden="true"></div>
+
+       <nav class="navbar mb-4">
+      <div class="container-fluid">
+        <a class="navbar-brand d-flex align-items-center" href="#">
+          <img src="/static/img/New%20folder/Picture1.png" alt="logo" style="height:24px; width:24px; margin-right:8px;"/>
+          <span>NMS Platform</span>
+        </a>
+        <ul class="nav nav-pills">
+          <li class="nav-item">
+            <a class="nav-link" href="/">Home</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="/4skelion/liveview">Live View</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" id="tab-alarms" href="/4skelion/alarms">Alarms</a>
+          </li>
+          <li class="nav-item">
+            <li class="nav-item">
+            <a class="nav-link" href="/4skelion/playback">Playback</a>
+          </li>
+            <a class="nav-link active" href="/4skelion/settings">Settings</a>
+          </li>
+        </ul>
+      </div>
+    </nav>
+
+    <!-- Loading overlay -->
+    <div id="loadingOverlay" class="loading-overlay">
+      <div class="loading-spinner">
+        <div class="spinner-circle"></div>
+        <div class="loading-text">Loading systems...</div>
+      </div>
+    </div>
+
+    <main class="container">
+      <nav class="navbar mb-4">
+      <div class="container-fluid">
+        <ul class="nav nav-pills">
+          <li class="nav-item">
+            <a class="nav-link" id="tab-alarms" href="/4skelion/alarms/summary">ALARMS SUMMARY</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" id="tab-alarms" href="/4skelion/alarms/communication">COM. ALARMS</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="/4skelion/alarms/performance">PERFORMANCE ALARMS</a>
+          </li>
+        </ul>
+      </div>
+    </nav>
+      <div class="row g-3">
+        <div class="col-md-7">
+          <div class="card h-100">
+            <div class="card-body">
+              <h5 class="card-title mb-1">Communication Alarms</h5>
+              <p class="text-muted mb-3">Systems with no communication for &gt; 3 hours</p>
+
+              <div id="alarmsArea">
+                <div class="text-center text-muted p-4">
+                  <div class="spinner-border text-primary" role="status" aria-label="Loading">
+                    <span class="visually-hidden">Loading...</span>
+                  </div>
+                  <p class="mt-2 mb-0">Checking for alarms...</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-md-5">
+          <div class="card h-100">
+            <div class="card-body">
+              <h5 class="card-title mb-3">Map</h5>
+              <div id="alarmMap" role="region" aria-label="Alarms map"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <script
+      src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"
+      integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL"
+      crossorigin="anonymous"
+    ></script>
+    <script type="module" src="/static/js/4skelion/alarm-badge.js" defer></script>
+    <script type="module" src="/static/js/4skelion/alarms.js" defer></script>
+  </body>
+</html>

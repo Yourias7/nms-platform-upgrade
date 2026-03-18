@@ -4,10 +4,16 @@
 export const CONFIG = {
   // API Endpoints
   API: {
-    SERIALS: '/systems/serials',
-    SYSTEMS: '/Systems',
-    EXPORT: '/export',
-    LOCATIONS: '/systems/locations'
+    SERIALS: '/systems/Live/serials',
+    SYSTEMS: '/Systems/Live',
+    SERIAL_NAME_MAP: '/systems/Live/names',
+    EXPORT: '/export/Live',
+    LOCATIONS: '/systems/Live/locations',
+    HISTORIC_SERIALS: '/playback/Historic/serials',
+    HISTORIC_SYSTEMS: '/playback/Historic',
+    ALARM_SYSTEMS: '/alarms/systems',
+    HISTORIC_EXPORT: '/export/Historic',
+    HISTORIC_LOCATIONS: '/playback/Historic/locations',
   },
 
   // Map settings
@@ -15,8 +21,8 @@ export const CONFIG = {
   MAP: {
     INITIAL_LAT: 38.241804,
     INITIAL_LON: 24.584192,
-    INITIAL_ZOOM: 5,
-    MAX_ZOOM: 8,
+    INITIAL_ZOOM: 9,
+    MAX_ZOOM: 10,
     TILE_URL: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
     TILE_ATTRIBUTION: '&copy; OpenStreetMap contributors',
     FIT_BOUNDS_PADDING: [50, 50]
