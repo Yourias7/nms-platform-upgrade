@@ -254,7 +254,7 @@ def get_all_historic_records(early: str = None, latest: str = None, limit: int =
     finally:
         db.close()
 
-def get_alarm_records_by_serial(serial: str, early: str = None, latest: str = None, rsrp_threshold: float = -120, sinr_threshold: float = 0, temp_threshold: float = 75, limit: int = 500, offset: int = 0):
+def get_alarm_records_by_serial(serial: str, early: str = None, latest: str = None, rsrp_threshold: float = -120, sinr_threshold: float = 0, temp_threshold: float = 75, limit: int = 100000, offset: int = 0):
     """Return list of alarm records for a given SERIAL from database with pagination."""
     db = SessionLocal()
     try:
@@ -330,7 +330,7 @@ def get_alarm_records_by_serial(serial: str, early: str = None, latest: str = No
     finally:
         db.close()
 
-def get_all_alarm_records(early: str = None, latest: str = None, rsrp_threshold: float = -120, sinr_threshold: float = 0, temp_threshold: float = 75, limit: int = 500, offset: int = 0):
+def get_all_alarm_records(early: str = None, latest: str = None, rsrp_threshold: float = -120, sinr_threshold: float = 0, temp_threshold: float = 75, limit: int = 100000, offset: int = 0):
     """Return list of alarm records for all serials from database with pagination, ordered by DATETIME."""
     db = SessionLocal()
     try:

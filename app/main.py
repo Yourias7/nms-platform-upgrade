@@ -47,7 +47,7 @@ def get_system(serial: str, early: str, latest: str, page: int = 1, limit: int =
     return result
 
 @app.get("/alarms/systems/{serial}/{early}/{latest}")
-def get_alarm_systems(serial: str, early: str, latest: str, page: int = 1, limit: int = 500, rsrp_threshold: float = -120, sinr_threshold: float = 0, temp_threshold: float = 75):
+def get_alarm_systems(serial: str, early: str, latest: str, page: int = 1, limit: int = 100000, rsrp_threshold: float = -120, sinr_threshold: float = 0, temp_threshold: float = 75):
     offset = (page - 1) * limit
     result = get_alarm_records_by_serial(serial, early=early, latest=latest, rsrp_threshold=rsrp_threshold, sinr_threshold=sinr_threshold, temp_threshold=temp_threshold, limit=limit, offset=offset)
     logger.info(f"Retrieved {len(result['data'])} alarm records (page {page}) out of {result['total']} total for SERIAL: {serial} with thresholds RSRP<={rsrp_threshold}, SINR<={sinr_threshold}, TEMP>={temp_threshold}")

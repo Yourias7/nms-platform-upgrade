@@ -147,7 +147,7 @@ export async function fetchAlarmSerialData(serial, early, latest, thresholds = n
  * @param {AbortSignal} [signal] - Optional AbortSignal for cancellation
  * @returns {Promise<{data: Object[], total: number}>}
  */
-export async function fetchPagedAlarmSerialData(serial, early, latest, page = 1, limit = 500, thresholds = null, signal = null) {
+export async function fetchPagedAlarmSerialData(serial, early, latest, page = 1, limit = 100000, thresholds = null, signal = null) {
   let url = `${CONFIG.API.ALARM_SYSTEMS}/${encodeURIComponent(serial)}/${encodeURIComponent(early)}/${encodeURIComponent(latest)}?page=${page}&limit=${limit}`;
   
   // Add threshold parameters if provided
@@ -172,7 +172,7 @@ export async function fetchPagedAlarmSerialData(serial, early, latest, page = 1,
  * @param {AbortSignal} [signal] - Optional AbortSignal for cancellation
  * @returns {Promise<{data: Object[], total: number}>}
  */
-export async function fetchPagedAllAlarmData(early, latest, page = 1, limit = 500, thresholds = null, signal = null) {
+export async function fetchPagedAllAlarmData(early, latest, page = 1, limit = 100000, thresholds = null, signal = null) {
   let url = `/alarms/all/${encodeURIComponent(early)}/${encodeURIComponent(latest)}?page=${page}&limit=${limit}`;
   
   // Add threshold parameters if provided

@@ -2,11 +2,11 @@
 // Performance alarms page logic
 
 import { CONFIG } from '../shared/config.js';
-import { fetchJSON, fetchAlarmSerialData, fetchPagedAlarmSerialData, fetchPagedAllAlarmData, fetchSerialNameMap} from '../shared/api.js';
+import { fetchJSON, fetchAlarmSerialData, fetchPagedAllAlarmData, fetchSerialNameMap} from '../shared/api.js';
 import { getThresholds, isInAlarm } from './settings.js';
 
 // Constants
-const PAGE_SIZE = 500;
+const PAGE_SIZE = 100000;
 const MAX_DAYS_BACK = 15;
 
 // State management
@@ -271,6 +271,7 @@ async function fetchPerformanceAlarmsPage(startDate, endDate, serial = 'all', pa
     let result;
     
     // Fetch from appropriate endpoint based on serial selection
+    print(serial+"\NHEEEEEEEEEEEEEEEEEREEEEEEEEEEEEEEEEEEEEEEEEEEEEE\N");
     if (serial === 'all') {
       // Fetch all systems' alarm data
       result = await fetchPagedAllAlarmData(
@@ -283,12 +284,10 @@ async function fetchPerformanceAlarmsPage(startDate, endDate, serial = 'all', pa
       );
     } else {
       // Fetch specific serial's alarm data
-      result = await fetchPagedAlarmSerialData(
+      result = await fetchAlarmSerialData(
         serial,
         startDateTime,
         endDateTime,
-        page,
-        PAGE_SIZE,
         thresholds,
         signal
       );
@@ -364,7 +363,7 @@ async function fetchAllPerformanceAlarms(startDate, endDate, serial = 'all') {
     currentAbortController = new AbortController();
     const signal = currentAbortController.signal;
     
-    const serials = serial === 'all' ? allSerials : [serial];
+    const serials = (serial === 'all') || (serial === 'All systems') ? allSerials : [serial];
     const alarms = [];
     const thresholds = getThresholds();
     
@@ -374,6 +373,86 @@ async function fetchAllPerformanceAlarms(startDate, endDate, serial = 'all') {
     console.log('[Performance Alarms] Checking alarms for', serials.length, 'systems');
     console.log('[Performance Alarms] Date range:', startDateTime, 'to', endDateTime);
     console.log('[Performance Alarms] Thresholds:', thresholds);
+    let page = 1;
+    let totalRecords = 0;
+    let hasMorePages = true;
+    
+    if(serials===allSerials){
+      const response = await fetchPagedAllAlarmData(startDateTime, endDateTime, 1, PAGE_SIZE, thresholds);
+
+      // Handle both object response {data: [...], total: N} and array response [...]
+      let records = [];
+      if (response) {
+        if (Array.isArray(response)) {
+          records = response;
+          totalRecords = response.length;
+        } else if (typeof response === 'object' && response.data) {
+          records = Array.isArray(response.data) ? response.data : [];
+          totalRecords = response.total || 0;
+        }
+      }
+      
+      if (!Array.isArray(records) || records.length === 0) records=null;
+      
+      for (const record of records) {
+        // Skip invalid records
+        if (!record || typeof record !== 'object') continue;
+        
+        let timestamp = null;
+        let site = 'N/A';
+        let lat = null;
+        let lon = null;
+        let rsrp = null;
+        let sinr = null;
+        let temp = null;
+        
+        for (const [key, val] of Object.entries(record)) {
+          const lower = key.toLowerCase();
+          if (lower === 'datetime' || lower === 'timestamp' || lower === 'time') {
+            timestamp = val;
+          }
+          if (lower === 'site' || lower === 'name') {
+            site = val;
+          }
+          if (lower === 'latitude' || lower === 'lat') {
+            lat = val;
+          }
+          if (lower === 'longitude' || lower === 'lon' || lower === 'long') {
+            lon = val;
+          }
+          if (lower === 'rsrp') {
+            rsrp = parseFloat(val);
+          }
+          if (lower === 'sinr') {
+            sinr = parseFloat(val);
+          }
+          if (lower === 'temp' || lower === 'temperature') {
+            temp = parseFloat(val);
+          }
+        }
+        
+        // Check if this record is in alarm
+        const alarmType = getPerformanceAlarmType(rsrp, sinr, temp, lat, lon);
+        if (alarmType) {
+          alarms.push({
+            site,
+            // serial: ser,
+            datetime: timestamp || 'Unknown',
+            status: alarmType,
+            rsrp,
+            sinr,
+            temp,
+            latitude: lat,
+            longitude: lon
+          });
+        }
+      }
+      
+      // Check if there are more pages
+      const recordsFetched = page * PAGE_SIZE;
+      hasMorePages = recordsFetched < totalRecords;
+      page++;
+    }
     
     for (const ser of serials) {
       if (signal.aborted) {
@@ -382,16 +461,14 @@ async function fetchAllPerformanceAlarms(startDate, endDate, serial = 'all') {
       
       try {
         // Fetch all pages of alarm data for this serial
-        let page = 1;
-        let totalRecords = 0;
-        let hasMorePages = true;
+        
         
         while (hasMorePages) {
           if (signal.aborted) {
             throw new DOMException('Request cancelled', 'AbortError');
           }
           
-          const response = await fetchPagedAlarmSerialData(ser, startDateTime, endDateTime, page, PAGE_SIZE, thresholds, signal);
+          const response = await fetchAlarmSerialData(ser, startDateTime, endDateTime, thresholds, signal);
           
           // Handle both object response {data: [...], total: N} and array response [...]
           let records = [];
@@ -499,8 +576,7 @@ function getPerformanceAlarmType(rsrp, sinr, temp, lat, lon) {
     if (isInAlarm('rsrp', rsrp)) alarms.push('RSRP');
     if (isInAlarm('sinr', sinr)) alarms.push('SINR');
     if (isInAlarm('temp', temp)) alarms.push('Temperature');
-    if (isInAlarm('lat', lat)) alarms.push('GPS');
-    if (isInAlarm('lon', lon)) alarms.push('GPS');
+    if (isInAlarm('lat', lat) || isInAlarm('lon',lon)) alarms.push('GPS');
 
     if (alarms.length === 0) return null;
     let alarmType = '';
