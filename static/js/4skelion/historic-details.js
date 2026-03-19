@@ -140,7 +140,118 @@ function setEndDateInputValue(date) {
   }
 }
 
+function exportCombinedCSV(data) {
+  if (!data || data.length === 0) return;
+  
+  // Create CSV content
+  const allowedCols = ["SERIAL",
+                "NAME",
+                "LATITUDE",
+                "LONGITUDE",
+                "DATETIME",
+                "HEADING",
+                "RSRP",
+                "SINR",
+                "TEMP",
+                "S0RSRP",
+                "S0SINR",
+                "S1RSRP",
+                "S1SINR",
+                "S2RSRP",
+                "S2SINR",
+                "S3RSRP",
+                "S3SINR"];
+  const cols = allowedCols;
+  
+  const rows = [cols.join(',')];
+  
+  data.forEach(row => {
+    const values = cols.map(col => {
+      let val = row[col];
+      if (val === null || val === undefined) val = '';
+      // Escape values containing commas or quotes
+      val = String(val);
+      if (val.includes(',') || val.includes('"') || val.includes('\n')) {
+        val = '"' + val.replace(/"/g, '""') + '"';
+      }
+      return val;
+    });
+    rows.push(values.join(','));
+  });
+  
+  const csvContent = rows.join('\n');
+  
+  // Generate timestamp for filename
+  const now = new Date();
+  const timestamp = now.toISOString().replace(/[:.]/g, '-').replace('T', '_').slice(0, 19);
+  const csvFilename = `DetailedView_${timestamp}.csv`;
+  
+  // Create and download CSV file
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = csvFilename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
 
+/**
+ * Fetch all pages of historic data and export as CSV
+ * @param {string} serial - Serial number to export ('all' for all systems)
+ * @param {string} startDate - Start date (YYYY-MM-DD)
+ * @param {string} endDate - End date (YYYY-MM-DD)
+ */
+async function exportAllHistoricDataAsCSV(serial, startDate, endDate) {
+  try {
+    setPlaybackMessage('Exporting all data... please wait', 'muted');
+    
+    let allData = [];
+    let page = 1;
+    let hasMoreData = true;
+    const convertedStartDate = `${startDate}T00:00:00`;
+    const convertedEndDate = `${endDate}T23:59:59`;
+    
+    // Fetch all pages
+    while (hasMoreData) {
+      let response;
+      if (serial === 'all') {
+        response = await fetchPagedHistoricAllData(convertedStartDate, convertedEndDate, page, PAGE_SIZE);
+      } else {
+        response = await fetchHistoricSerialData(serial, convertedStartDate, convertedEndDate, page, PAGE_SIZE);
+      }
+      
+      const pageData = response.data || [];
+      if (pageData.length === 0) {
+        hasMoreData = false;
+        break;
+      }
+      
+      allData = allData.concat(pageData);
+      const totalRecords = response.total || 0;
+      setPlaybackMessage(`Exporting... ${allData.length} of ${totalRecords} records loaded`, 'muted');
+      
+      // Check if we've fetched all data
+      if (allData.length >= totalRecords) {
+        hasMoreData = false;
+      } else {
+        page++;
+      }
+    }
+    
+    if (allData.length > 0) {
+      exportCombinedCSV(allData);
+      setPlaybackMessage(`Export complete: ${allData.length} records`, 'success');
+    } else {
+      setPlaybackMessage('No data to export', 'warning');
+    }
+  } catch (error) {
+    console.error('Error exporting data:', error);
+    setPlaybackMessage(`Export failed: ${error.message}`, 'danger');
+  }
+}
 
 function setPlaybackMessage(message, tone = 'muted') {
   const el = document.getElementById('playbackMessage');
@@ -321,6 +432,20 @@ function renderHistoricTable(data, serial, total = null) {
   // Clear existing rows
   tbody.innerHTML = '';
 
+  // Show export button for multiple serials (will export combined data as CSV)
+  exportBtn.style.display = 'inline-block';
+  exportBtn.textContent = 'Export CSV';
+  exportBtn.onclick = (e) => {
+    e.preventDefault();
+    const startDate = getStartDateInputValue();
+    const endDate = getEndDateInputValue();
+    if (startDate && endDate) {
+      exportAllHistoricDataAsCSV(serial, startDate, endDate);
+    } else {
+      setPlaybackMessage('Please select both start and end dates', 'warning');
+    }
+  };
+
   // Add rows
   data.forEach(record => {
     const row = document.createElement('tr');
@@ -421,12 +546,6 @@ function renderHistoricTable(data, serial, total = null) {
   table.style.display = 'table';
   noDataMessage.style.display = 'none';
 
-  if (serial === 'all') {
-    exportBtn.style.display = 'none';
-  } else {
-    exportBtn.style.display = 'inline-block';
-    exportBtn.href = getHistoricExportUrl(serial);
-  }
   const totalPages = Math.ceil(total / PAGE_SIZE);
   renderPaginator(total, currentPage, PAGE_SIZE);
   setPlaybackMessage(`Page ${currentPage} of ${totalPages} — ${total} total records`, 'success');
