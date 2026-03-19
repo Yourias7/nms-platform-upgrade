@@ -681,7 +681,23 @@ def export_historic_csv(serial: str) -> str:
         writer = csv.writer(output)
         
         # Write header
-        headers = ["SERIAL", "NAME", "LATITUDE", "LONGITUDE", "DATETIME", "HEADING", "RSRP", "SINR", "TEMP"]
+        headers = ["SERIAL",
+                "NAME",
+                "LATITUDE",
+                "LONGITUDE",
+                "DATETIME",
+                "HEADING",
+                "RSRP",
+                "SINR",
+                "TEMP",
+                "S0RSRP",
+                "S0SINR",
+                "S1RSRP",
+                "S1SINR",
+                "S2RSRP",
+                "S2SINR",
+                "S3RSRP",
+                "S3SINR"]
         writer.writerow(headers)
         
         # Write data rows
@@ -691,11 +707,19 @@ def export_historic_csv(serial: str) -> str:
                 row.NAME,
                 row.LATITUDE,
                 row.LONGITUDE,
-                row.DATETIME.isoformat() if row.DATETIME else "",
+                row.DATETIME.isoformat() if row.DATETIME else None,
                 row.HEADING,
                 row.RSRP,
                 row.SINR,
                 row.TEMP,
+                row.S0RSRP,
+                row.S0SINR,
+                row.S1RSRP,
+                row.S1SINR,
+                row.S2RSRP,
+                row.S2SINR,
+                row.S3RSRP,
+                row.S3SINR,
             ])
         
         return output.getvalue()
