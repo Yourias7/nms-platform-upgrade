@@ -427,12 +427,65 @@ export async function refreshAlarms() {
   return alarms;
 }
 
+ /* Export combined data from multiple serials as CSV
+ * @param {Object[]} data - Combined data array
+ * @param {string[]} serials - Array of serial numbers
+ */
+function exportCombinedCSV(data, serials) {
+  if (!data || data.length === 0) return;
+  
+  // Create CSV content - use fields that actually exist in alarm data
+  const allowedCols = ['serial', 'site', 'status', 'lastUpdate', 'hoursAgo', 'latitude', 'longitude'];
+  const cols = allowedCols;
+  
+  const rows = [cols.join(',')];
+  
+  data.forEach(row => {
+    const values = cols.map(col => {
+      let val = row[col];
+      if (val === null || val === undefined) val = '';
+      // Escape values containing commas or quotes
+      val = String(val);
+      if (val.includes(',') || val.includes('"') || val.includes('\n')) {
+        val = '"' + val.replace(/"/g, '""') + '"';
+      }
+      return val;
+    });
+    rows.push(values.join(','));
+  });
+  
+  const csvContent = rows.join('\n');
+  
+  // Generate timestamp for filename
+  const now = new Date();
+  const timestamp = now.toISOString().replace(/[:.]/g, '-').replace('T', '_').slice(0, 19);
+  const csvFilename = `AlarmView_${timestamp}.csv`;
+  
+  // Create and download CSV file
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = csvFilename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 // Entry point for the alarms page (merged from alarms-app.js)
 async function init() {
   console.log('[Alarms Page] Initializing');
+  const exportBtn = document.getElementById('exportBtn');
   
   // Load alarms immediately
-  await refreshAlarms();
+  const allData = await refreshAlarms();
+
+  exportBtn.onclick = (e) => {
+      e.preventDefault();
+      exportCombinedCSV(allData);
+    };
+
   
   // Auto-refresh every 30 seconds
   setInterval(async () => {
