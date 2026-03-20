@@ -745,6 +745,8 @@ async function init() {
     if (loadingOverlay) {
       loadingOverlay.classList.add('hidden');
     }
+    // Mark page as successfully loaded
+    window.markPageAsLoaded();
   }
 
   const serialFromUrl = getSelectedSerial();

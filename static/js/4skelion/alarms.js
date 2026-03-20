@@ -492,6 +492,8 @@ async function init() {
     console.log('[Alarms Page] Auto-refreshing alarms');
     await refreshAlarms();
   }, 30000);
+  // Mark page as successfully loaded
+  window.markPageAsLoaded();
 }
 
 // Start the app on DOM ready

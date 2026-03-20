@@ -1111,6 +1111,8 @@ async function init() {
     // When filtering with lasso, don't show pagination (show all filtered results)
     renderPerformanceAlarmsTable(visibleAlarms, null);
   });
+  // Mark page as successfully loaded
+  window.markPageAsLoaded();
 }
 
 // Start the app on DOM ready

@@ -491,7 +491,8 @@ function init() {
     if (loadingOverlay) {
       loadingOverlay.classList.add('hidden');
     }
-    
+    // Mark page as successfully loaded
+    window.markPageAsLoaded();
     console.log('[Dashboard] Initialization complete');   
   } catch (err) {
     console.error('[Dashboard] Failed to load serials', err);

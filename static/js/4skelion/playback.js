@@ -1839,6 +1839,8 @@ async function init() {
   }
 
   console.log('[Playback Page] Initialized');
+  // Mark page as successfully loaded
+  window.markPageAsLoaded();
 }
 
 // Start the app on DOM ready

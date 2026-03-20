@@ -337,6 +337,8 @@ async function init() {
   
   // Load initial data
   await loadAlarmStatistics();
+  // Mark page as successfully loaded
+  window.markPageAsLoaded();
 }
 
 // Start the app on DOM ready

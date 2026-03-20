@@ -262,6 +262,8 @@ function initPage() {
   bindRangeLabel('rsrp-threshold', 'rsrp-value');
   bindRangeLabel('sinr-threshold', 'sinr-value');
   bindRangeLabel('temp-threshold', 'temp-value');
+  // Mark page as successfully loaded
+  window.markPageAsLoaded();
 }
 
 if (document.readyState === 'loading') {

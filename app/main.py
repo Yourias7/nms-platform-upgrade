@@ -107,6 +107,12 @@ def home(request: Request):
     return templates.TemplateResponse("home.html", {"request": request})
 
 
+@app.get("/error")
+def error_page(request: Request):
+    """Render the error page with optional error details."""
+    return templates.TemplateResponse("error.html", {"request": request})
+
+
 @app.get("/4skelion/liveview")
 def liveview(request: Request):
     """Render the live view UI."""
