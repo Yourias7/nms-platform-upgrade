@@ -13,6 +13,13 @@ let currentPage = 1;
 let currentActiveSerial = '';
 let currentTotal = null; // total records for paginated 'all' view
 
+// CSV Enrichment state
+let uploadedCsvData = null;        // Persists across queries
+let csvIndex = {};                 // Lookup map: "cellid|enbid|pci" → {extra_cols}
+let enrichmentColumns = [];        // Detected column names from CSV
+let hasActiveEnrichment = false;   // Visual indicator
+let enrichmentMatchStats = { matched: 0, total: 0 }; // Track match success
+
 function getSelectedSerial() {
   const params = new URLSearchParams(window.location.search);
   const serial = params.get('serial');
@@ -144,8 +151,8 @@ function exportCombinedCSV(data) {
   if (!data || data.length === 0) return;
   
   // Create CSV content
-  // Columns arranged: General, Best, S0, S1, S2, S3
-  const allowedCols = ["SERIAL",
+  // Columns arranged: General, Best, S0, S1, S2, S3, then enriched columns
+  const baseColumns = ["SERIAL",
                 "NAME",
                 "LATITUDE",
                 "LONGITUDE",
@@ -189,7 +196,9 @@ function exportCombinedCSV(data) {
                 "S3CELLID",
                 "S3ENBID",
                 "S3PCI"];
-  const cols = allowedCols;
+  
+  // Add enrichment columns if available
+  const cols = hasActiveEnrichment ? [...baseColumns, ...enrichmentColumns] : baseColumns;
   
   const rows = [cols.join(',')];
   
@@ -270,6 +279,10 @@ async function exportAllHistoricDataAsCSV(serial, startDate, endDate) {
     }
     
     if (allData.length > 0) {
+      // Enrich data with CSV if available before exporting
+      if (hasActiveEnrichment) {
+        enrichRecordsWithCsv(allData);
+      }
       exportCombinedCSV(allData);
       setPlaybackMessage(`Export complete: ${allData.length} records`, 'success');
     } else {
@@ -286,6 +299,285 @@ function setPlaybackMessage(message, tone = 'muted') {
   if (!el) return;
   el.className = `text-${tone} small`;
   el.textContent = message;
+}
+
+/**
+ * Auto-detect CSV delimiter (comma or semicolon)
+ * @param {string} line - First line of CSV
+ * @returns {string} Detected delimiter
+ */
+function detectDelimiter(line) {
+  const commaCount = (line.match(/,/g) || []).length;
+  const semicolonCount = (line.match(/;/g) || []).length;
+  return semicolonCount > commaCount ? ';' : ',';
+}
+
+/**
+ * Parse CSV text content into array of objects
+ * @param {string} csvText - Raw CSV text
+ * @returns {Array} Array of objects with headers as keys
+ */
+function parseCSVContent(csvText) {
+  const lines = csvText.trim().split('\n');
+  if (lines.length < 2) throw new Error('CSV must have headers and at least one data row');
+  
+  // Auto-detect delimiter
+  const delimiter = detectDelimiter(lines[0]);
+  console.log(`[CSV] Detected delimiter: '${delimiter}'`);
+  
+  // Parse headers
+  const headers = parseCSVLine(lines[0], delimiter);
+  if (headers.length === 0) throw new Error('No headers found in CSV');
+  
+  // Parse data rows
+  const data = [];
+  for (let i = 1; i < lines.length; i++) {
+    if (lines[i].trim() === '') continue; // Skip empty lines
+    const values = parseCSVLine(lines[i], delimiter);
+    const row = {};
+    headers.forEach((header, idx) => {
+      row[header.trim()] = values[idx] ? values[idx].trim() : '';
+    });
+    data.push(row);
+  }
+  
+  return data;
+}
+
+/**
+ * Parse a single CSV line handling quoted values and custom delimiter
+ * @param {string} line - CSV line
+ * @param {string} delimiter - Field delimiter (default ',')
+ * @returns {Array} Array of values
+ */
+function parseCSVLine(line, delimiter = ',') {
+  const result = [];
+  let current = '';
+  let insideQuotes = false;
+  
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    const nextChar = line[i + 1];
+    
+    if (char === '"') {
+      if (insideQuotes && nextChar === '"') {
+        // Escaped quote
+        current += '"';
+        i++;
+      } else {
+        // Toggle quote state
+        insideQuotes = !insideQuotes;
+      }
+    } else if (char === delimiter && !insideQuotes) {
+      result.push(current);
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  
+  result.push(current);
+  return result;
+}
+
+/**
+ * Validate CSV has required join key columns
+ * @param {Array} headers - CSV headers
+ * @returns {boolean} True if valid, throws error otherwise
+ */
+function validateCsvHeaders(headers) {
+  const required = ['BEST_CELLID', 'BEST_ENBID', 'BEST_PCI'];
+  const headerSet = new Set(headers.map(h => h.trim().toUpperCase()));
+  
+  for (const col of required) {
+    if (!headerSet.has(col)) {
+      throw new Error(`CSV missing required column: ${col}`);
+    }
+  }
+  
+  return true;
+}
+
+/**
+ * Build index from CSV data using composite key
+ * @param {Array} csvData - Parsed CSV data
+ * @returns {Object} { index: {}, extraColumns: [] }
+ */
+function buildCsvIndex(csvData) {
+  const index = {};
+  const extraColumns = new Set();
+  
+  const requiredCols = ['BEST_CELLID', 'BEST_ENBID', 'BEST_PCI'];
+  
+  csvData.forEach(row => {
+    // Build composite key
+    const cellid = String(row.BEST_CELLID || '').trim();
+    const enbid = String(row.BEST_ENBID || '').trim();
+    const pci = String(row.BEST_PCI || '').trim();
+    
+    if (!cellid || !enbid || !pci) {
+      console.warn('[CSV] Skipping row with missing join keys:', row);
+      return;
+    }
+    
+    const key = `${cellid}|${enbid}|${pci}`;
+    
+    // Skip duplicate keys (use first occurrence)
+    if (index[key]) {
+      console.warn(`[CSV] Duplicate key found, using first occurrence: ${key}`);
+      return;
+    }
+    
+    // Extract extra columns (all except the required ones)
+    const enrichment = {};
+    Object.entries(row).forEach(([colName, value]) => {
+      if (!requiredCols.includes(colName)) {
+        enrichment[colName] = value;
+        extraColumns.add(colName);
+      }
+    });
+    
+    index[key] = enrichment;
+  });
+  
+  return {
+    index,
+    extraColumns: Array.from(extraColumns)
+  };
+}
+
+/**
+ * Handle CSV file upload and parsing
+ * @param {File} file - CSV file object
+ */
+async function loadAndIndexCSV(file) {
+  try {
+    setPlaybackMessage('Reading CSV file...', 'muted');
+    
+    // Check file size (max 12MB)
+    if (file.size > 12 * 1024 * 1024) {
+      throw new Error('File exceeds 12MB limit');
+    }
+    
+    // Read file as text
+    const text = await file.text();
+    
+    // Parse CSV
+    setPlaybackMessage('Parsing CSV...', 'muted');
+    const csvData = parseCSVContent(text);
+    
+    // Validate headers
+    const headers = Object.keys(csvData[0]);
+    validateCsvHeaders(headers);
+    
+    // Build index
+    const { index, extraColumns } = buildCsvIndex(csvData);
+    
+    if (Object.keys(index).length === 0) {
+      throw new Error('No valid records with join keys found in CSV');
+    }
+    
+    // Update global state
+    uploadedCsvData = csvData;
+    csvIndex = index;
+    enrichmentColumns = extraColumns;
+    hasActiveEnrichment = true;
+    enrichmentMatchStats = { matched: 0, total: 0 };
+    
+    // Reset file input
+    document.getElementById('csvFileInput').value = '';
+    
+    // Update UI
+    updateEnrichmentUI();
+    
+    const message = `✓ CSV loaded: ${csvData.length} rows, ${extraColumns.length} extra columns (${extraColumns.join(', ')})`;
+    setPlaybackMessage(message, 'success');
+    
+    console.log('[CSV] Successfully loaded and indexed:', { 
+      rowCount: csvData.length, 
+      uniqueKeys: Object.keys(index).length,
+      extraColumns 
+    });
+  } catch (error) {
+    console.error('[CSV] Error loading CSV:', error);
+    setPlaybackMessage(`CSV error: ${error.message}`, 'danger');
+  }
+}
+
+/**
+ * Enrich a single record with CSV data
+ * @param {Object} record - Historic data record
+ */
+function enrichRecordWithCsv(record) {
+  if (!hasActiveEnrichment || !record) return record;
+  
+  const cellid = String(record.BEST_CELLID || '').trim();
+  const enbid = String(record.BEST_ENBID || '').trim();
+  const pci = String(record.BEST_PCI || '').trim();
+  
+  const key = `${cellid}|${enbid}|${pci}`;
+  const enrichment = csvIndex[key];
+  
+  if (enrichment) {
+    Object.assign(record, enrichment);
+    enrichmentMatchStats.matched++;
+  }
+  
+  return record;
+}
+
+/**
+ * Enrich all records with CSV data
+ * @param {Array} records - Array of historic records
+ * @returns {Array} Enriched records
+ */
+function enrichRecordsWithCsv(records) {
+  if (!hasActiveEnrichment || !records) return records;
+  
+  enrichmentMatchStats = { matched: 0, total: records.length };
+  
+  records.forEach(record => enrichRecordWithCsv(record));
+  
+  return records;
+}
+
+/**
+ * Update enrichment badge visibility and state
+ */
+function updateEnrichmentUI() {
+  const badge = document.getElementById('enrichmentBadge');
+  if (!badge) return;
+  
+  if (hasActiveEnrichment) {
+    badge.style.display = 'inline-block';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+/**
+ * Clear all CSV enrichment data
+ */
+function clearCsvEnrichment() {
+  uploadedCsvData = null;
+  csvIndex = {};
+  enrichmentColumns = [];
+  hasActiveEnrichment = false;
+  enrichmentMatchStats = { matched: 0, total: 0 };
+  
+  updateEnrichmentUI();
+  
+  // Remove enriched columns from table if visible
+  const thead = document.getElementById('historicTableHead');
+  if (thead) {
+    const enrichedHeader = thead.querySelector('th:last-child');
+    if (enrichedHeader && enrichedHeader.id === 'enrichedColumnsHeader') {
+      enrichedHeader.style.display = 'none';
+      enrichedHeader.innerHTML = '';
+    }
+  }
+  
+  setPlaybackMessage('CSV enrichment cleared', 'info');
 }
 
 function renderDropdownOptions(serials, nameMap = {}) {
@@ -425,24 +717,48 @@ function hideDetailsLoading() {
   }
 }
 
-
-
-
-
-
-
-
 /**
- * Render historic data table
- * @param {Array} data - Array of historic record objects
- * @param {string} serial - Serial number for export
- * @param {number|null} total - Total records across all pages (null for single-serial view)
+ * Update table header with enriched columns
  */
+function updateTableHeaderWithEnrichedColumns() {
+  const thead = document.getElementById('historicTableHead');
+  if (!thead || !enrichmentColumns.length) return;
+  
+  const headerRow = thead.querySelector('tr');
+  if (!headerRow) return;
+  
+  // Remove old enriched headers if any
+  const oldEnrichedHeaders = headerRow.querySelectorAll('th[data-enriched="true"]');
+  oldEnrichedHeaders.forEach(th => th.remove());
+  
+  // Add new enriched column headers
+  enrichmentColumns.forEach(colName => {
+    const th = document.createElement('th');
+    th.setAttribute('data-enriched', 'true');
+    th.style.backgroundColor = 'rgba(102, 126, 234, 0.15)';
+    th.title = 'Enriched from CSV';
+    th.textContent = colName;
+    headerRow.appendChild(th);
+  });
+}
+
+
+
+
+
+
+
+
 function renderHistoricTable(data, serial, total = null) {
   const table = document.getElementById('historicTable');
   const tbody = document.getElementById('historicTableBody');
   const noDataMessage = document.getElementById('noDataMessage');
   const exportBtn = document.getElementById('exportBtn');
+
+  // Enrich data with CSV if available
+  if (hasActiveEnrichment) {
+    enrichRecordsWithCsv(data);
+  }
 
   // Store data and total for sorting
   currentHistoricData = data || [];
@@ -455,6 +771,11 @@ function renderHistoricTable(data, serial, total = null) {
     exportBtn.style.display = 'none';
     setPlaybackMessage('No data found', 'muted');
     return;
+  }
+
+  // Update table header with enriched columns
+  if (hasActiveEnrichment && enrichmentColumns.length > 0) {
+    updateTableHeaderWithEnrichedColumns();
   }
 
   // Clear existing rows
@@ -708,6 +1029,27 @@ function renderHistoricTable(data, serial, total = null) {
     s3pciCell.textContent = record.S3PCI || 'N/A';
     row.appendChild(s3pciCell);
 
+    // ===== ENRICHED COLUMNS (from CSV) =====
+    if (hasActiveEnrichment && enrichmentColumns.length > 0) {
+      enrichmentColumns.forEach(colName => {
+        const enrichedCell = document.createElement('td');
+        const value = record[colName];
+        
+        // Try to format numeric values
+        if (value !== null && value !== undefined && value !== '') {
+          const numValue = parseFloat(value);
+          if (!isNaN(numValue) && isFinite(numValue)) {
+            enrichedCell.textContent = numValue.toFixed(2);
+          } else {
+            enrichedCell.textContent = String(value);
+          }
+        } else {
+          enrichedCell.textContent = 'N/A';
+        }
+        row.appendChild(enrichedCell);
+      });
+    }
+
     tbody.appendChild(row);
   });
 
@@ -717,7 +1059,14 @@ function renderHistoricTable(data, serial, total = null) {
 
   const totalPages = Math.ceil(total / PAGE_SIZE);
   renderPaginator(total, currentPage, PAGE_SIZE);
-  setPlaybackMessage(`Page ${currentPage} of ${totalPages} — ${total} total records`, 'success');
+  
+  // Build status message
+  let statusMsg = `Page ${currentPage} of ${totalPages} — ${total} total records`;
+  if (hasActiveEnrichment) {
+    statusMsg += ` | Enriched ${enrichmentMatchStats.matched} of ${enrichmentMatchStats.total} records`;
+  }
+  
+  setPlaybackMessage(statusMsg, 'success');
 }
 
 /**
@@ -1035,6 +1384,34 @@ async function init() {
       setPlaybackMessage('Select a system to load data.', 'muted');
 
       console.log('[Playback] Cleared all filters and data');
+    });
+  }
+
+  // CSV Upload button listener
+  const uploadCsvBtn = document.getElementById('uploadCsvBtn');
+  if (uploadCsvBtn) {
+    uploadCsvBtn.addEventListener('click', () => {
+      document.getElementById('csvFileInput').click();
+    });
+  }
+
+  // CSV File input listener
+  const csvFileInput = document.getElementById('csvFileInput');
+  if (csvFileInput) {
+    csvFileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        loadAndIndexCSV(file);
+      }
+    });
+  }
+
+  // CSV Clear button listener
+  const clearCsvBtn = document.getElementById('clearCsvBtn');
+  if (clearCsvBtn) {
+    clearCsvBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      clearCsvEnrichment();
     });
   }
 

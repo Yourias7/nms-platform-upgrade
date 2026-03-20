@@ -103,8 +103,19 @@
                 Clear
             </button>
         </div>
-        <div class="col-12 col-md-3">
+        <!-- Upload CSV Button -->
+        <div class="col-12 col-md-3" style="width: auto;">
+            <button id="uploadCsvBtn" type="button" class="btn btn-sm btn-outline-info" style="width: auto; height: 38px;" title="Upload CSV to enrich data">
+                Upload CSV
+            </button>
+            <input type="file" id="csvFileInput" accept=".csv" style="display:none;"/>
+        </div>
+        <div class="col-12">
             <div id="playbackMessage" class="text-muted small" style="text-align: left;"></div>
+            <span id="enrichmentBadge" class="badge bg-success ms-2" style="display:none;">
+                CSV Enriched
+                <button id="clearCsvBtn" type="button" class="btn btn-sm btn-link p-0 ms-1" style="color: inherit; text-decoration: none;">✕</button>
+            </span>
         </div>
     </div>
     <div class="row mt-2">
@@ -180,6 +191,8 @@
                     <th>S3CELLID</th>
                     <th>S3ENBID</th>
                     <th>S3PCI</th>
+                    <!-- Enriched Columns (from CSV) -->
+                    <th id="enrichedColumnsHeader" style="display:none;"></th>
                   </tr>
                 </thead>
                 <tbody id="historicTableBody"></tbody>
