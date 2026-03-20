@@ -144,6 +144,7 @@ function exportCombinedCSV(data) {
   if (!data || data.length === 0) return;
   
   // Create CSV content
+  // Columns arranged: General, Best, S0, S1, S2, S3
   const allowedCols = ["SERIAL",
                 "NAME",
                 "LATITUDE",
@@ -153,14 +154,41 @@ function exportCombinedCSV(data) {
                 "RSRP",
                 "SINR",
                 "TEMP",
+                "RSRQ",
+                "BEST_CELLID",
+                "BEST_ENBID",
+                "BEST_SECID",
+                "BEST_PCI",
+                "SELECTED_ANTENNA",
+                "EARFCN",
                 "S0RSRP",
                 "S0SINR",
+                "S0RSRQ",
+                "S0EARFCN",
+                "S0CELLID",
+                "S0ENBID",
+                "S0PCI",
                 "S1RSRP",
                 "S1SINR",
+                "S1RSRQ",
+                "S1EARFCN",
+                "S1CELLID",
+                "S1ENBID",
+                "S1PCI",
                 "S2RSRP",
                 "S2SINR",
+                "S2RSRQ",
+                "S2EARFCN",
+                "S2CELLID",
+                "S2ENBID",
+                "S2PCI",
                 "S3RSRP",
-                "S3SINR"];
+                "S3SINR",
+                "S3RSRQ",
+                "S3EARFCN",
+                "S3CELLID",
+                "S3ENBID",
+                "S3PCI"];
   const cols = allowedCols;
   
   const rows = [cols.join(',')];
@@ -450,6 +478,7 @@ function renderHistoricTable(data, serial, total = null) {
   data.forEach(record => {
     const row = document.createElement('tr');
 
+    // ===== GENERAL VALUES =====
     // SERIAL
     const serialCell = document.createElement('td');
     serialCell.textContent = record.SERIAL || 'N/A';
@@ -499,6 +528,43 @@ function renderHistoricTable(data, serial, total = null) {
     tempCell.textContent = record.TEMP !== null && record.TEMP !== undefined ? record.TEMP.toFixed(1) : 'N/A';
     row.appendChild(tempCell);
 
+    // RSRQ
+    const rsrqCell = document.createElement('td');
+    rsrqCell.textContent = record.RSRQ !== null && record.RSRQ !== undefined ? record.RSRQ.toFixed(1) : 'N/A';
+    row.appendChild(rsrqCell);
+
+    // ===== BEST CELL INFO =====
+    // BEST_CELLID
+    const bestCellidCell = document.createElement('td');
+    bestCellidCell.textContent = record.BEST_CELLID || 'N/A';
+    row.appendChild(bestCellidCell);
+
+    // BEST_ENBID
+    const bestEnbidCell = document.createElement('td');
+    bestEnbidCell.textContent = record.BEST_ENBID || 'N/A';
+    row.appendChild(bestEnbidCell);
+
+    // BEST_SECID
+    const bestSecidCell = document.createElement('td');
+    bestSecidCell.textContent = record.BEST_SECID || 'N/A';
+    row.appendChild(bestSecidCell);
+
+    // BEST_PCI
+    const bestPciCell = document.createElement('td');
+    bestPciCell.textContent = record.BEST_PCI || 'N/A';
+    row.appendChild(bestPciCell);
+
+    // SELECTED_ANTENNA
+    const selectedAntennaCell = document.createElement('td');
+    selectedAntennaCell.textContent = record.SELECTED_ANTENNA !== null && record.SELECTED_ANTENNA !== undefined ? record.SELECTED_ANTENNA.toFixed(1) : 'N/A';
+    row.appendChild(selectedAntennaCell);
+
+    // EARFCN
+    const earfcnCell = document.createElement('td');
+    earfcnCell.textContent = record.EARFCN !== null && record.EARFCN !== undefined ? record.EARFCN.toFixed(1) : 'N/A';
+    row.appendChild(earfcnCell);
+
+    // ===== S0 SECTOR =====
     // S0RSRP
     const s0rsrpCell = document.createElement('td');
     s0rsrpCell.textContent = record.S0RSRP !== null && record.S0RSRP !== undefined ? record.S0RSRP.toFixed(1) : 'N/A';
@@ -509,6 +575,32 @@ function renderHistoricTable(data, serial, total = null) {
     s0sinrCell.textContent = record.S0SINR !== null && record.S0SINR !== undefined ? record.S0SINR.toFixed(1) : 'N/A';
     row.appendChild(s0sinrCell);
 
+    // S0RSRQ
+    const s0rsrqCell = document.createElement('td');
+    s0rsrqCell.textContent = record.S0RSRQ !== null && record.S0RSRQ !== undefined ? record.S0RSRQ.toFixed(1) : 'N/A';
+    row.appendChild(s0rsrqCell);
+
+    // S0EARFCN
+    const s0earfcnCell = document.createElement('td');
+    s0earfcnCell.textContent = record.S0EARFCN !== null && record.S0EARFCN !== undefined ? record.S0EARFCN.toFixed(1) : 'N/A';
+    row.appendChild(s0earfcnCell);
+
+    // S0CELLID
+    const s0cellidCell = document.createElement('td');
+    s0cellidCell.textContent = record.S0CELLID || 'N/A';
+    row.appendChild(s0cellidCell);
+
+    // S0ENBID
+    const s0enbidCell = document.createElement('td');
+    s0enbidCell.textContent = record.S0ENBID || 'N/A';
+    row.appendChild(s0enbidCell);
+
+    // S0PCI
+    const s0pciCell = document.createElement('td');
+    s0pciCell.textContent = record.S0PCI || 'N/A';
+    row.appendChild(s0pciCell);
+
+    // ===== S1 SECTOR =====
     // S1RSRP
     const s1rsrpCell = document.createElement('td');
     s1rsrpCell.textContent = record.S1RSRP !== null && record.S1RSRP !== undefined ? record.S1RSRP.toFixed(1) : 'N/A';
@@ -519,6 +611,32 @@ function renderHistoricTable(data, serial, total = null) {
     s1sinrCell.textContent = record.S1SINR !== null && record.S1SINR !== undefined ? record.S1SINR.toFixed(1) : 'N/A';
     row.appendChild(s1sinrCell);
 
+    // S1RSRQ
+    const s1rsrqCell = document.createElement('td');
+    s1rsrqCell.textContent = record.S1RSRQ !== null && record.S1RSRQ !== undefined ? record.S1RSRQ.toFixed(1) : 'N/A';
+    row.appendChild(s1rsrqCell);
+
+    // S1EARFCN
+    const s1earfcnCell = document.createElement('td');
+    s1earfcnCell.textContent = record.S1EARFCN !== null && record.S1EARFCN !== undefined ? record.S1EARFCN.toFixed(1) : 'N/A';
+    row.appendChild(s1earfcnCell);
+
+    // S1CELLID
+    const s1cellidCell = document.createElement('td');
+    s1cellidCell.textContent = record.S1CELLID || 'N/A';
+    row.appendChild(s1cellidCell);
+
+    // S1ENBID
+    const s1enbidCell = document.createElement('td');
+    s1enbidCell.textContent = record.S1ENBID || 'N/A';
+    row.appendChild(s1enbidCell);
+
+    // S1PCI
+    const s1pciCell = document.createElement('td');
+    s1pciCell.textContent = record.S1PCI || 'N/A';
+    row.appendChild(s1pciCell);
+
+    // ===== S2 SECTOR =====
     // S2RSRP
     const s2rsrpCell = document.createElement('td');
     s2rsrpCell.textContent = record.S2RSRP !== null && record.S2RSRP !== undefined ? record.S2RSRP.toFixed(1) : 'N/A';
@@ -529,6 +647,32 @@ function renderHistoricTable(data, serial, total = null) {
     s2sinrCell.textContent = record.S2SINR !== null && record.S2SINR !== undefined ? record.S2SINR.toFixed(1) : 'N/A';
     row.appendChild(s2sinrCell);
 
+    // S2RSRQ
+    const s2rsrqCell = document.createElement('td');
+    s2rsrqCell.textContent = record.S2RSRQ !== null && record.S2RSRQ !== undefined ? record.S2RSRQ.toFixed(1) : 'N/A';
+    row.appendChild(s2rsrqCell);
+
+    // S2EARFCN
+    const s2earfcnCell = document.createElement('td');
+    s2earfcnCell.textContent = record.S2EARFCN !== null && record.S2EARFCN !== undefined ? record.S2EARFCN.toFixed(1) : 'N/A';
+    row.appendChild(s2earfcnCell);
+
+    // S2CELLID
+    const s2cellidCell = document.createElement('td');
+    s2cellidCell.textContent = record.S2CELLID || 'N/A';
+    row.appendChild(s2cellidCell);
+
+    // S2ENBID
+    const s2enbidCell = document.createElement('td');
+    s2enbidCell.textContent = record.S2ENBID || 'N/A';
+    row.appendChild(s2enbidCell);
+
+    // S2PCI
+    const s2pciCell = document.createElement('td');
+    s2pciCell.textContent = record.S2PCI || 'N/A';
+    row.appendChild(s2pciCell);
+
+    // ===== S3 SECTOR =====
     // S3RSRP
     const s3rsrpCell = document.createElement('td');
     s3rsrpCell.textContent = record.S3RSRP !== null && record.S3RSRP !== undefined ? record.S3RSRP.toFixed(1) : 'N/A';
@@ -538,6 +682,31 @@ function renderHistoricTable(data, serial, total = null) {
     const s3sinrCell = document.createElement('td');
     s3sinrCell.textContent = record.S3SINR !== null && record.S3SINR !== undefined ? record.S3SINR.toFixed(1) : 'N/A';
     row.appendChild(s3sinrCell);
+
+    // S3RSRQ
+    const s3rsrqCell = document.createElement('td');
+    s3rsrqCell.textContent = record.S3RSRQ !== null && record.S3RSRQ !== undefined ? record.S3RSRQ.toFixed(1) : 'N/A';
+    row.appendChild(s3rsrqCell);
+
+    // S3EARFCN
+    const s3earfcnCell = document.createElement('td');
+    s3earfcnCell.textContent = record.S3EARFCN !== null && record.S3EARFCN !== undefined ? record.S3EARFCN.toFixed(1) : 'N/A';
+    row.appendChild(s3earfcnCell);
+
+    // S3CELLID
+    const s3cellidCell = document.createElement('td');
+    s3cellidCell.textContent = record.S3CELLID || 'N/A';
+    row.appendChild(s3cellidCell);
+
+    // S3ENBID
+    const s3enbidCell = document.createElement('td');
+    s3enbidCell.textContent = record.S3ENBID || 'N/A';
+    row.appendChild(s3enbidCell);
+
+    // S3PCI
+    const s3pciCell = document.createElement('td');
+    s3pciCell.textContent = record.S3PCI || 'N/A';
+    row.appendChild(s3pciCell);
 
     tbody.appendChild(row);
   });
@@ -869,13 +1038,15 @@ async function init() {
     });
   }
 
-  // Initialize the map mode toggle
-  initToggle();
+  // // Initialize the map mode toggle
+  // initToggle();
 
-  // Initialize antenna toggles
-  initAntennaToggles();
+  // // Initialize antenna toggles
+  // initAntennaToggles();
 
-  console.log('[Playback Page] Initialized');
+  console.log('[Details Page] Initialized');
+  // Mark page as successfully loaded
+  window.markPageAsLoaded();
 }
 
 // Start the app on DOM ready
