@@ -47,16 +47,6 @@ def list_live_probes():
     finally:
         db.close()
         
-# def list_live_names():
-#     """Return list of all distinct SERIAL values from database."""
-#     db = SessionLocal()
-#     try:
-#         rows = db.query(LiveMeasurement.NAME).distinct().all()
-#         names = [r[0] for r in rows if r[0] is not None]
-#         logger.info(f"Retrieved {len(names)} distinct serials from database")
-#         return names
-#     finally:
-#         db.close()
 def list_live_serial_name_pairs():
     db = SessionLocal()
     try:
