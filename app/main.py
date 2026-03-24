@@ -1,6 +1,9 @@
 from fastapi import FastAPI, Request, Response
 import logging
-from app.data_source import get_alarm_records_by_serial, get_alarm_statistics, get_earliest_datetime_for_serial, get_latest_datetime_for_serial, get_historic_records_by_serial, get_all_historic_records, get_live_records_by_serial, list_live_serial_name_pairs, list_live_serials, list_historic_serials, export_live_csv, export_historic_csv, live_serials_with_locations, historic_serials_with_locations
+from app.data_source import (get_alarm_records_by_serial, get_alarm_statistics, get_earliest_datetime_for_serial, get_latest_datetime_for_serial, 
+get_historic_records_by_serial, get_all_historic_records, get_live_records_by_serial, list_live_serial_name_pairs, list_live_serials, list_historic_serials, 
+export_live_csv, export_historic_csv, live_serials_with_locations, historic_serials_with_locations,list_3skelion_serials,list_3skelion_serial_name_pairs,
+get_3skelion_live_records_by_serial, live_3skelion_serials_with_locations)
 from fastapi.responses import StreamingResponse, FileResponse, RedirectResponse
 import io
 import mimetypes
@@ -251,5 +254,35 @@ def systems_locations():
 def playback_historic_locations():
     """Return list of {serial, latitude, longitude} for serials with coordinates."""
     return historic_serials_with_locations()
+
+# =========================
+# 3SKELION API (NewSheet$)
+# =========================
+
+@app.get("/3skelion/systems/Live/serials")
+def list_3skelion_serials_endpoint():
+    """Return 3skelion serial list from dbo.[NewSheet$]."""
+    return list_3skelion_serials()
+
+
+@app.get("/3skelion/systems/Live/names")
+def list_3skelion_names_endpoint():
+    """
+    Return serial/name pairs.
+    For now: NAME == SERIAL (until we confirm a real name column exists).
+    """
+    return list_3skelion_serial_name_pairs()
+
+
+@app.get("/3skelion/Systems/Live/{serial}")
+def get_3skelion_system(serial: str):
+    """Return latest 3skelion record for SERIAL from dbo.[NewSheet$]."""
+    return get_3skelion_live_records_by_serial(serial)
+
+
+@app.get("/3skelion/systems/Live/locations")
+def systems_locations_3skelion():
+    """Return latest locations for map markers (3skelion)."""
+    return live_3skelion_serials_with_locations()
 
 
