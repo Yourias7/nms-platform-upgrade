@@ -1299,7 +1299,7 @@ def get_alarm_probes_statistics(early: str = None, latest: str = None, rsrp_thre
     try:
         sdate = datetime.fromisoformat(early) if early else None
         edate = datetime.fromisoformat(latest) if latest else None
-        cutoff = datetime.utcnow() - timedelta(days=15)
+        cutoff = datetime.utcnow() - timedelta(days=30000)
         
         # Log thresholds being used
         logger.info(f"Alarm statistics thresholds - RSRP: {rsrp_threshold}, SINR: {sinr_threshold}, TEMP: {temp_threshold}")

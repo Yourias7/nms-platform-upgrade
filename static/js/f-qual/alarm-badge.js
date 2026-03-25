@@ -28,12 +28,12 @@ function isCommunicationAlarm(timestamp) {
  */
 async function countCommunicationAlarms() {
   try {
-    const serials = await fetchJSON(CONFIG.API.SERIALS);
+    const serials = await fetchJSON(CONFIG.API.PROBE_SERIALS);
     let alarmCount = 0;
     
     for (const serial of serials) {
       try {
-        const records = await fetchJSON(`${CONFIG.API.SYSTEMS}/${encodeURIComponent(serial)}`);
+        const records = await fetchJSON(`${CONFIG.API.PROBES}/${encodeURIComponent(serial)}`);
         
         if (!records || records.length === 0) {
           alarmCount++;
