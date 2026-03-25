@@ -70,6 +70,7 @@ async function fetchAndRenderSerials() {
  * @param {HTMLElement} card - Card element
  */
 async function handleSerialSelect(serial, card) {
+  if (!card) return;
   const alreadySelected = card.classList.contains('selected');
   
   if (alreadySelected) {
@@ -202,7 +203,7 @@ function exportCombinedCSV(data, serials) {
   if (!data || data.length === 0) return;
   
   // Create CSV content
-  const allowedCols = ['SERIAL', 'NAME', 'LATITUDE', 'LONGITUDE', 'DATETIME', 'EARFCN', 'PCI', 'ANTENNA USED', 'RSRP','RSRQ', 'SINR', 'TEMP','NODE_ID', 'SECTOR_ID'];
+  const allowedCols = ['SERIAL', 'NAME', 'LATITUDE', 'LONGITUDE', 'DATETIME', 'EARFCN', 'PCI', 'RSRP','RSRQ', 'SINR', 'TEMP'];
   const cols = allowedCols;
   
   const rows = [cols.join(',')];
@@ -290,7 +291,7 @@ async function loadMultipleSerialDetails(serials) {
     
     // Render combined table
     // const cols = Object.keys(allData[0]);
-    const allowedCols = ['SERIAL', 'NAME', 'LATITUDE', 'LONGITUDE', 'DATETIME', 'EARFCN', 'PCI', 'RSRP','RSRQ', 'SINR', 'TEMP','NODE_ID', 'SECTOR_ID'];
+    const allowedCols = ['SERIAL', 'NAME', 'LATITUDE', 'LONGITUDE', 'DATETIME', 'EARFCN', 'PCI', 'RSRP','RSRQ', 'SINR', 'TEMP'];
     const cols = allowedCols;
     const table = document.createElement('table');
     table.className = 'table table-sm table-striped';

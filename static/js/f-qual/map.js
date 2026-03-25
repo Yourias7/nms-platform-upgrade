@@ -2,7 +2,7 @@
 // Map initialization and marker management
 
 import { CONFIG } from '../shared/config.js';
-import { fetchSerialData } from '../shared/api.js';
+import { fetchProbeData } from '../shared/api.js';
 import { getFieldCaseInsensitive, safeParseFloat } from '../shared/utils.js';
 
 // Module state
@@ -224,7 +224,7 @@ export async function updateMapMarkers(serialList, { fit = true } = {}) {
 
   for (const serial of serialList) {
     try {
-      const data = await fetchSerialData(serial);
+      const data = await fetchProbeData(serial);
 
       // If a newer update started, stop immediately
       if (seq !== updateSeq) return;

@@ -1167,6 +1167,42 @@ def export_live_csv(serial: str) -> str:
         return output.getvalue()
     finally:
         db.close()
+        
+def export_live_csv(serial: str) -> str:
+    """Return CSV string for the given serial from database."""
+    db = SessionLocal()
+    try:
+        ser = str(serial).strip()
+        rows = db.query(LiveMeasurement).filter(LiveMeasurement.SERIAL == ser).all()
+        
+        # Build CSV output
+        output = io.StringIO()
+        writer = csv.writer(output)
+        
+        # Write header
+        headers = ["SERIAL", "NAME", "LATITUDE", "LONGITUDE", "DATETIME", "EARFCN", "PCI", "RSRP", "RSRQ", "SINR", "TEMP"]
+        writer.writerow(headers)
+        
+        # Write data rows
+        for row in rows:
+            writer.writerow([
+                # row.NAME,
+                row.SERIAL,
+                row.NAME,
+                row.LATITUDE,
+                row.LONGITUDE,
+                row.DATETIME.isoformat() if row.DATETIME else "",
+                row.EARFCN,
+                row.PCI,
+                row.RSRP,
+                row.RSRQ,
+                row.SINR,
+                row.TEMP,
+            ])
+        
+        return output.getvalue()
+    finally:
+        db.close()
 
 
 def get_alarm_statistics(early: str = None, latest: str = None, rsrp_threshold: float = -120, sinr_threshold: float = 0, temp_threshold: float = 75):
