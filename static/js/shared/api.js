@@ -40,9 +40,9 @@ export async function fetchHistoricSerialsList() {
  * @returns {Promise<string[]>} Array of probe serial numbers
  */
 export async function fetchProbeSerialsList() {
-  console.log('[Playback Page] Fetching probe serials list from API:', CONFIG.API.PROBE_SERIALS);
+  console.log('[Dashboard] Fetching probe serials list from API:', CONFIG.API.PROBE_SERIALS);
   const res = await fetch(CONFIG.API.PROBE_SERIALS);
-  console.log('[Playback Page] Received response for probe serials list:', res);
+  console.log('[Dashboard] Received response for probe serials list:', res);
   return await res.json();
 }
 
@@ -55,6 +55,18 @@ export async function fetchProbeSerialsList() {
 export async function fetchSerialData(serial, signal = null) {
   const options = signal ? { signal } : {};
   const res = await fetch(`${CONFIG.API.SYSTEMS}/${encodeURIComponent(serial)}`, options);
+  return await res.json();
+}
+
+/**
+ * Fetch all records for a specific serial
+ * @param {string} serial - Serial number to fetch
+ * @param {AbortSignal} [signal] - Optional AbortSignal for cancellation
+ * @returns {Promise<Object[]>} Array of record objects
+ */
+export async function fetchProbeData(serial, signal = null) {
+  const options = signal ? { signal } : {};
+  const res = await fetch(`${CONFIG.API.PROBES}/${encodeURIComponent(serial)}`, options);
   return await res.json();
 }
 
@@ -231,6 +243,28 @@ export async function fetchLEDStatus(serial) {
 
   return { rsrp: null, sinr: null, temp: null, lat: null, lon: null, datetime: null };
 }
+/**
+* @returns {Promise<Object>} map like { "123": "BOAT_A", ... }
+ */
+export async function fetchProbeNameMap() {
+  const res = await fetch(CONFIG.API.PROBE_NAME_MAP);
+  const payload = await res.json();
+
+  // If backend already returns an object map
+  if (payload && !Array.isArray(payload) && typeof payload === 'object') {
+    return payload;
+  }
+
+  // If backend returns array of objects
+  const map = {};
+  (payload || []).forEach((x) => {
+    const serial = x?.SERIAL ?? x?.serial ?? x?.Serial ?? x?.id;
+    const name = x?.NAME ?? x?.name ?? x?.Name ?? x?.label;
+    if (serial) map[String(serial)] = name ?? String(serial);
+  });
+  return map;
+}
+
 /**
 * @returns {Promise<Object>} map like { "123": "BOAT_A", ... }
  */

@@ -2,7 +2,7 @@
 // Main orchestrator for NMS Dashboard Page
 
 import { CONFIG } from '../shared/config.js';
-import { fetchSerialsList, fetchSerialData } from '../shared/api.js';
+import { fetchProbeSerialsList, fetchProbeData } from '../shared/api.js';
 import { debounce } from '../shared/utils.js';
 import { initMap, preloadCustomIcon, updateMapMarkers, getMarkers, getMap, hideMapLoading } from './map.js';
 import { 
@@ -42,25 +42,25 @@ function applyActiveFilters() {
 }
 
 /**
- * Fetch and render all serials
+ * Fetch and render all probes
  */
 async function fetchAndRenderSerials() {
   try {
-    const serialsList = await fetchSerialsList();
-    setSerials(serialsList);
+    const probesList = await fetchProbeSerialsList();
+    setSerials(probesList);
 
     // Apply active filters so user view isn't reset by auto-refresh
     applyActiveFilters();
     
-    // Reload details for all selected serials
+    // Reload details for all selected probes
     const selected = getSelectedSerials();
     if (selected.length > 0) {
       await loadMultipleSerialDetails(selected);
     }
   } catch (err) {
-    const serialListEl = document.getElementById('serialList');
-    serialListEl.innerHTML = '<li class="list-group-item text-danger">Error loading serials</li>';
-    console.error('Error fetching serials:', err);
+    const probeListEl = document.getElementById('probeList');
+    probeListEl.innerHTML = '<li class="list-group-item text-danger">Error loading probes</li>';
+    console.error('Error fetching probes:', err);
   }
 }
 
@@ -241,8 +241,8 @@ function exportCombinedCSV(data, serials) {
 }
 
 /**
- * Load details for multiple selected serials
- * @param {string[]} serials - Array of serial numbers
+ * Load details for multiple selected probes and render combined view
+ * @param {string[]} serials - Array of probe serial numbers
  */
 async function loadMultipleSerialDetails(serials) {
   if (serials.length === 0) {
@@ -265,7 +265,7 @@ async function loadMultipleSerialDetails(serials) {
   try {
     const allData = [];
     for (const serial of serials) {
-      const data = await fetchSerialData(serial);
+      const data = await fetchProbeData(serial);
       if (data && data.length > 0) {
         // Add serial identifier to each row
         data.forEach(row => {
@@ -290,7 +290,7 @@ async function loadMultipleSerialDetails(serials) {
     
     // Render combined table
     // const cols = Object.keys(allData[0]);
-    const allowedCols = ['SERIAL', 'NAME', 'LATITUDE', 'LONGITUDE', 'DATETIME', 'EARFCN', 'PCI', 'ANTENNA USED', 'RSRP','RSRQ', 'SINR', 'TEMP','NODE_ID', 'SECTOR_ID'];
+    const allowedCols = ['SERIAL', 'NAME', 'LATITUDE', 'LONGITUDE', 'DATETIME', 'EARFCN', 'PCI', 'RSRP','RSRQ', 'SINR', 'TEMP','NODE_ID', 'SECTOR_ID'];
     const cols = allowedCols;
     const table = document.createElement('table');
     table.className = 'table table-sm table-striped';
@@ -298,8 +298,9 @@ async function loadMultipleSerialDetails(serials) {
       // Ορισμός labels για τις κεφαλίδες (αν θες να αλλάξεις το κείμενο που φαίνεται)
   const colLabels = {
     'DATETIME': 'Date/Time',
-    'ANTENNA USED': 'Antenna',
     'RSRP': 'RSRP (dBm)',
+    'RSRQ': 'RSRQ (dB)',
+    'SINR': 'SINR (dB)',
     'TEMP': 'Temp (°C)'
   };
 

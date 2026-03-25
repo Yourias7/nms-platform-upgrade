@@ -2,7 +2,7 @@
 // Serial list rendering and LED indicator logic
 
 import { CONFIG } from '../shared/config.js';
-import { fetchSerialData, fetchSerialNameMap } from '../shared/api.js';
+import { fetchProbeData, fetchProbeNameMap } from '../shared/api.js';
 import { buildMarkerTooltipContent, clearMapMarkers, updateMapMarkers, tooltipHtmlToPlainText } from './map.js';
 import { getThresholds, isInAlarm } from './settings.js';
 import { clearDetails } from './details.js';
@@ -254,9 +254,9 @@ export async function renderSerials(data, onSelectSerial, loadMultipleDetails = 
     return;
   }
   try {
-  serialNameMap = await fetchSerialNameMap();
+  serialNameMap = await fetchProbeNameMap();
 } catch (e) {
-  console.warn('Failed to fetch serial->name map:', e);
+  console.warn('Failed to fetch probe->name map:', e);
   serialNameMap = {};
 }
 
@@ -300,7 +300,7 @@ export async function renderSerials(data, onSelectSerial, loadMultipleDetails = 
     // text.textContent = s;
 
     try {
-      const records = await fetchSerialData(s);
+      const records = await fetchProbeData(s);
       const latest = records && records.length > 0 ? records[0] : null;
 
       const rsrp = latest ? getFieldCaseInsensitive(latest, ['rsrp', 'RSRP']) : null;

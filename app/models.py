@@ -101,6 +101,7 @@ class RealTimeProbeMeasurement(Base):
     DATETIME = Column(DateTime)
     HEADING = Column(Float, name="Heading")
     SPEED = Column(Float, name="Speed")
+    TEMP = Column(Float, name="Temperature")
     LINETYPE= Column(String(255), name="LineType")
     BAND = Column(String(255), name="Band")
     NETEXIST = Column(Float, name="NetExist?")

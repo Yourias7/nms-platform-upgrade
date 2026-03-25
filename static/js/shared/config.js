@@ -15,6 +15,7 @@ export const CONFIG = {
     HISTORIC_EXPORT: '/export/Historic',
     HISTORIC_LOCATIONS: '/playback/Historic/locations',
     PROBE_SERIALS: '/probes/Live/serials',
+    PROBES: '/Probes/Live',
     PROBE_NAME_MAP: '/probes/Live/names',
     PROBE_EXPORT: '/probes/export/Live',
     PROBE_HISTORIC_SERIALS: '/probes/Historic/serials',

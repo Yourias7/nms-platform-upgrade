@@ -930,7 +930,7 @@ def get_live_records_by_probe(serial: str):
     db = SessionLocal()
     try:
         ser = str(serial).strip()
-        rows = db.query(LiveMeasurement).filter(LiveMeasurement.SERIAL == ser).all()
+        rows = db.query(RealTimeProbeMeasurement).filter(RealTimeProbeMeasurement.SERIAL == ser).all()
         
         # Convert SQLAlchemy objects to list of dicts
         result = []

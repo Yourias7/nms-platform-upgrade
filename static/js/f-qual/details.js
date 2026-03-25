@@ -1,7 +1,7 @@
 // static/js/details.js
 // Details table rendering and export functionality
 
-import { fetchSerialData, getExportUrl } from '../shared/api.js';
+import { fetchProbeData, getExportUrl } from '../shared/api.js';
 import { getMarkers, getMap } from './map.js';
 
 // Sorting state
@@ -9,7 +9,7 @@ let currentDetailsData = [];
 let currentSerial = null;
 let sortColumn = null;
 let sortDirection = 'asc';
-const allowedCols = ['SERIAL', 'NAME', 'LATITUDE', 'LONGITUDE', 'DATETIME', 'EARFCN', 'PCI', 'ANTENNA USED', 'RSRP','RSRQ', 'SINR', 'TEMP','NODE_ID', 'SECTOR_ID'];
+const allowedCols = ['SERIAL', 'NAME', 'LATITUDE', 'LONGITUDE', 'DATETIME', 'EARFCN', 'PCI', 'RSRP','RSRQ', 'SINR', 'TEMP'];
 
 /**
  * Sort details table by column
@@ -329,14 +329,14 @@ export function clearDetails() {
 }
 
 /**
- * Load and render details for a serial
+ * Load and render details for a probe
  * @param {string} serial - Serial number to load
  */
 export async function loadSerialDetails(serial) {
   showDetailsLoading();
   
   try {
-    const data = await fetchSerialData(serial);
+    const data = await fetchProbeData(serial);
     renderDetailsTable(serial, data);
   } catch (err) {
     console.error(`Error loading details for ${serial}:`, err);
