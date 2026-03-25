@@ -194,7 +194,7 @@ def liveview(request: Request):
     except Exception:
         return templates.TemplateResponse("coming_soon.html", {"request": request})
     
-@app.get("/probes/liveview")
+@app.get("/f-qual/liveview")
 def liveview(request: Request):
     """Render the live view UI."""
     try:
@@ -224,7 +224,7 @@ def alarms(request: Request):
     except Exception:
         return templates.TemplateResponse("coming_soon.html", {"request": request})
     
-@app.get("/probes/alarms")
+@app.get("/f-qual/alarms")
 def alarms(request: Request):
     try:
         return RedirectResponse(url="/f-qual/alarms/summary")
@@ -245,7 +245,7 @@ def communication_alarms(request: Request):
     except Exception:
         return templates.TemplateResponse("coming_soon.html", {"request": request})
     
-@app.get("/probes/alarms/communication")
+@app.get("/f-qual/alarms/communication")
 def communication_alarms(request: Request):
     try:
         return templates.TemplateResponse("f-qual/communication_alarm.html", {"request": request})
@@ -266,7 +266,7 @@ def total_alarms(request: Request):
     except Exception:
         return templates.TemplateResponse("coming_soon.html", {"request": request})
     
-@app.get("/probes/alarms/summary")
+@app.get("/f-qual/alarms/summary")
 def total_alarms(request: Request):
     try:
         return templates.TemplateResponse("f-qual/alarm_summary.html", {"request": request})
@@ -287,7 +287,7 @@ def performance_alarms(request: Request):
     except Exception:
         return templates.TemplateResponse("coming_soon.html", {"request": request})
     
-@app.get("/probes/alarms/performance")
+@app.get("/f-qual/alarms/performance")
 def performance_alarms(request: Request):
     try:
         return templates.TemplateResponse("f-qual/performance_alarm.html", {"request": request})
@@ -310,7 +310,7 @@ def playback(request: Request):
     except Exception:
         return templates.TemplateResponse("coming_soon.html", {"request": request})
     
-@app.get("/probes/playback")
+@app.get("/f-qual/playback")
 def playback(request: Request):
     """Render the playback UI."""
     try:
@@ -334,7 +334,7 @@ def settings(request: Request):
     except Exception:
         return templates.TemplateResponse("coming_soon.html", {"request": request})
     
-@app.get("/probes/settings")
+@app.get("/f-qual/settings")
 def settings(request: Request):
     """Render the settings UI."""
     try:
@@ -358,7 +358,7 @@ def details(request: Request):
     except Exception:
         return templates.TemplateResponse("coming_soon.html", {"request": request})
     
-@app.get("/probes/details")
+@app.get("/f-qual/details")
 def details(request: Request):
     """Render the Historic Details UI"""
     try:

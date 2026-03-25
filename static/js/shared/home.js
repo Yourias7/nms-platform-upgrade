@@ -30,9 +30,19 @@ document.addEventListener('DOMContentLoaded', function() {
       
       // Navigate based on selected option
       let destination = '/4skelion/liveview'; // Default for 4skelion
-      
-      if (selectedOption === '3skelion' || selectedOption === 'f-steering' || selectedOption === 'f-qual') {
-        destination = '/coming_soon';
+
+      switch (selectedOption) {
+        case '4skelion':
+          destination = '/4skelion/liveview';
+          break;
+        case 'f-steering' || '3skelion':
+          destination = '/coming_soon';
+          break;
+        case 'f-qual':
+          destination = '/f-qual/liveview';
+          break;
+        default:
+          destination = '/coming_soon';
       }
       
       window.location.href = destination;

@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Live View - NMS Platform</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/style.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="/static/js/shared/error-handler.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <!-- favicon (ICO) -->
+  <link rel="icon" href="/static/img/favicon.ico" type="image/x-icon">
+
+  <!-- PNG favicons as fallback / modern browsers -->
+  <link rel="icon" type="image/png" sizes="32x32" href="/static/img/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/static/img/favicon-16x16.png">
+
+  <!-- Apple touch (mobile) -->
+  <link rel="apple-touch-icon" sizes="180x180" href="/static/img/apple-touch-icon.png">
+
+  <!-- optional: theme color for some browsers -->
+  <meta name="theme-color" content="#0d6efd">
+</head>
+
+<body> 
+  <!-- Animated glowing orbs -->
+  <div class="glow-orb glow-orb-1"></div>
+  <div class="glow-orb glow-orb-2"></div>
+  <div class="glow-orb glow-orb-3"></div>
+
+  <nav class="navbar mb-4">
+    <div class="container-fluid">
+      <a class="navbar-brand d-flex align-items-center" href="#">
+        <img src="/static/img/New%20folder/Picture1.png" alt="logo" style="height:24px; width:24px; margin-right:8px;" />
+        <span>NMS Platform</span>
+      </a>
+      <ul class="nav nav-pills">
+        <li class="nav-item">
+          <a class="nav-link" href="/">Home</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link active" href="/f-qual/liveview">Live View</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" id="tab-alarms" href="/f-qual/alarms">Alarms</a>
+        </li>
+        <li class="nav-item">
+        <li class="nav-item">
+          <a class="nav-link" href="/f-qual/playback">Playback</a>
+        </li>
+        <a class="nav-link" href="/f-qual/settings">Settings</a>
+        </li>
+      </ul>
+    </div>
+  </nav>
+
+  <main class="container">
+    <!-- Dashboard Content -->
+    <div class="row">
+      <div class="col-md-6">
+        <div class="card mb-3" style="height: 100%;">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <div class="d-flex align-items-center gap-2">
+                <h5 class="card-title mb-0">Systems</h5>
+
+                <!-- Select All Button -->
+                <button id="selectAllBtn" type="button" class="btn btn-sm btn-outline-primary">
+                  Select All
+                </button>
+
+                <!-- Clear Selected Button -->
+                <button id="clearSelectedBtn" type="button" class="btn btn-sm btn-outline-secondary">
+                  Clear
+                </button>
+              </div>
+
+              <small class="text-muted">
+                Available systems: <span id="serialCount">0</span>
+              </small>
+              <button id="alarmOnlyFilterBtn" type="button" class="btn btn-sm btn-outline-danger mb-2">Show Alarms Only</button>
+            </div>
+
+            <input id="filter" class="form-control mb-3" placeholder="Filter serials..." />
+            <div id="serialList" class="serial-grid"></div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="card mb-3" style="height: 100%;">
+          <div class="card-body" style="position: relative;">
+            <!-- Map loading overlay -->
+            <div id="mapLoadingOverlay" class="map-loading-overlay">
+              <div class="loading-spinner">
+                <div class="spinner-circle"></div>
+                <div class="loading-text">Loading systems on map...</div>
+              </div>
+            </div>
+            <div id="map" style="width: 100%;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row mt-2">
+      <div class="col-12">
+        <div class="card">
+          <div class="card-body p-2 px-3">
+            <h5 class="card-title">Details</h5>
+            <div class="d-flex justify-content-between mb-1">
+              <div class="text-muted align-self-center">Select a system to view records.</div>
+              <div>
+                <a id="exportBtn" class="btn btn-sm btn-outline-primary" style="display:none" href="#" download>Export
+                  CSV</a>
+              </div>
+            </div>
+            <div id="detailsArea">Select a system to view records.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    </div>
+  </main>
+
+  <!-- Load alarm badge (runs on all pages) -->
+  <script type="module" src="/static/js/f-qual/alarm-badge.js"></script>
+
+  <!-- Load main app as ES6 module - it will import the others -->
+  <script type="module" src="/static/js/f-qual/app.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+
+</html>

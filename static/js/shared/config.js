@@ -14,6 +14,12 @@ export const CONFIG = {
     ALARM_SYSTEMS: '/alarms/systems',
     HISTORIC_EXPORT: '/export/Historic',
     HISTORIC_LOCATIONS: '/playback/Historic/locations',
+    PROBE_SERIALS: '/probes/Live/serials',
+    PROBE_NAME_MAP: '/probes/Live/names',
+    PROBE_EXPORT: '/probes/export/Live',
+    PROBE_HISTORIC_SERIALS: '/probes/Historic/serials',
+    PROBE_HISTORIC_EXPORT: '/probes/export/Historic',
+    ALARM_PROBES: '/probes/alarms'
   },
 
   // Map settings

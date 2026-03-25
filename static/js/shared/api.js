@@ -36,6 +36,17 @@ export async function fetchHistoricSerialsList() {
 }
 
 /**
+ * Fetch list of all historic serial numbers
+ * @returns {Promise<string[]>} Array of probe serial numbers
+ */
+export async function fetchProbeSerialsList() {
+  console.log('[Playback Page] Fetching probe serials list from API:', CONFIG.API.PROBE_SERIALS);
+  const res = await fetch(CONFIG.API.PROBE_SERIALS);
+  console.log('[Playback Page] Received response for probe serials list:', res);
+  return await res.json();
+}
+
+/**
  * Fetch all records for a specific serial
  * @param {string} serial - Serial number to fetch
  * @param {AbortSignal} [signal] - Optional AbortSignal for cancellation

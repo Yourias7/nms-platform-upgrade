@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Performance Alarms - NMS Platform</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+    <script src="/static/js/shared/error-handler.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+    <link rel="icon" href="/static/img/favicon.ico" type="image/x-icon">
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/img/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/static/img/favicon-16x16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/static/img/apple-touch-icon.png">
+    <meta name="theme-color" content="#0d6efd">
+  </head>
+
+  <body>
+    <!-- Animated glowing orbs -->
+    <div class="glow-orb glow-orb-1"></div>
+    <div class="glow-orb glow-orb-2"></div>
+    <div class="glow-orb glow-orb-3"></div>
+
+    <nav class="navbar mb-4">
+      <div class="container-fluid">
+        <a class="navbar-brand d-flex align-items-center" href="#">
+          <img src="/static/img/New%20folder/Picture1.png" alt="logo" style="height:24px; width:24px; margin-right:8px;"/>
+          <span>NMS Platform</span>
+        </a>
+
+        <ul class="nav nav-pills">
+          <li class="nav-item"><a class="nav-link" href="/">Home</a></li>
+          <li class="nav-item"><a class="nav-link" href="/4skelion/liveview">Live View</a></li>
+          <li class="nav-item"><a class="nav-link active" id="tab-alarms" href="/4skelion/alarms/summary">Alarms</a></li>
+          <li class="nav-item"><a class="nav-link" href="/4skelion/playback">Playback</a></li>
+          <li class="nav-item"><a class="nav-link" href="/4skelion/settings">Settings</a></li>
+        </ul>
+      </div>
+    </nav>
+
+    <main class="container">
+      <!-- Sub tabs -->
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="mb-0">Alarms</h4>
+
+        <ul class="nav nav-pills gap-2">
+          <li class="nav-item">
+            <a class="nav-link" id="tab-alarms" href="/4skelion/alarms/summary">Alarms Summary</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="/4skelion/alarms/communication">Communication</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link active" href="/4skelion/alarms/performance">Performance</a>
+          </li>
+        </ul>
+      </div>
+
+      <div class="row g-2 align-items-end mb-3">
+        <div class="col-12 col-md-3" style="position: relative;">
+            <label for="serialInput" class="form-label">System Name</label>
+            <input id="serialInput" class="form-control" placeholder="Select or type a system name"/>
+            <div id="serialOptions" class="dropdown-menu" style="position: absolute; top: 100%; left: 0; right: 0; display: none; z-index: 11; max-height: 300px; overflow-y: auto; box-shadow: 0 2px 8px rgba(0,0,0,0.15); background: rgba(10, 14, 39, 0.95); border: 1px solid rgba(102, 126, 234, 0.3);"></div>
+        </div>
+            <div class="col-12 col-md-3" style="width: auto;">
+            <label for="startDateInput" class="form-label">Start Date</label>
+            <input type="date" id="startDateInput" class="form-control" style="width: auto; position: relative; z-index: 10;" min="" max=""/>
+        </div>
+            <div class="col-12 col-md-3" style="width: auto;">
+            <label for="endDateInput" class="form-label">End Date</label>
+            <input type="date" id="endDateInput" class="form-control" style="width: auto; position: relative; z-index: 10;" min="" max=""/>
+        </div>
+            <div class="col-12 col-md-3" style="width: auto;">
+            <button id="serialLoadBtn" class="btn btn-primary w-100" type="button">Load</button>
+        </div>
+        <!-- Clear Selected Button -->
+        <div class="col-12 col-md-3" style="width: auto;">
+            <button id="clearSelectedBtn" type="button" class="btn btn-sm btn-outline-secondary" style="width: auto; height: 38px;">
+                Clear
+            </button>
+        </div>
+        <div class="col-12 col-md-3">
+            <div id="alarmMessage" class="text-muted small" style="text-align: left;"></div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col-md-7">
+          <div class="card h-100">
+            <div class="card-body d-flex flex-column" style="height: 700px;">
+              <h5 class="card-title">Performance Alarms</h5>
+              <p class="text-muted mb-3">Threshold / KPI-based alarms (placeholder)</p>
+
+              <div id="performanceAlarmsArea" class="text-center text-muted p-4" style="flex: 1; overflow-y: auto; overflow-x: hidden;">
+                No performance alarm rules configured yet.
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-5">
+          <div class="card h-100">
+            <div class="card-body d-flex flex-column" style="min-height: 700px; position: relative;">
+              <h5 class="card-title mb-3">Map</h5>
+              <!-- Map loading overlay -->
+              <div id="mapLoadingOverlay" class="map-loading-overlay hidden">
+                <div class="loading-spinner">
+                  <div class="spinner-circle"></div>
+                  <div class="loading-text">Loading alarms on map...</div>
+                </div>
+              </div>
+              <div class="d-flex justify-content-between align-items-center mb-3 gap-2 flex-wrap">
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                  <small id="alarmMapFilterStatus" class="text-muted" aria-live="polite">Showing: All alarms</small>
+                  <button id="clearAlarmFiltersBtn" type="button" class="btn btn-sm btn-outline-secondary" disabled>Clear Filters</button>
+                </div>
+              </div>
+              <div id="map" role="region" aria-label="Alarms map" style="flex: 1; min-height: 400px;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Alarm badge (runs on all pages) -->
+    <script type="module" src="/static/js/4skelion/alarm-badge.js"></script>
+
+    <!-- Map initialization -->
+    <script type="module" src="/static/js/4skelion/alarm-map.js"></script>
+
+    <!-- Performance alarms logic -->
+    <script type="module" src="/static/js/4skelion/performance-alarms.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  </body>
+</html>
