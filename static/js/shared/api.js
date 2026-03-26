@@ -12,7 +12,17 @@ import { CONFIG } from './config.js';
 export async function fetchJSON(url, signal = null) {
   const options = signal ? { signal } : {};
   const res = await fetch(url, options);
-  return await res.json();
+  
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`HTTP ${res.status}: ${text || res.statusText}`);
+  }
+  
+  try {
+    return await res.json();
+  } catch (err) {
+    throw new Error(`Failed to parse JSON from ${url}: ${err.message}`);
+  }
 }
 
 /**

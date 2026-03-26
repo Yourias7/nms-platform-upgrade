@@ -1297,8 +1297,13 @@ def get_alarm_probes_statistics(early: str = None, latest: str = None, rsrp_thre
     """
     db = SessionLocal()
     try:
-        sdate = datetime.fromisoformat(early) if early else None
-        edate = datetime.fromisoformat(latest) if latest else None
+        try:
+            sdate = datetime.fromisoformat(early) if early else None
+            edate = datetime.fromisoformat(latest) if latest else None
+        except ValueError as e:
+            logger.error(f"Invalid date format: early={early}, latest={latest}, error={e}")
+            raise
+            
         cutoff = datetime.utcnow() - timedelta(days=30000)
         
         # Log thresholds being used
@@ -1344,33 +1349,43 @@ def get_alarm_probes_statistics(early: str = None, latest: str = None, rsrp_thre
         # Group by serial and name to aggregate counts per system
         query = query.group_by(ProbesHistoricMeasurement.SERIAL, ProbesHistoricMeasurement.NAME)
         
-        results = query.all()
-        logger.info(f"Found {len(results)} probes for statistics (optimized single query)")
+        try:
+            results = query.all()
+            logger.info(f"Found {len(results)} probes for statistics (optimized single query)")
+        except Exception as e:
+            logger.error(f"Database query failed: {e}", exc_info=True)
+            raise
         
         # Build statistics list from query results
         statistics = []
-        for row in results:
-            serial, name, total_count, alarm_count, rsrp_alarms, sinr_alarms, gps_alarms, temp_alarms = row
-            percentage = (alarm_count / total_count * 100) if total_count > 0 else 0
-            
-            statistics.append({
-                "serial": serial,
-                "name": name or serial,
-                "total_samples": total_count,
-                "alarm_samples": alarm_count,
-                "alarm_percentage": round(percentage, 2),
-                "rsrp_alarms": rsrp_alarms,
-                "sinr_alarms": sinr_alarms,
-                "gps_alarms": gps_alarms,
-                "temp_alarms": temp_alarms
-            })
+        try:
+            for row in results:
+                serial, name, total_count, alarm_count, rsrp_alarms, sinr_alarms, gps_alarms, temp_alarms = row
+                percentage = (alarm_count / total_count * 100) if total_count > 0 else 0
+                
+                statistics.append({
+                    "serial": serial,
+                    "name": name or serial,
+                    "total_samples": total_count,
+                    "alarm_samples": alarm_count,
+                    "alarm_percentage": round(percentage, 2),
+                    "rsrp_alarms": rsrp_alarms,
+                    "sinr_alarms": sinr_alarms,
+                    "gps_alarms": gps_alarms,
+                    "temp_alarms": temp_alarms
+                })
+        except Exception as e:
+            logger.error(f"Error building statistics from results: {e}", exc_info=True)
+            raise
         
         # Sort by alarm percentage descending
         statistics.sort(key=lambda x: x["alarm_percentage"], reverse=True)
         
         logger.info(f"Calculated statistics for {len(statistics)} systems")
         return statistics
-        
+    except Exception as e:
+        logger.error(f"Error in get_alarm_probes_statistics: {e}", exc_info=True)
+        raise
     finally:
         db.close()
 
