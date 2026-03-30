@@ -192,6 +192,16 @@ function bindClearButton(onSelectSerial) {
 
     // 5) προαιρετικά ενημέρωσε UI/Details (αν το onSelectSerial το χειρίζεται)
     try { onSelectSerial(null, null); } catch (_) {}
+
+    // 6) εξαφανιζει οτι γραψει στη γραμμη αναζήτησης μπροκολοκο μου
+    const filterInput = document.getElementById('filter');
+    if (filterInput) {
+      const hadValue = filterInput.value;
+      filterInput.value = '';
+      if (hadValue !== '') {
+        filterInput.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    }
   });
 }
 
