@@ -23,7 +23,17 @@ let selectedRSRPAntennas = ['best']; // any of: 'best', '0', '1', '2', '3'
 let selectedSINRAntennas = ['best']; // any of: 'best', '0', '1', '2', '3'
 let currentAbortController = null; // Track ongoing requests
 
-const CHART_SERIES_COLORS = ['#0d6efd', '#198754', '#fd7e14', '#6f42c1', '#dc3545'];
+const ANTENNA_COLORS = {
+  best: '#0d6efd', // blue
+  '0': '#ffc107',  // yellow (Ant1)
+  '1': '#fd7e14',  // orange (Ant2)
+  '2': '#6f42c1',  // purple (Ant3)
+  '3': '#198754'   // green (Ant4)
+};
+
+function getAntennaColor(antenna) {
+  return ANTENNA_COLORS[antenna] || '#0d6efd';
+}
 
 function getAntennaLabel(antenna, metric) {
   return antenna === 'best'
@@ -41,9 +51,9 @@ function buildMetricChartData(records, selectedAntennas, metric, unit) {
     return dt.toLocaleString('en-US', { month: 'short', day: '2-digit' });
   });
 
-  const datasets = selectedAntennas.map((antenna, idx) => {
+  const datasets = selectedAntennas.map((antenna) => {
     const fieldName = getAntennaFieldName(antenna, metric);
-    const color = CHART_SERIES_COLORS[idx % CHART_SERIES_COLORS.length];
+    const color = getAntennaColor(antenna);
     return {
       label: `${getAntennaLabel(antenna, metric)} (${unit})`,
       data: records.map((rec) => rec[fieldName]),
