@@ -163,6 +163,12 @@ function showClearBtn(show) {
   btn.style.display = show ? 'inline-block' : 'none';
 }
 
+function shouldShowClearBtn() {
+  const filterInput = document.getElementById('filter');
+  const hasFilterText = !!(filterInput && filterInput.value.trim() !== '');
+  return selectedSerials.length > 0 || hasFilterText;
+}
+
 function bindClearButton(onSelectSerial) {
   const btn = document.getElementById('clearSelectedBtn');
   if (!btn) return;
@@ -254,13 +260,13 @@ export async function renderSerials(data, onSelectSerial, loadMultipleDetails = 
 
   bindClearButton(onSelectSerial);
   bindSelectAllButton(onSelectSerial, loadMultipleDetails);
-  showClearBtn(selectedSerials.length > 0);
+  showClearBtn(shouldShowClearBtn());
   
   if (!data || data.length === 0) {
     serialListEl.innerHTML = '<div class="text-muted text-center p-3">No serials found</div>';
     if (serialCountEl) serialCountEl.textContent = `0`;
     clearMapMarkers();
-    showClearBtn(false);
+    showClearBtn(shouldShowClearBtn());
     return;
   }
   try {
