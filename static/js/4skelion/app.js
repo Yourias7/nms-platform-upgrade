@@ -5,40 +5,60 @@ import { CONFIG } from '../shared/config.js';
 import { fetchSerialsList, fetchSerialData } from '../shared/api.js';
 import { debounce } from '../shared/utils.js';
 import { initMap, preloadCustomIcon, updateMapMarkers, getMarkers, getMap, hideMapLoading } from './map.js';
-import { 
-  getSerials, 
-  setSerials, 
-  getCurrentFilter, 
+import {
+  getSerials,
+  setSerials,
+  getCurrentFilter,
   setCurrentFilter,
   getSelectedSerial,
   getSelectedSerials,
   addSelectedSerial,
   removeSelectedSerial,
   clearSelectedSerials,
-  renderSerials, 
+  renderSerials,
   filterSerials,
-  isSerialInAlarm
+  isCommAlarm,
+  isPerfAlarm,
+  getAlarmCategoryCounts
 } from './serials.js';
 import { loadSerialDetails, clearDetails } from './details.js';
 
 // DOM elements
 const filterEl = document.getElementById('filter');
-const alarmOnlyFilterBtn = document.getElementById('alarmOnlyFilterBtn');
+const alarmCommFilterBtn = document.getElementById('alarmCommFilterBtn');
+const alarmPerFilterBtn = document.getElementById('alarmPerFilterBtn');
+const alarmCommCountBadge = document.getElementById('alarmCommCountBadge');
+const alarmPerCountBadge = document.getElementById('alarmPerCountBadge');
 let autoRefreshTimer = null;
-let alarmOnlyFilterActive = false;
+let alarmCommActive = false;
+let alarmPerActive = false;
 
-function updateAlarmOnlyFilterButton() {
-  if (!alarmOnlyFilterBtn) return;
+function updateAlarmFilterButtons() {
+  if (alarmCommFilterBtn) {
+    alarmCommFilterBtn.classList.toggle('btn-danger', alarmCommActive);
+    alarmCommFilterBtn.classList.toggle('btn-outline-danger', !alarmCommActive);
+    alarmCommFilterBtn.setAttribute('aria-pressed', alarmCommActive ? 'true' : 'false');
+    alarmCommFilterBtn.textContent = alarmCommActive ? 'Communication' : 'Communication';
+  }
 
-  alarmOnlyFilterBtn.classList.toggle('btn-danger', alarmOnlyFilterActive);
-  alarmOnlyFilterBtn.classList.toggle('btn-outline-danger', !alarmOnlyFilterActive);
-  alarmOnlyFilterBtn.setAttribute('aria-pressed', alarmOnlyFilterActive ? 'true' : 'false');
-  alarmOnlyFilterBtn.textContent = alarmOnlyFilterActive ? 'Showing Alarms Only' : 'Show Alarms Only';
+  if (alarmPerFilterBtn) {
+    alarmPerFilterBtn.classList.toggle('btn-danger', alarmPerActive);
+    alarmPerFilterBtn.classList.toggle('btn-outline-danger', !alarmPerActive);
+    alarmPerFilterBtn.setAttribute('aria-pressed', alarmPerActive ? 'true' : 'false');
+    alarmPerFilterBtn.textContent = alarmPerActive ? 'Performance' : 'Performance';
+  }
+}
+
+function updateAlarmBadges() {
+  const { commCount, perfCount } = getAlarmCategoryCounts();
+  if (alarmCommCountBadge) alarmCommCountBadge.textContent = `${commCount}`;
+  if (alarmPerCountBadge) alarmPerCountBadge.textContent = `${perfCount}`;
 }
 
 function applyActiveFilters() {
   const currentFilter = getCurrentFilter() || '';
-  filterSerials(currentFilter, handleSerialSelect, { alarmOnly: alarmOnlyFilterActive }, loadMultipleSerialDetails);
+  filterSerials(currentFilter, handleSerialSelect, { alarmComm: alarmCommActive, alarmPer: alarmPerActive }, loadMultipleSerialDetails);
+  // updateAlarmBadges();
 }
 
 /**
@@ -51,7 +71,7 @@ async function fetchAndRenderSerials() {
 
     // Apply active filters so user view isn't reset by auto-refresh
     applyActiveFilters();
-    
+
     // Reload details for all selected serials
     const selected = getSelectedSerials();
     if (selected.length > 0) {
@@ -72,12 +92,12 @@ async function fetchAndRenderSerials() {
 async function handleSerialSelect(serial, card) {
   if (!card) return;
   const alreadySelected = card.classList.contains('selected');
-  
+
   if (alreadySelected) {
     // Deselect this serial
     card.classList.remove('selected');
     removeSelectedSerial(serial);
-    
+
     // Update map and details
     const selected = getSelectedSerials();
     if (selected.length === 0) {
@@ -87,9 +107,13 @@ async function handleSerialSelect(serial, card) {
       let displaySerials = currentFilter
         ? allSerials.filter(s => s.toLowerCase().includes(currentFilter.toLowerCase()))
         : allSerials;
-
-      if (alarmOnlyFilterActive) {
-        displaySerials = displaySerials.filter(s => isSerialInAlarm(s));
+      //νεος τρροπος που τα σπαει τα alarms
+      if (alarmCommActive || alarmPerActive) {
+        displaySerials = displaySerials.filter(s => {
+          const hasCommAlarm = alarmCommActive && isCommAlarm(s);
+          const hasPerAlarm = alarmPerActive && isPerfAlarm(s);
+          return hasCommAlarm || hasPerAlarm;
+        });
       }
 
       updateMapMarkers(displaySerials);
@@ -101,15 +125,15 @@ async function handleSerialSelect(serial, card) {
     }
     return;
   }
-  
+
   // Select: add this serial to selection
   card.classList.add('selected');
   addSelectedSerial(serial);
-  
+
   // Update map to show all selected serials
   const selected = getSelectedSerials();
   updateMapMarkers(selected);
-  
+
   // Load and display details for all selected serials
   await loadMultipleSerialDetails(selected);
 }
@@ -119,12 +143,19 @@ async function handleSerialSelect(serial, card) {
  */
 function handleFilter() {
   const query = filterEl.value.trim();
-  filterSerials(query, handleSerialSelect, { alarmOnly: alarmOnlyFilterActive }, loadMultipleSerialDetails);
+  filterSerials(query, handleSerialSelect, { alarmComm: alarmCommActive, alarmPer: alarmPerActive }, loadMultipleSerialDetails);
+  // updateAlarmBadges();
 }
 
-function handleAlarmOnlyToggle() {
-  alarmOnlyFilterActive = !alarmOnlyFilterActive;
-  updateAlarmOnlyFilterButton();
+function handleAlarmCommToggle() {
+  alarmCommActive = !alarmCommActive;
+  updateAlarmFilterButtons();
+  applyActiveFilters();
+}
+
+function handleAlarmPerToggle() {
+  alarmPerActive = !alarmPerActive;
+  updateAlarmFilterButtons();
   applyActiveFilters();
 }
 
@@ -136,19 +167,19 @@ function handleAlarmOnlyToggle() {
 async function captureMapSnapshot(serials) {
   const mapElement = document.getElementById('map');
   if (!mapElement) return null;
-  
+
   const mapInstance = getMap();
   if (!mapInstance) return null;
-  
+
   try {
     // Save current zoom level and zoom out
     const originalZoom = mapInstance.getZoom();
     const newZoom = Math.max(originalZoom - 1, 1); // Zoom out by 1 level, minimum 1
     mapInstance.setZoom(newZoom, { animate: false });
-    
+
     // Wait for zoom to complete
     await new Promise(resolve => setTimeout(resolve, 200));
-    
+
     // Get all markers and add permanent tooltips
     const markers = getMarkers();
     markers.forEach(marker => {
@@ -164,25 +195,25 @@ async function captureMapSnapshot(serials) {
         }).openTooltip();
       }
     });
-    
+
     // Wait a bit for tooltips to render
     await new Promise(resolve => setTimeout(resolve, 500));
-    
+
     const canvas = await html2canvas(mapElement, {
       useCORS: true,
       allowTaint: true,
       backgroundColor: null,
       logging: false
     });
-    
+
     // Remove all tooltips after capture
     markers.forEach(marker => {
       marker.unbindTooltip();
     });
-    
+
     // Restore original zoom level
     mapInstance.setZoom(originalZoom, { animate: false });
-    
+
     return new Promise((resolve) => {
       canvas.toBlob((blob) => {
         resolve(blob);
@@ -450,9 +481,13 @@ function init() {
     filterEl.addEventListener('input', debounce(handleFilter, CONFIG.UI.FILTER_DEBOUNCE_MS));
   }
 
-  updateAlarmOnlyFilterButton();
-  if (alarmOnlyFilterBtn) {
-    alarmOnlyFilterBtn.addEventListener('click', handleAlarmOnlyToggle);
+  updateAlarmFilterButtons();
+  // updateAlarmBadges();
+  if (alarmCommFilterBtn) {
+    alarmCommFilterBtn.addEventListener('click', handleAlarmCommToggle);
+  }
+  if (alarmPerFilterBtn) {
+    alarmPerFilterBtn.addEventListener('click', handleAlarmPerToggle);
   }
   
   const runAutoRefresh = () => {
