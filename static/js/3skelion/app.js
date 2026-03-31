@@ -202,7 +202,8 @@ function exportCombinedCSV(data, serials) {
   if (!data || data.length === 0) return;
   
   // Create CSV content
-  const allowedCols = ['SERIAL', 'NAME', 'LATITUDE', 'LONGITUDE', 'DATETIME', 'EARFCN', 'PCI', 'ANTENNA USED', 'RSRP','RSRQ', 'SINR', 'TEMP','NODE_ID', 'SECTOR_ID'];
+  //const allowedCols = ['SERIAL', 'NAME', 'LATITUDE', 'LONGITUDE', 'DATETIME', 'EARFCN', 'PCI', 'ANTENNA USED', 'RSRP','RSRQ', 'SINR', 'TEMP','NODE_ID', 'SECTOR_ID'];
+  const allowedCols = ['SHIP','SERIAL','TIME','LAT','LON','BEST_ANTENNA','BEST_CELLID','BEST_RSRP','BEST_RSRQ','BEST_SNR','TEMP'];
   const cols = allowedCols;
   
   const rows = [cols.join(',')];
@@ -290,16 +291,24 @@ async function loadMultipleSerialDetails(serials) {
     
     // Render combined table
     // const cols = Object.keys(allData[0]);
-    const allowedCols = ['SERIAL', 'NAME', 'LATITUDE', 'LONGITUDE', 'DATETIME', 'EARFCN', 'PCI', 'ANTENNA USED', 'RSRP','RSRQ', 'SINR', 'TEMP','NODE_ID', 'SECTOR_ID'];
+    //const allowedCols = ['SERIAL', 'NAME', 'LATITUDE', 'LONGITUDE', 'DATETIME', 'EARFCN', 'PCI', 'ANTENNA USED', 'RSRP','RSRQ', 'SINR', 'TEMP','NODE_ID', 'SECTOR_ID'];
+    const allowedCols = ['SHIP','SERIAL','TIME','LAT','LON','BEST_ANTENNA','BEST_CELLID','BEST_RSRP','BEST_RSRQ','BEST_SNR','TEMP'];
     const cols = allowedCols;
     const table = document.createElement('table');
     table.className = 'table table-sm table-striped';
 
       // Ορισμός labels για τις κεφαλίδες (αν θες να αλλάξεις το κείμενο που φαίνεται)
   const colLabels = {
-    'DATETIME': 'Date/Time',
-    'ANTENNA USED': 'Antenna',
-    'RSRP': 'RSRP (dBm)',
+    'SHIP': 'Ship',
+    'SERIAL': 'Serial',
+    'TIME': 'Date/Time',
+    'LAT': 'Lat',
+    'LON': 'Lon',
+    'BEST_ANTENNA': 'Antenna',
+    'BEST_CELLID': 'CellID',
+    'BEST_RSRP': 'RSRP (dBm)',
+    'BEST_RSRQ': 'RSRQ',
+    'BEST_SNR': 'SNR',
     'TEMP': 'Temp (°C)'
   };
 
@@ -367,7 +376,7 @@ allData.forEach(row => {
     if (v === null || v === undefined) v = '';
 
     // DATETIME formatting
-    if (colName === 'DATETIME' && v !== '') {
+    if (colName === 'TIME' && v !== '') {
       v = String(v).replace(/T/g, ' ');
     }
 
@@ -387,11 +396,11 @@ allData.forEach(row => {
     // });
     // table.appendChild(tbody);
         // Highlight rules (βάλε όσους θες)
-    if (colName === 'RSRP' && v !== '' && parseFloat(v) < -120) {
+    if (colName === 'BEST_RSRP' && v !== '' && parseFloat(v) < -120) {
       td.style.color = 'red';
       td.style.fontWeight = 'bold';
     }
-    if (colName === 'SINR' && v !== '' && parseFloat(v) <= 0) {
+    if (colName === 'BEST_SNR' && v !== '' && parseFloat(v) <= 0) {
       td.style.color = 'red';
       td.style.fontWeight = 'bold';
     }

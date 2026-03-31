@@ -3,7 +3,7 @@ import logging
 from app.data_source import (get_alarm_records_by_serial, get_alarm_statistics, get_earliest_datetime_for_serial, get_latest_datetime_for_serial, 
 get_historic_records_by_serial, get_all_historic_records, get_live_records_by_serial, list_live_serial_name_pairs, list_live_serials, list_historic_serials, 
 export_live_csv, export_historic_csv, live_serials_with_locations, historic_serials_with_locations,list_3skelion_serials,list_3skelion_serial_name_pairs,
-get_3skelion_live_records_by_serial, live_3skelion_serials_with_locations)
+get_3skelion_live_records_by_serial, live_3skelion_serials_with_locations,list_3skelion_playback_serials,get_3skelion_historic_records_by_serial)
 from fastapi.responses import StreamingResponse, FileResponse, RedirectResponse
 import io
 import mimetypes
@@ -286,3 +286,16 @@ def systems_locations_3skelion():
     return live_3skelion_serials_with_locations()
 
 
+# =========================
+# 3SKELION - PLAYBACK API
+# =========================
+
+@app.get("/3skelion/playback/Historic/serials")
+def list_3skelion_historic_serials_endpoint():
+    return list_3skelion_playback_serials()
+
+
+@app.get("/3skelion/playback/Historic/{serial}/{early}/{latest}")
+def get_3skelion_historic_paged(serial: str, early: str, latest: str, page: int = 1, limit: int = 500):
+    offset = (page - 1) * limit
+    return get_3skelion_historic_records_by_serial(serial, early=early, latest=latest, limit=limit, offset=offset)

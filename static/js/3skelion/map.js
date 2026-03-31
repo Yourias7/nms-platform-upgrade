@@ -43,6 +43,11 @@ export function buildMarkerTooltipContent(row, serial) {
   const lat = getFieldCaseInsensitive(row, ['lat', 'LAT', 'latitude', 'LATITUDE']);
   const lon = getFieldCaseInsensitive(row, ['lon', 'LON', 'longitude', 'LONGITUDE']);
 
+  // TIME μπορεί να έρθει είτε ως TIME (από /Systems/Live/{serial})
+  // είτε ως time (από /systems/Live/locations)
+  const time = getFieldCaseInsensitive(row, ['TIME', 'time', 'DATETIME', 'datetime']);
+  const timeText = time ? String(time).replace('T', ' ') : 'N/A';
+
   // KPI fields (3skelion style)
   const rsrp = getFieldCaseInsensitive(row, ['best_rsrp', 'BEST_RSRP', 'rsrp', 'RSRP']);
   const rsrq = getFieldCaseInsensitive(row, ['best_rsrq', 'BEST_RSRQ', 'rsrq', 'RSRQ']);
@@ -65,6 +70,7 @@ export function buildMarkerTooltipContent(row, serial) {
   return (
     `<b>${ship}</b>` +
     `<br>Serial: ${serial}` +
+    `<br>Time: ${timeText}` +
     `<br>Lat: ${latf}, Lon: ${lonf}` +
     `<br>RSRP: ${rsrpVal} dBm` +
     `<br>RSRQ: ${rsrqVal}` +

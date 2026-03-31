@@ -657,6 +657,7 @@ def get_3skelion_live_records_by_serial(serial: str):
         sql = text("""
             SELECT TOP (1)
                 SERIAL,
+                [TIME],   
                 LAT,
                 LON,
                 TEMP,
@@ -670,7 +671,7 @@ def get_3skelion_live_records_by_serial(serial: str):
 
             FROM [3skelion2].[dbo].[LiveOldSheet$]
             WHERE SERIAL = :serial
-            ORDER BY SCANID DESC
+            ORDER BY [TIME] DESC, SCANID DESC
         """)
 
         row = db.execute(sql, {"serial": ser}).mappings().first()
@@ -678,6 +679,12 @@ def get_3skelion_live_records_by_serial(serial: str):
             return []
 
         record = dict(row)
+
+        dt = record.get("TIME")  # python datetime
+        record["TIME"] = dt.isoformat() if dt else None
+
+        # (optional αλλά βοηθάει αν κάποιο UI ακόμα ψάχνει DATETIME)
+        record["DATETIME"] = record["TIME"]
 
         # ✅ Calculated field (like PowerBI DAX)
         record["SHIP"] = get_ship_name(record.get("SERIAL"))
@@ -703,9 +710,10 @@ def live_3skelion_serials_with_locations():
                     SERIAL,
                     LAT AS latitude,
                     LON AS longitude,
+                    [TIME] AS time,
                     ROW_NUMBER() OVER (
                         PARTITION BY SERIAL
-                        ORDER BY SCANID DESC
+                        ORDER BY [TIME] DESC, SCANID DESC
                     ) AS rn
                 FROM [3skelion2].[dbo].[LiveOldSheet$]
                 WHERE SERIAL IS NOT NULL
@@ -713,12 +721,14 @@ def live_3skelion_serials_with_locations():
             SELECT
                 SERIAL AS serial,
                 latitude,
-                longitude
+                longitude,
+                time   
             FROM ranked
             WHERE rn = 1
               AND latitude IS NOT NULL AND longitude IS NOT NULL
               AND latitude <> 0 AND longitude <> 0
         """)
+
 
         rows = db.execute(sql).mappings().all()
 
@@ -729,11 +739,145 @@ def live_3skelion_serials_with_locations():
             d["ship"] = get_ship_name(d.get("serial"))
             out.append(d)
 
+        #time -> isoformat
+        for d in out:
+            if d.get("time"):
+                d["time"] = d["time"].isoformat()
+
         return out
     finally:
         db.close()
         
         
+# =========================
+# 3SKELION - PLAYBACK (HISTORIC) FROM NewSheet$
+# =========================
+from datetime import datetime, timedelta
+from sqlalchemy.sql import text
+
+from app.ship_lookup import get_ship_name  # το mapping που ήδη φτιάξαμε
+
+
+def list_3skelion_playback_serials():
+    """
+    Playback serials list for 3skelion.
+
+    TIP: Για να είναι ΠΑΝΤΑ γρήγορο, το παίρνουμε από LiveOldSheet$
+    (εκεί υπάρχουν τα 30 συστήματα σίγουρα).
+    Αν το πάρεις από NewSheet$ μπορεί να κάνει αχρείαστο heavy DISTINCT.
+    """
+    db = SessionLocal()
+    try:
+        sql = text("""
+            SELECT DISTINCT SERIAL
+            FROM [3skelion2].[dbo].[LiveOldSheet$]
+            WHERE SERIAL IS NOT NULL AND LTRIM(RTRIM(SERIAL)) <> ''
+            ORDER BY SERIAL
+        """)
+        rows = db.execute(sql).fetchall()
+        return [r[0] for r in rows]
+    finally:
+        db.close()
+
+
+def get_3skelion_historic_records_by_serial(serial: str, early: str, latest: str, limit: int = 500, offset: int = 0):
+    """
+    Return paginated historic records from:
+      [3skelion2].[dbo].[NewSheet$]
+
+    Inputs:
+      early/latest come from the UI as strings (usually 'YYYY-MM-DD').
+
+    Output format:
+      {
+        "data": [ { ...record... }, ... ],
+        "total": <int>
+      }
+
+    IMPORTANT:
+      - The frontend playback.js expects fields: DATETIME, RSRP, SINR and coords (LAT/LON).
+      - In 3skelion, we map:
+          RSRP  = BEST_RSRP
+          SINR  = BEST_SNR
+          DATETIME = TIME
+    """
+    db = SessionLocal()
+    try:
+        ser = str(serial).strip()
+
+        # Parse early/latest (usually YYYY-MM-DD)
+        start_dt = datetime.fromisoformat(early)
+
+        end_dt_raw = datetime.fromisoformat(latest)
+        # Αν latest είναι date-only, θέλουμε να πιάσουμε ΟΛΗ τη μέρα:
+        # π.χ. 2025-01-25 => μέχρι 2025-01-26 00:00 (exclusive)
+        end_exclusive = end_dt_raw + timedelta(days=1) if len(latest) <= 10 else end_dt_raw
+
+        # Total count (για pagination UI)
+        count_sql = text("""
+            SELECT COUNT(*) AS total
+            FROM [3skelion2].[dbo].[NewSheet$]
+            WHERE SERIAL = :serial
+              AND [TIME] >= :start_dt
+              AND [TIME] <  :end_dt
+        """)
+        total = db.execute(count_sql, {"serial": ser, "start_dt": start_dt, "end_dt": end_exclusive}).scalar() or 0
+
+        # Main page query
+        data_sql = text("""
+            SELECT
+                SERIAL,
+                [TIME] AS DATETIME,     -- alias ώστε το frontend να το βλέπει σαν DATETIME
+                LAT,
+                LON,
+                TEMP,
+                SCANID,
+
+                BEST_RSRP,
+                BEST_SNR,
+                BEST_RSRQ,
+                BEST_CELLID,
+                BEST_ANTENNA
+
+            FROM [3skelion2].[dbo].[NewSheet$]
+            WHERE SERIAL = :serial
+              AND [TIME] >= :start_dt
+              AND [TIME] <  :end_dt
+            ORDER BY [TIME] ASC
+            OFFSET :offset ROWS
+            FETCH NEXT :limit ROWS ONLY
+        """)
+
+        rows = db.execute(
+            data_sql,
+            {"serial": ser, "start_dt": start_dt, "end_dt": end_exclusive, "offset": int(offset), "limit": int(limit)}
+        ).mappings().all()
+
+        # Υπολογίζουμε το SHIP ΜΙΑ φορά (ίδιο για όλα τα rows)
+        ship = get_ship_name(ser)
+
+        result = []
+        for r in rows:
+            rec = dict(r)
+
+            # ✅ computed field για PowerBI-like usage
+            rec["SHIP"] = ship
+
+            # ✅ mapping ώστε playback map/chart να δουλέψει κατευθείαν
+            rec["RSRP"] = rec.get("BEST_RSRP")
+            rec["SINR"] = rec.get("BEST_SNR")
+
+            # ✅ JSON friendly datetime
+            dt = rec.get("DATETIME")
+            rec["DATETIME"] = dt.isoformat() if dt else None
+
+            result.append(rec)
+
+        return {"data": result, "total": int(total)}
+    finally:
+        db.close()
+
+
 # =========================
 # 3SKELION - PLAYBACK (HISTORIC) FROM NewSheet$
 # =========================

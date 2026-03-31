@@ -312,7 +312,8 @@ export async function renderSerials(data, onSelectSerial, loadMultipleDetails = 
       const temp = latest ? getFieldCaseInsensitive(latest, ['temp', 'TEMP', 'temperature']) : null;
       const lat = latest ? getFieldCaseInsensitive(latest, ['latitude', 'lat']) : null;
       const lon = latest ? getFieldCaseInsensitive(latest, ['longitude', 'lon']) : null;
-      const datetime = latest ? getFieldCaseInsensitive(latest, ['datetime', 'DATETIME']) : null;
+      // TIME is the real last-update field for 3skelion (backend also provides DATETIME alias)
+      const datetime = latest ? getFieldCaseInsensitive(latest, ['TIME', 'time', 'datetime', 'DATETIME']) : null;
 
       const ledClass = getLEDClass(rsrp, sinr, temp, lat, lon);
       led.className = `serial-card-led ${ledClass}`;

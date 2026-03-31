@@ -288,7 +288,12 @@ function updateEndDateMin() {
 }
 
 function sortByDatetime(records) {
-  return records
+  // records MUST be an array. If something passed an object by mistake, recover safely.
+  const safe = Array.isArray(records)
+    ? records
+    : (records && Array.isArray(records.data) ? records.data : []);
+
+  return safe
     .filter((rec) => rec && rec.DATETIME)
     .sort((a, b) => new Date(a.DATETIME) - new Date(b.DATETIME));
 }
@@ -588,10 +593,18 @@ async function loadHistoricData(serial, startDate, endDate) {
   currentAbortController = new AbortController();
   const signal = currentAbortController.signal;
 
-  const records = await fetchHistoricSerialData(serial, startDate, endDate, signal);
-  return { serial, records: sortByDatetime(records || []) };
-}
+  // IMPORTANT: fetchHistoricSerialData(serial, early, latest, page, limit, signal)
+  const PAGE = 1;
+  const LIMIT = 5000;
 
+  const result = await fetchHistoricSerialData(serial, startDate, endDate, PAGE, LIMIT, signal);
+
+  // API returns { data, total }
+  const rows = (result && Array.isArray(result.data)) ? result.data : [];
+
+  return { serial, records: sortByDatetime(rows) };
+
+}
 /**
  * Initialize the playback chart
  */
@@ -794,13 +807,16 @@ async function renderChartForSerial(serial) {
   }
 
   // Convert date strings to datetime strings
-  const startDateTime = `${startDate}T00:00:00`;
-  const endDateTime = `${endDate}T23:59:59`;
+  //const startDateTime = `${startDate}T00:00:00`;
+  //const endDateTime = `${endDate}T23:59:59`;
 
   setPlaybackMessage('Loading data...', 'muted');
   
   try {
-    const { records } = await loadHistoricData(serial, startDateTime, endDateTime);
+    //const { records } = await loadHistoricData(serial, startDateTime, endDateTime);
+    // Backend get_3skelion_historic_records_by_serial is designed for YYYY-MM-DD.
+    // It will include the whole end-date day correctly.
+    const { records } = await loadHistoricData(serial, startDate, endDate);
 
     if (!records || records.length === 0) {
       setPlaybackMessage('No historic records found for the selected date range.', 'muted');
@@ -863,7 +879,7 @@ async function initChart() {
  * Get the map instance
  * @returns {L.Map|null}
  */
-export function getMap() {
+function getMap() {
   return mapInstance;
 }
 

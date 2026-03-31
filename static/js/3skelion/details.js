@@ -13,6 +13,8 @@ let sortDirection = 'asc';
 function formatCell(col, val) {
   if (val === null || val === undefined || val === '') return '';
 
+  // TIME: keep SQL datetime look (no timezone conversions)
+  if (col === 'TIME') return String(val).replace('T', ' ');
   const n = Number(val);
   const isNum = Number.isFinite(n);
 
@@ -36,6 +38,7 @@ const allowedCols = [
   'SERIAL',
   'LAT',
   'LON',
+  'TIME',
   'BEST_ANTENNA',
   'BEST_CELLID',
   'BEST_RSRP',
@@ -308,19 +311,19 @@ export function renderDetailsTable(serial, data) {
       const colName = String(colKey).trim().toUpperCase();
       
       // Μορφοποίηση Ημερομηνίας
-      if (colName === 'DATETIME' && v !== '') {
+      if (colName === 'TIME' && v !== '') {
         v = String(v).replace(/T/g, ' ');
       }
       
       td.textContent = v;
       
       // Highlights (Κόκκινο χρώμα σε κακές τιμές)
-      if (colName === 'RSRP' && v !== '' && parseFloat(v) <= -120) {
+      if (colName === 'BEST_RSRP' && v !== '' && parseFloat(v) <= -120) {
         td.style.color = 'red';
         td.style.fontWeight = 'bold';
       }
 
-      if (colName === 'SINR' && v !== '' && parseFloat(v) <= 0) {
+      if (colName === 'BEST_SNR' && v !== '' && parseFloat(v) <= 0) {
         td.style.color = 'red';
         td.style.fontWeight = 'bold';
       }
