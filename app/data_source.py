@@ -747,7 +747,158 @@ def live_3skelion_serials_with_locations():
         return out
     finally:
         db.close()
-        
+
+# =========================
+# 3SKELION - ALARMS (NewSheet$)
+# =========================
+
+def get_3skelion_alarm_records_by_serial(
+    serial: str,
+    early: str = None,
+    latest: str = None,
+    rsrp_threshold: float = -120,
+    sinr_threshold: float = 0,
+    temp_threshold: float = 75
+):
+    """
+    Return alarm samples for one SERIAL from:
+      [3skelion2].[dbo].[NewSheet$]
+
+    Output fields are normalized so the existing JS works:
+      SERIAL, NAME, LATITUDE, LONGITUDE, DATETIME, RSRP, SINR, TEMP
+    """
+    db = SessionLocal()
+    try:
+        ser = str(serial).strip()
+
+        cutoff = datetime.utcnow() - timedelta(days=15)
+        sdate = datetime.fromisoformat(early) if early else cutoff
+        edate = datetime.fromisoformat(latest) if latest else datetime.utcnow()
+
+        # Never allow query to go older than cutoff
+        if sdate < cutoff:
+            sdate = cutoff
+
+        sql = text("""
+            SELECT
+                SERIAL,
+                [TIME] AS DATETIME,
+                LAT AS LATITUDE,
+                LON AS LONGITUDE,
+                TEMP,
+                BEST_RSRP AS RSRP,
+                BEST_SNR  AS SINR
+            FROM [3skelion2].[dbo].[NewSheet$]
+            WHERE SERIAL = :serial
+              AND [TIME] >= :sdate
+              AND [TIME] <= :edate
+              AND (
+                   BEST_RSRP <= :rsrp_threshold
+                OR BEST_SNR  <= :sinr_threshold
+                OR LAT = 0
+                OR LON = 0
+                OR TEMP >= :temp_threshold
+              )
+            ORDER BY [TIME] ASC
+        """)
+
+        rows = db.execute(sql, {
+            "serial": ser,
+            "sdate": sdate,
+            "edate": edate,
+            "rsrp_threshold": rsrp_threshold,
+            "sinr_threshold": sinr_threshold,
+            "temp_threshold": temp_threshold,
+        }).mappings().all()
+
+        ship = get_ship_name(ser)
+
+        out = []
+        for r in rows:
+            d = dict(r)
+            dt = d.get("DATETIME")
+            d["DATETIME"] = dt.isoformat() if dt else None
+            d["NAME"] = ship
+            out.append(d)
+
+        return out
+    finally:
+        db.close()
+
+
+def get_3skelion_alarm_statistics(
+    early: str = None,
+    latest: str = None,
+    rsrp_threshold: float = -120,
+    sinr_threshold: float = 0,
+    temp_threshold: float = 75
+):
+    """
+    Return alarm statistics per system (top systems by alarm rate)
+    from [3skelion2].[dbo].[NewSheet$]
+    """
+    db = SessionLocal()
+    try:
+        cutoff = datetime.utcnow() - timedelta(days=15)
+        sdate = datetime.fromisoformat(early) if early else cutoff
+        edate = datetime.fromisoformat(latest) if latest else datetime.utcnow()
+
+        if sdate < cutoff:
+            sdate = cutoff
+
+        sql = text("""
+            SELECT
+                SERIAL,
+                COUNT(*) AS total_samples,
+                SUM(CASE WHEN (
+                       BEST_RSRP <= :rsrp_threshold
+                    OR BEST_SNR  <= :sinr_threshold
+                    OR LAT = 0
+                    OR LON = 0
+                    OR TEMP >= :temp_threshold
+                ) THEN 1 ELSE 0 END) AS alarm_samples,
+
+                SUM(CASE WHEN BEST_RSRP <= :rsrp_threshold THEN 1 ELSE 0 END) AS rsrp_alarms,
+                SUM(CASE WHEN BEST_SNR  <= :sinr_threshold THEN 1 ELSE 0 END) AS sinr_alarms,
+                SUM(CASE WHEN (LAT = 0 OR LON = 0) THEN 1 ELSE 0 END) AS gps_alarms,
+                SUM(CASE WHEN TEMP >= :temp_threshold THEN 1 ELSE 0 END) AS temp_alarms
+            FROM [3skelion2].[dbo].[NewSheet$]
+            WHERE SERIAL IS NOT NULL
+              AND [TIME] >= :sdate
+              AND [TIME] <= :edate
+            GROUP BY SERIAL
+        """)
+
+        rows = db.execute(sql, {
+            "sdate": sdate,
+            "edate": edate,
+            "rsrp_threshold": rsrp_threshold,
+            "sinr_threshold": sinr_threshold,
+            "temp_threshold": temp_threshold,
+        }).fetchall()
+
+        stats = []
+        for (serial, total_samples, alarm_samples, rsrp_alarms, sinr_alarms, gps_alarms, temp_alarms) in rows:
+            total_samples = int(total_samples or 0)
+            alarm_samples = int(alarm_samples or 0)
+            pct = (alarm_samples / total_samples * 100) if total_samples > 0 else 0.0
+
+            stats.append({
+                "serial": serial,
+                "name": get_ship_name(serial),
+                "total_samples": total_samples,
+                "alarm_samples": alarm_samples,
+                "alarm_percentage": round(pct, 2),
+                "rsrp_alarms": int(rsrp_alarms or 0),
+                "sinr_alarms": int(sinr_alarms or 0),
+                "gps_alarms": int(gps_alarms or 0),
+                "temp_alarms": int(temp_alarms or 0),
+            })
+
+        stats.sort(key=lambda x: x["alarm_percentage"], reverse=True)
+        return stats
+    finally:
+        db.close()        
         
 # =========================
 # 3SKELION - PLAYBACK (HISTORIC) FROM NewSheet$
@@ -952,8 +1103,44 @@ def get_3skelion_historic_records_by_serial(serial: str, early: str, latest: str
         """)
         total = db.execute(count_sql, {"serial": ser, "start_dt": start_dt, "end_dt": end_exclusive}).scalar() or 0
 
+        # --- 3skelion playback: per-antenna fields (Ant1..Ant4) ---
+        # Frontend expects:
+        #   S0RSRP..S3RSRP and S0SINR..S3SINR
+        # DB usually has: RSRP_1..RSRP_4 and SNR_1..SNR_4 (sometimes SINR_1..SINR_4)
+        # We auto-detect existing columns once and return NULL for missing ones
+        # (so the SQL never fails if e.g. RSRP_4 doesn't exist).
+        if not hasattr(get_3skelion_historic_records_by_serial, "_newsheet_cols"):
+            cols_sql = text(
+                "SELECT COLUMN_NAME "
+                "FROM [3skelion2].INFORMATION_SCHEMA.COLUMNS "
+                "WHERE TABLE_NAME = 'NewSheet$'"
+            )
+            col_rows = db.execute(cols_sql).fetchall()
+            get_3skelion_historic_records_by_serial._newsheet_cols = {r[0].upper() for r in col_rows}
+
+        cols = get_3skelion_historic_records_by_serial._newsheet_cols
+
+        def _sel_float(col_name: str, alias: str) -> str:
+            if col_name.upper() in cols:
+                return f"{col_name} AS {alias}"
+            return f"CAST(NULL AS float) AS {alias}"
+
+        antenna_select_parts = []
+        for i in range(1, 5):
+            # RSRP per antenna -> S0RSRP..S3RSRP
+            antenna_select_parts.append(_sel_float(f"RSRP_{i}", f"S{i-1}RSRP"))
+
+            # SINR per antenna -> S0SINR..S3SINR (DB might call it SNR_i or SINR_i)
+            if f"SNR_{i}".upper() in cols:
+                antenna_select_parts.append(_sel_float(f"SNR_{i}", f"S{i-1}SINR"))
+            elif f"SINR_{i}".upper() in cols:
+                antenna_select_parts.append(_sel_float(f"SINR_{i}", f"S{i-1}SINR"))
+            else:
+                antenna_select_parts.append(f"CAST(NULL AS float) AS S{i-1}SINR")
+
+        antenna_select_sql = ",\n                ".join(antenna_select_parts)
         # Main page query
-        data_sql = text("""
+        data_sql = text(f"""
             SELECT
                 SERIAL,
                 [TIME] AS DATETIME,     -- alias ώστε το frontend να το βλέπει σαν DATETIME
@@ -966,7 +1153,8 @@ def get_3skelion_historic_records_by_serial(serial: str, early: str, latest: str
                 BEST_SNR,
                 BEST_RSRQ,
                 BEST_CELLID,
-                BEST_ANTENNA
+                BEST_ANTENNA,
+                {antenna_select_sql}    
 
             FROM [3skelion2].[dbo].[NewSheet$]
             WHERE SERIAL = :serial

@@ -12,6 +12,17 @@ let lassoLayerGroup = null;
 let activeLassoLayer = null;
 const isPerformancePage = () => !!document.getElementById('performanceAlarmsArea');
 
+function pad2(n) { return String(n).padStart(2, '0'); }
+
+function formatDMYHMS(ts) {
+  if (!ts || ts === 'Never') return 'Never';
+  let s = String(ts).trim();
+  if (/^\d{4}-\d{2}-\d{2} \d/.test(s)) s = s.replace(' ', 'T');
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return 'Never';
+  return `${pad2(d.getDate())}/${pad2(d.getMonth()+1)}/${d.getFullYear()} ${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
+}
+
 function getPerformanceAlarmKey(alarm) {
   if (!alarm) return null;
   return `${alarm.serial || ''}|${alarm.site || ''}|${alarm.datetime || ''}|${alarm.status || ''}`;
@@ -66,9 +77,18 @@ function buildPerformancePopup(alarm) {
   const datetime = alarm.datetime && alarm.datetime !== 'Unknown'
     ? new Date(alarm.datetime).toLocaleString()
     : 'Unknown';
-  const rsrp = alarm.rsrp !== null && alarm.rsrp !== undefined ? Number(alarm.rsrp).toFixed(1) : 'N/A';
-  const sinr = alarm.sinr !== null && alarm.sinr !== undefined ? Number(alarm.sinr).toFixed(1) : 'N/A';
-  const temp = alarm.temp !== null && alarm.temp !== undefined ? Number(alarm.temp).toFixed(1) : 'N/A';
+  // const rsrp = alarm.rsrp !== null && alarm.rsrp !== undefined ? Number(alarm.rsrp).toFixed(1) : 'N/A';
+  // const sinr = alarm.sinr !== null && alarm.sinr !== undefined ? Number(alarm.sinr).toFixed(1) : 'N/A';
+  // const temp = alarm.temp !== null && alarm.temp !== undefined ? Number(alarm.temp).toFixed(1) : 'N/A';
+  const rsrpRaw = alarm.rsrp ?? alarm.RSRP ?? alarm.best_rsrp ?? alarm.BEST_RSRP;
+  const sinrRaw = alarm.sinr ?? alarm.SINR ?? alarm.snr ?? alarm.SNR ?? alarm.best_snr ?? alarm.BEST_SNR;
+  const rsrqRaw = alarm.rsrq ?? alarm.RSRQ ?? alarm.best_rsrq ?? alarm.BEST_RSRQ;
+  const tempRaw = alarm.temp ?? alarm.TEMP ?? alarm.temperature ?? alarm.Temperature;
+
+  const rsrp = rsrpRaw !== null && rsrpRaw !== undefined ? Number(rsrpRaw).toFixed(1) : 'N/A';
+  const sinr = sinrRaw !== null && sinrRaw !== undefined ? Number(sinrRaw).toFixed(1) : 'N/A';
+  const rsrq = rsrqRaw !== null && rsrqRaw !== undefined ? Number(rsrqRaw).toFixed(1) : 'N/A';
+  const temp = tempRaw !== null && tempRaw !== undefined ? Number(tempRaw).toFixed(1) : 'N/A';
 
   return (
     `<b>${site}</b>` +
@@ -77,6 +97,7 @@ function buildPerformancePopup(alarm) {
     `<br>Time: ${datetime}` +
     `<br>RSRP: ${rsrp} dBm` +
     `<br>SINR: ${sinr} dB` +
+    `<br>RSRQ: ${rsrq} dB` +
     `<br>TEMP: ${temp}°C`
   );
 }
@@ -84,12 +105,14 @@ function buildPerformancePopup(alarm) {
 function buildCommunicationPopup(alarm) {
   const site = alarm.site || 'Unknown Site';
   const status = alarm.status || 'Alarm';
-  const lastUpdate = alarm.lastUpdate && alarm.lastUpdate !== 'Never'
-    ? new Date(alarm.lastUpdate).toLocaleString()
-    : 'Never';
+  // const lastUpdate = alarm.lastUpdate && alarm.lastUpdate !== 'Never'
+  //   ? new Date(alarm.lastUpdate).toLocaleString()
+  //   : 'Never';
+  const lastUpdate = formatDMYHMS(alarm.lastUpdate);
   const timeAgo = alarm.hoursAgo !== undefined && alarm.hoursAgo !== null ? `${alarm.hoursAgo}h` : 'N/A';
   const rsrp = alarm.rsrp !== null && alarm.rsrp !== undefined ? Number(alarm.rsrp).toFixed(1) : 'N/A';
   const sinr = alarm.sinr !== null && alarm.sinr !== undefined ? Number(alarm.sinr).toFixed(1) : 'N/A';
+  const rsrq = alarm.rsrq !== null && alarm.rsrq !== undefined ? Number(alarm.rsrq).toFixed(1) : 'N/A';
   const temp = alarm.temp !== null && alarm.temp !== undefined ? Number(alarm.temp).toFixed(1) : 'N/A';
 
   return (
@@ -99,6 +122,7 @@ function buildCommunicationPopup(alarm) {
     `<br>Time ago: ${timeAgo}`+
     `<br>RSRP: ${rsrp} dBm` +
     `<br>SINR: ${sinr} dB` +
+    `<br>RSRQ: ${rsrq} dB` +
     `<br>TEMP: ${temp}°C`
   );
 }
@@ -244,7 +268,7 @@ function clearActiveLasso() {
   clearLassoAlarmSelection();
 }
 
-function applyLassoToAlarmMarkers(layer) {
+function applyLassoToAlarmMarkers(layer, emitEvent = true) {
   if (!layer || !markersLayer) return;
 
   const latLngs = layer.getLatLngs();
@@ -273,13 +297,14 @@ function applyLassoToAlarmMarkers(layer) {
       applyDefaultAlarmMarkerStyle(marker);
     }
   });
-
+  if (emitEvent) {
   window.dispatchEvent(new CustomEvent('performance-alarms:lasso-selected', {
     detail: {
       hasLasso: true,
       selectedKeys: Array.from(selectedKeys)
-    }
-  }));
+      }
+    }));
+  }
 }
 
 function initPerformanceLassoTool() {
@@ -450,7 +475,7 @@ export async function loadVesselsAndPlot(alarms) {
     if (validMarkerCount > 0) {
       fitToMarkers();
       if (isPerformancePage() && activeLassoLayer) {
-        applyLassoToAlarmMarkers(activeLassoLayer);
+        applyLassoToAlarmMarkers(activeLassoLayer, false);
       }
     }
   } catch (e) {

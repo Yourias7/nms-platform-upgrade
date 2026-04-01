@@ -5,13 +5,58 @@ import { CONFIG } from '../shared/config.js';
 import { fetchJSON } from '../shared/api.js';
 import { getThresholds, isInAlarm } from './settings.js';
 
-const COMMUNICATION_ALARM_THRESHOLD_HOURS = 3;
+const COMMUNICATION_ALARM_THRESHOLD_HOURS = 6; // 6 hours without update = communication alarm
 
 // Sorting state
 let currentAlarms = [];
 let sortColumn = null;
 let sortDirection = 'asc';
 let selectedAlarmKeys = new Set();
+
+function pad2(n) {
+  return String(n).padStart(2, '0');
+}
+
+function parseTs(ts) {
+  if (!ts || ts === 'Never') return null;
+
+  let s = String(ts).trim();
+
+  // accept "YYYY-MM-DD HH:MM:SS" too
+  if (/^\d{4}-\d{2}-\d{2} \d/.test(s)) {
+    s = s.replace(' ', 'T');
+  }
+
+  const d = new Date(s);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function formatDMYHMS(ts) {
+  const d = parseTs(ts);
+  if (!d) return 'Never';
+
+  const dd = pad2(d.getDate());
+  const mm = pad2(d.getMonth() + 1);
+  const yyyy = d.getFullYear();
+
+  const HH = pad2(d.getHours());
+  const MM = pad2(d.getMinutes());
+  const SS = pad2(d.getSeconds());
+
+  return `${dd}/${mm}/${yyyy} ${HH}:${MM}:${SS}`;
+}
+
+function formatHoursAgo(hoursAgo) {
+  const h = Number(hoursAgo);
+  if (!Number.isFinite(h)) return 'N/A';
+
+  if (h >= 24) {
+    const days = Math.floor(h / 24);
+    const rem = (h % 24).toFixed(1);
+    return `${days}d ${rem}h`;
+  }
+  return `${h.toFixed(1)}h`;
+}
 
 function getAlarmKey(alarm) {
   if (!alarm) return null;
@@ -101,7 +146,11 @@ export async function fetchCommunicationAlarms() {
           let site = 'N/A';
           let lat = null;
           let lon = null;
-          
+          let rsrp = null;
+          let sinr = null;
+          let rsrq = null;
+          let temp = null;
+
           for (const [key, val] of Object.entries(latest)) {
             const lower = key.toLowerCase();
             if (lower === 'datetime' || lower === 'timestamp' || lower === 'time') {
@@ -116,14 +165,19 @@ export async function fetchCommunicationAlarms() {
             if (lower === 'longitude' || lower === 'lon' || lower === 'long') {
               lon = val;
             }
+            // KPI mapping (3skelion uses BEST_* fields)
+            if (lower === 'rsrp' || lower === 'best_rsrp') rsrp = val;
+            if (lower === 'rsrq' || lower === 'best_rsrq') rsrq = val;
+
+            // SINR may come as SINR/SNR/BEST_SNR depending on how backend returns it
+            if (lower === 'sinr' || lower === 'snr' || lower === 'best_snr') sinr = val;
+
+            if (lower === 'temp' || lower === 'temperature') temp = val;
           }
           
           if (isCommunicationAlarm(timestamp)) {
-            const lastUpdate = timestamp ? new Date(timestamp) : null;
-            const now = new Date();
-            const hoursAgo = lastUpdate 
-              ? ((now - lastUpdate) / (1000 * 60 * 60)).toFixed(1)
-              : 'N/A';
+            const lastUpdate = parseTs(timestamp);
+            const hoursAgo = lastUpdate ? ((Date.now() - lastUpdate.getTime()) / (1000 * 60 * 60)) : null;
             
             alarms.push({
               serial,
@@ -132,7 +186,11 @@ export async function fetchCommunicationAlarms() {
               hoursAgo,
               status: 'Communication Lost',
               latitude: lat,
-              longitude: lon
+              longitude: lon,
+              rsrp,
+              rsrq,
+              sinr,
+              temp
             });
           }
         } else {
@@ -341,12 +399,8 @@ export function renderAlarmsTable(alarms) {
     row.innerHTML = `
       <td>${alarm.site}</td>
       <td><span class="badge bg-danger">${alarm.status}</span></td>
-      <td>${alarm.lastUpdate ? new Date(alarm.lastUpdate).toISOString().replace('T', ' ').slice(0, 19) : 'Never'}</td>
-      <td>
-      ${alarm.hoursAgo >= 24 
-        ? `${Math.floor(alarm.hoursAgo / 24)}d ${(alarm.hoursAgo % 24).toFixed(1)}h` 
-        : `${alarm.hoursAgo}h`}
-      </td>
+      <td>${formatDMYHMS(alarm.lastUpdate)}</td>
+      <td>${formatHoursAgo(alarm.hoursAgo)}</td>
           `;
 
     row.addEventListener('click', () => {

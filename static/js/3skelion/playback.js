@@ -119,8 +119,8 @@ function updateDataCards(records) {
   const ant2SINR = getAverage('S1SINR');
   const ant3RSRP = getAverage('S2RSRP');
   const ant3SINR = getAverage('S2SINR');
-  const ant4RSRP = getAverage('S3RSRP');
-  const ant4SINR = getAverage('S3SINR');
+  // const ant4RSRP = getAverage('S3RSRP');
+  // const ant4SINR = getAverage('S3SINR');
   const bestDetailsRSRP = document.getElementById('bestDetailsRSRP');
   const bestDetailsSINR = document.getElementById('bestDetailsSINR');
   const ant1DetailsRSRP = document.getElementById('ant1DetailsRSRP');
@@ -129,8 +129,8 @@ function updateDataCards(records) {
   const ant2DetailsSINR = document.getElementById('ant2DetailsSINR');
   const ant3DetailsRSRP = document.getElementById('ant3DetailsRSRP');
   const ant3DetailsSINR = document.getElementById('ant3DetailsSINR');
-  const ant4DetailsRSRP = document.getElementById('ant4DetailsRSRP');
-  const ant4DetailsSINR = document.getElementById('ant4DetailsSINR');
+  // const ant4DetailsRSRP = document.getElementById('ant4DetailsRSRP');
+  // const ant4DetailsSINR = document.getElementById('ant4DetailsSINR');
 
   if (!records || records.length === 0) {
     bestDetailsRSRP.textContent = 'N/A';
@@ -141,8 +141,8 @@ function updateDataCards(records) {
     ant2DetailsSINR.textContent = 'N/A';
     ant3DetailsRSRP.textContent = 'N/A';
     ant3DetailsSINR.textContent = 'N/A';
-    ant4DetailsRSRP.textContent = 'N/A';
-    ant4DetailsSINR.textContent = 'N/A';
+    // ant4DetailsRSRP.textContent = 'N/A';
+    // ant4DetailsSINR.textContent = 'N/A';
     return;
   }
 
@@ -154,8 +154,8 @@ function updateDataCards(records) {
   if (ant2DetailsSINR) ant2DetailsSINR.textContent = ant2SINR !== null && ant2SINR !== undefined ? `${ant2SINR.toFixed(2)} dB` : 'N/A';
   if (ant3DetailsRSRP) ant3DetailsRSRP.textContent = ant3RSRP !== null && ant3RSRP !== undefined ? `${ant3RSRP.toFixed(2)} dBm` : 'N/A';
   if (ant3DetailsSINR) ant3DetailsSINR.textContent = ant3SINR !== null && ant3SINR !== undefined ? `${ant3SINR.toFixed(2)} dB` : 'N/A';
-  if (ant4DetailsRSRP) ant4DetailsRSRP.textContent = ant4RSRP !== null && ant4RSRP !== undefined ? `${ant4RSRP.toFixed(2)} dBm` : 'N/A';
-  if (ant4DetailsSINR) ant4DetailsSINR.textContent = ant4SINR !== null && ant4SINR !== undefined ? `${ant4SINR.toFixed(2)} dB` : 'N/A';
+  // if (ant4DetailsRSRP) ant4DetailsRSRP.textContent = ant4RSRP !== null && ant4RSRP !== undefined ? `${ant4RSRP.toFixed(2)} dBm` : 'N/A';
+  // if (ant4DetailsSINR) ant4DetailsSINR.textContent = ant4SINR !== null && ant4SINR !== undefined ? `${ant4SINR.toFixed(2)} dB` : 'N/A';
 
   // Show/hide antenna cards based on data availability - TO DO
 

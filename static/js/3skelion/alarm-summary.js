@@ -123,7 +123,7 @@ async function fetchAlarmStatistics(startDate, endDate) {
     params.append('sinr_threshold', thresholds.sinr);
     params.append('temp_threshold', thresholds.temp);
     
-    const url = `/alarms/statistics?${params.toString()}`;
+    const url = `${CONFIG.API.ALARM_STATISTICS}?${params.toString()}`;
     const statistics = await fetchJSON(url, signal);
     return statistics;
   } catch (err) {

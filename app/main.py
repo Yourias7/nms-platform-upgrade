@@ -3,7 +3,8 @@ import logging
 from app.data_source import (get_alarm_records_by_serial, get_alarm_statistics, get_earliest_datetime_for_serial, get_latest_datetime_for_serial, 
 get_historic_records_by_serial, get_all_historic_records, get_live_records_by_serial, list_live_serial_name_pairs, list_live_serials, list_historic_serials, 
 export_live_csv, export_historic_csv, live_serials_with_locations, historic_serials_with_locations,list_3skelion_serials,list_3skelion_serial_name_pairs,
-get_3skelion_live_records_by_serial, live_3skelion_serials_with_locations,list_3skelion_playback_serials,get_3skelion_historic_records_by_serial)
+get_3skelion_live_records_by_serial, live_3skelion_serials_with_locations,list_3skelion_playback_serials,get_3skelion_historic_records_by_serial,
+get_3skelion_alarm_records_by_serial,get_3skelion_alarm_statistics)
 from fastapi.responses import StreamingResponse, FileResponse, RedirectResponse
 import io
 import mimetypes
@@ -27,6 +28,20 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
+@app.middleware("http")
+async def disable_cache_for_dev(request: Request, call_next):
+    response: Response = await call_next(request)
+
+    path = request.url.path
+    content_type = response.headers.get("content-type", "")
+
+    # Disable caching for static files + HTML pages (dev convenience)
+    if path.startswith("/static/") or content_type.startswith("text/html"):
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+
+    return response
 
 @app.get("/Systems/Live/{serial}")
 def get_system(serial: str):
@@ -61,6 +76,23 @@ def get_alarm_statistics_endpoint(early: str = None, latest: str = None, rsrp_th
     data = get_alarm_statistics(early=early, latest=latest, rsrp_threshold=rsrp_threshold, sinr_threshold=sinr_threshold, temp_threshold=temp_threshold)
     logger.info(f"Retrieved statistics for {len(data)} systems with thresholds RSRP<={rsrp_threshold}, SINR<={sinr_threshold}, TEMP>={temp_threshold}")
     return data
+
+@app.get("/3skelion/alarms/systems/{serial}/{early}/{latest}")
+def get_3skelion_alarm_systems(serial: str, early: str, latest: str,
+                               rsrp_threshold: float = -120, sinr_threshold: float = 0, temp_threshold: float = 75):
+    data = get_3skelion_alarm_records_by_serial(
+        serial, early=early, latest=latest,
+        rsrp_threshold=rsrp_threshold, sinr_threshold=sinr_threshold, temp_threshold=temp_threshold
+    )
+    return data
+
+@app.get("/3skelion/alarms/statistics")
+def get_3skelion_alarm_statistics_endpoint(early: str = None, latest: str = None,
+                                          rsrp_threshold: float = -120, sinr_threshold: float = 0, temp_threshold: float = 75):
+    return get_3skelion_alarm_statistics(
+        early=early, latest=latest,
+        rsrp_threshold=rsrp_threshold, sinr_threshold=sinr_threshold, temp_threshold=temp_threshold
+    )
 
 @app.get("/playback/Historic/{serial}/earliest")
 def get_early_datetime(serial: str):

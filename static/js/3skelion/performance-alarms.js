@@ -411,6 +411,10 @@ async function fetchPerformanceAlarms(startDate, endDate, serial = 'all') {
           }
         }
       } catch (err) {
+        // Firefox often throws DOMException for abort; this is expected.
+        if (err?.name === 'AbortError' || signal.aborted) {
+          throw err; // stop quietly, outer handler already deals with abort
+        }
         console.warn(`Failed to check alarms for ${ser}:`, err);
       }
     }

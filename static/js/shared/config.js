@@ -19,6 +19,7 @@ export const CONFIG = {
     HISTORIC_SERIALS: `${API_PREFIX}/playback/Historic/serials`,
     HISTORIC_SYSTEMS: `${API_PREFIX}/playback/Historic`,
     ALARM_SYSTEMS: `${API_PREFIX}/alarms/systems`,
+    ALARM_STATISTICS: `${API_PREFIX}/alarms/statistics`,
     HISTORIC_EXPORT: `${API_PREFIX}/export/Historic`,
     HISTORIC_LOCATIONS: `${API_PREFIX}/playback/Historic/locations`,
   },

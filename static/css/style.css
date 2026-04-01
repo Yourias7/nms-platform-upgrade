@@ -330,6 +330,13 @@ body::after {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+
+  /* default (OK) color */
+  color: rgba(255,255,255,0.45);
+}
+
+.serial-plug-icon.comm-alarm{
+  color: #dc3545;
 }
 
 .serial-plug-icon svg{

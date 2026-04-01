@@ -4,7 +4,7 @@
 import { CONFIG } from '../shared/config.js';
 import { fetchJSON } from '../shared/api.js';
 
-const COMMUNICATION_ALARM_THRESHOLD_HOURS = 3;
+const COMMUNICATION_ALARM_THRESHOLD_HOURS = 6;
 const BADGE_REFRESH_INTERVAL = 60000; // 60 seconds
 
 /**

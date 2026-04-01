@@ -116,7 +116,8 @@ export function selectAllRenderedSerials() {
   selectedSerials.sort();
 }
 
-const THREE_HOURS_MS = 3 * 60 * 60 * 1000;//3 hours in milliseconds
+//const THREE_HOURS_MS = 6 * 60 * 60 * 1000; //6 hours in milliseconds // 
+const SIX_HOURS_MS = 6 * 60 * 60 * 1000; //6 hours in milliseconds // 
 
 function parseBackendDate(value) {// Parses date string from backend, handling both ISO and space-separated formats
   if (!value) return null;
@@ -324,15 +325,13 @@ export async function renderSerials(data, onSelectSerial, loadMultipleDetails = 
       }
       
       const last = parseBackendDate(datetime);
-      const inCommunicationAlarm = !last || (Date.now() - last.getTime() > THREE_HOURS_MS);
+
+      const inCommunicationAlarm = !last || (Date.now() - last.getTime() > SIX_HOURS_MS);
       const inKpiAlarm = ledClass === 'led-red';
       serialAlarmCache.set(s, inCommunicationAlarm || inKpiAlarm);
 
-      if (last && (Date.now() - last.getTime() > THREE_HOURS_MS)) {
-        // icon.className = 'serial-card-led led-red';
-        icon.style.color = '#dc3545';
-        // text.className = 'serial-card-text_red';
-      }
+      // Always set icon color deterministically (no leftover stale color)
+      icon.classList.toggle('comm-alarm', inCommunicationAlarm);
     } catch (err) {
       serialAlarmCache.set(s, false);
       console.warn(`Failed to fetch LED status for ${s}:`, err);
