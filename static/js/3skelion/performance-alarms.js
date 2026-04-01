@@ -89,8 +89,7 @@ function getPerformanceAlarmType(rsrp, sinr, temp, lat, lon) {
     if (isInAlarm('rsrp', rsrp)) alarms.push('RSRP');
     if (isInAlarm('sinr', sinr)) alarms.push('SINR');
     if (isInAlarm('temp', temp)) alarms.push('Temperature');
-    if (isInAlarm('lat', lat)) alarms.push('GPS');
-    if (isInAlarm('lon', lon)) alarms.push('GPS');
+    if (isInAlarm('lat', lat) || isInAlarm('lon', lon)) alarms.push('GPS');
 
     if (alarms.length === 0) return null;
     let alarmType = '';
