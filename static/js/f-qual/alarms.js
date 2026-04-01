@@ -86,12 +86,12 @@ function isCommunicationAlarm(timestamp) {
  */
 export async function fetchCommunicationAlarms() {
   try {
-    const serials = await fetchJSON(CONFIG.API.SERIALS);
+    const serials = await fetchJSON(CONFIG.API.PROBE_SERIALS);
     const alarms = [];
     
     for (const serial of serials) {
       try {
-        const records = await fetchJSON(`${CONFIG.API.SYSTEMS}/${encodeURIComponent(serial)}`);
+        const records = await fetchJSON(`${CONFIG.API.PROBES}/${encodeURIComponent(serial)}`);
         
         if (records && records.length > 0) {
           const latest = records[0];

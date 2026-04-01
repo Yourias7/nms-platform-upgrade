@@ -2,7 +2,7 @@
 // Serial list rendering and LED indicator logic
 
 import { CONFIG } from '../shared/config.js';
-import { fetchSerialData, fetchSerialNameMap } from '../shared/api.js';
+import { fetchProbeData, fetchProbeNameMap } from '../shared/api.js';
 import { buildMarkerTooltipContent, clearMapMarkers, updateMapMarkers, tooltipHtmlToPlainText } from './map.js';
 import { getThresholds, isInAlarm } from './settings.js';
 import { clearDetails } from './details.js';
@@ -17,8 +17,6 @@ let currentFilter = '';
 let selectedSerials = [];
 let serialNameMap = {};
 let serialAlarmCache = new Map();
-let serialCommAlarmCache = new Map();
-let serialPerfAlarmCache = new Map();
 let currentlyRenderedSerials = [];
 
 /**
@@ -39,8 +37,6 @@ export function setSerials(newSerials) {
   serialAlarmCache.forEach((_, serial) => {
     if (!serialSet.has(serial)) {
       serialAlarmCache.delete(serial);
-      serialCommAlarmCache.delete(serial);
-      serialPerfAlarmCache.delete(serial);
     }
   });
 }
@@ -136,26 +132,6 @@ function getDisplayName(serial) {
 
 export function isSerialInAlarm(serial) {
   return serialAlarmCache.get(serial) === true;
-}
-
-export function isCommAlarm(serial) {
-  return serialCommAlarmCache.get(serial) === true;
-}
-
-export function isPerfAlarm(serial) {
-  return serialPerfAlarmCache.get(serial) === true;
-}
-//για badges αν χρειαστει
-export function getAlarmCategoryCounts() {
-  let commCount = 0;
-  let perfCount = 0;
-
-  for (const s of serials) {
-    if (isCommAlarm(s)) commCount += 1;
-    if (isPerfAlarm(s)) perfCount += 1;
-  }
-
-  return { commCount, perfCount };
 }
 
 
@@ -294,9 +270,9 @@ export async function renderSerials(data, onSelectSerial, loadMultipleDetails = 
     return;
   }
   try {
-  serialNameMap = await fetchSerialNameMap();
+  serialNameMap = await fetchProbeNameMap();
 } catch (e) {
-  console.warn('Failed to fetch serial->name map:', e);
+  console.warn('Failed to fetch probe->name map:', e);
   serialNameMap = {};
 }
 
@@ -340,7 +316,7 @@ export async function renderSerials(data, onSelectSerial, loadMultipleDetails = 
     // text.textContent = s;
 
     try {
-      const records = await fetchSerialData(s);
+      const records = await fetchProbeData(s);
       const latest = records && records.length > 0 ? records[0] : null;
 
       const rsrp = latest ? getFieldCaseInsensitive(latest, ['rsrp', 'RSRP']) : null;
@@ -361,8 +337,6 @@ export async function renderSerials(data, onSelectSerial, loadMultipleDetails = 
       const last = parseBackendDate(datetime);
       const inCommunicationAlarm = !last || (Date.now() - last.getTime() > THREE_HOURS_MS);
       const inKpiAlarm = ledClass === 'led-red';
-      serialCommAlarmCache.set(s, inCommunicationAlarm);
-      serialPerfAlarmCache.set(s, inKpiAlarm);
       serialAlarmCache.set(s, inCommunicationAlarm || inKpiAlarm);
 
       if (last && (Date.now() - last.getTime() > THREE_HOURS_MS)) {
@@ -371,8 +345,6 @@ export async function renderSerials(data, onSelectSerial, loadMultipleDetails = 
         // text.className = 'serial-card-text_red';
       }
     } catch (err) {
-      serialCommAlarmCache.set(s, false);
-      serialPerfAlarmCache.set(s, false);
       serialAlarmCache.set(s, false);
       console.warn(`Failed to fetch LED status for ${s}:`, err);
     }
@@ -413,7 +385,7 @@ export async function renderSerials(data, onSelectSerial, loadMultipleDetails = 
  * @param {Function} loadMultipleDetails - Function to load details for multiple serials
  */
 export function filterSerials(query, onSelectSerial, options = {}, loadMultipleDetails = null) {
-  const { alarmComm = false, alarmPer = false } = options;
+  const { alarmOnly = false } = options;
   currentFilter = query;
   const ql = query.toLowerCase();
   let filtered = serials;
@@ -426,12 +398,8 @@ export function filterSerials(query, onSelectSerial, options = {}, loadMultipleD
     });
   }
 
-  if (alarmComm || alarmPer) {
-    filtered = filtered.filter(s => {
-      const hasCommAlarm = alarmComm && isCommAlarm(s);
-      const hasPerfAlarm = alarmPer && isPerfAlarm(s);
-      return hasCommAlarm || hasPerfAlarm;
-    });
+  if (alarmOnly) {
+    filtered = filtered.filter(s => isSerialInAlarm(s));
   }
 
   renderSerials(filtered, onSelectSerial, loadMultipleDetails);

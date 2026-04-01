@@ -2,85 +2,65 @@
 // Main orchestrator for NMS Dashboard Page
 
 import { CONFIG } from '../shared/config.js';
-import { fetchSerialsList, fetchSerialData } from '../shared/api.js';
+import { fetchProbeSerialsList, fetchProbeData } from '../shared/api.js';
 import { debounce } from '../shared/utils.js';
 import { initMap, preloadCustomIcon, updateMapMarkers, getMarkers, getMap, hideMapLoading } from './map.js';
-import {
-  getSerials,
-  setSerials,
-  getCurrentFilter,
+import { 
+  getSerials, 
+  setSerials, 
+  getCurrentFilter, 
   setCurrentFilter,
   getSelectedSerial,
   getSelectedSerials,
   addSelectedSerial,
   removeSelectedSerial,
   clearSelectedSerials,
-  renderSerials,
+  renderSerials, 
   filterSerials,
-  isCommAlarm,
-  isPerfAlarm,
-  getAlarmCategoryCounts
+  isSerialInAlarm
 } from './serials.js';
 import { loadSerialDetails, clearDetails } from './details.js';
 
 // DOM elements
 const filterEl = document.getElementById('filter');
-const alarmCommFilterBtn = document.getElementById('alarmCommFilterBtn');
-const alarmPerFilterBtn = document.getElementById('alarmPerFilterBtn');
-const alarmCommCountBadge = document.getElementById('alarmCommCountBadge');
-const alarmPerCountBadge = document.getElementById('alarmPerCountBadge');
+const alarmOnlyFilterBtn = document.getElementById('alarmOnlyFilterBtn');
 let autoRefreshTimer = null;
-let alarmCommActive = false;
-let alarmPerActive = false;
+let alarmOnlyFilterActive = false;
 
-function updateAlarmFilterButtons() {
-  if (alarmCommFilterBtn) {
-    alarmCommFilterBtn.classList.toggle('btn-danger', alarmCommActive);
-    alarmCommFilterBtn.classList.toggle('btn-outline-danger', !alarmCommActive);
-    alarmCommFilterBtn.setAttribute('aria-pressed', alarmCommActive ? 'true' : 'false');
-    alarmCommFilterBtn.textContent = alarmCommActive ? 'Communication' : 'Communication';
-  }
+function updateAlarmOnlyFilterButton() {
+  if (!alarmOnlyFilterBtn) return;
 
-  if (alarmPerFilterBtn) {
-    alarmPerFilterBtn.classList.toggle('btn-danger', alarmPerActive);
-    alarmPerFilterBtn.classList.toggle('btn-outline-danger', !alarmPerActive);
-    alarmPerFilterBtn.setAttribute('aria-pressed', alarmPerActive ? 'true' : 'false');
-    alarmPerFilterBtn.textContent = alarmPerActive ? 'Performance' : 'Performance';
-  }
-}
-
-function updateAlarmBadges() {
-  const { commCount, perfCount } = getAlarmCategoryCounts();
-  if (alarmCommCountBadge) alarmCommCountBadge.textContent = `${commCount}`;
-  if (alarmPerCountBadge) alarmPerCountBadge.textContent = `${perfCount}`;
+  alarmOnlyFilterBtn.classList.toggle('btn-danger', alarmOnlyFilterActive);
+  alarmOnlyFilterBtn.classList.toggle('btn-outline-danger', !alarmOnlyFilterActive);
+  alarmOnlyFilterBtn.setAttribute('aria-pressed', alarmOnlyFilterActive ? 'true' : 'false');
+  alarmOnlyFilterBtn.textContent = alarmOnlyFilterActive ? 'Showing Alarms Only' : 'Show Alarms Only';
 }
 
 function applyActiveFilters() {
   const currentFilter = getCurrentFilter() || '';
-  filterSerials(currentFilter, handleSerialSelect, { alarmComm: alarmCommActive, alarmPer: alarmPerActive }, loadMultipleSerialDetails);
-  // updateAlarmBadges();
+  filterSerials(currentFilter, handleSerialSelect, { alarmOnly: alarmOnlyFilterActive }, loadMultipleSerialDetails);
 }
 
 /**
- * Fetch and render all serials
+ * Fetch and render all probes
  */
 async function fetchAndRenderSerials() {
   try {
-    const serialsList = await fetchSerialsList();
-    setSerials(serialsList);
+    const probesList = await fetchProbeSerialsList();
+    setSerials(probesList);
 
     // Apply active filters so user view isn't reset by auto-refresh
     applyActiveFilters();
-
-    // Reload details for all selected serials
+    
+    // Reload details for all selected probes
     const selected = getSelectedSerials();
     if (selected.length > 0) {
       await loadMultipleSerialDetails(selected);
     }
   } catch (err) {
-    const serialListEl = document.getElementById('serialList');
-    serialListEl.innerHTML = '<li class="list-group-item text-danger">Error loading serials</li>';
-    console.error('Error fetching serials:', err);
+    const probeListEl = document.getElementById('probeList');
+    probeListEl.innerHTML = '<li class="list-group-item text-danger">Error loading probes</li>';
+    console.error('Error fetching probes:', err);
   }
 }
 
@@ -92,12 +72,12 @@ async function fetchAndRenderSerials() {
 async function handleSerialSelect(serial, card) {
   if (!card) return;
   const alreadySelected = card.classList.contains('selected');
-
+  
   if (alreadySelected) {
     // Deselect this serial
     card.classList.remove('selected');
     removeSelectedSerial(serial);
-
+    
     // Update map and details
     const selected = getSelectedSerials();
     if (selected.length === 0) {
@@ -107,13 +87,9 @@ async function handleSerialSelect(serial, card) {
       let displaySerials = currentFilter
         ? allSerials.filter(s => s.toLowerCase().includes(currentFilter.toLowerCase()))
         : allSerials;
-      //νεος τρροπος που τα σπαει τα alarms
-      if (alarmCommActive || alarmPerActive) {
-        displaySerials = displaySerials.filter(s => {
-          const hasCommAlarm = alarmCommActive && isCommAlarm(s);
-          const hasPerAlarm = alarmPerActive && isPerfAlarm(s);
-          return hasCommAlarm || hasPerAlarm;
-        });
+
+      if (alarmOnlyFilterActive) {
+        displaySerials = displaySerials.filter(s => isSerialInAlarm(s));
       }
 
       updateMapMarkers(displaySerials);
@@ -125,15 +101,15 @@ async function handleSerialSelect(serial, card) {
     }
     return;
   }
-
+  
   // Select: add this serial to selection
   card.classList.add('selected');
   addSelectedSerial(serial);
-
+  
   // Update map to show all selected serials
   const selected = getSelectedSerials();
   updateMapMarkers(selected);
-
+  
   // Load and display details for all selected serials
   await loadMultipleSerialDetails(selected);
 }
@@ -143,19 +119,12 @@ async function handleSerialSelect(serial, card) {
  */
 function handleFilter() {
   const query = filterEl.value.trim();
-  filterSerials(query, handleSerialSelect, { alarmComm: alarmCommActive, alarmPer: alarmPerActive }, loadMultipleSerialDetails);
-  // updateAlarmBadges();
+  filterSerials(query, handleSerialSelect, { alarmOnly: alarmOnlyFilterActive }, loadMultipleSerialDetails);
 }
 
-function handleAlarmCommToggle() {
-  alarmCommActive = !alarmCommActive;
-  updateAlarmFilterButtons();
-  applyActiveFilters();
-}
-
-function handleAlarmPerToggle() {
-  alarmPerActive = !alarmPerActive;
-  updateAlarmFilterButtons();
+function handleAlarmOnlyToggle() {
+  alarmOnlyFilterActive = !alarmOnlyFilterActive;
+  updateAlarmOnlyFilterButton();
   applyActiveFilters();
 }
 
@@ -167,19 +136,19 @@ function handleAlarmPerToggle() {
 async function captureMapSnapshot(serials) {
   const mapElement = document.getElementById('map');
   if (!mapElement) return null;
-
+  
   const mapInstance = getMap();
   if (!mapInstance) return null;
-
+  
   try {
     // Save current zoom level and zoom out
     const originalZoom = mapInstance.getZoom();
     const newZoom = Math.max(originalZoom - 1, 1); // Zoom out by 1 level, minimum 1
     mapInstance.setZoom(newZoom, { animate: false });
-
+    
     // Wait for zoom to complete
     await new Promise(resolve => setTimeout(resolve, 200));
-
+    
     // Get all markers and add permanent tooltips
     const markers = getMarkers();
     markers.forEach(marker => {
@@ -195,25 +164,25 @@ async function captureMapSnapshot(serials) {
         }).openTooltip();
       }
     });
-
+    
     // Wait a bit for tooltips to render
     await new Promise(resolve => setTimeout(resolve, 500));
-
+    
     const canvas = await html2canvas(mapElement, {
       useCORS: true,
       allowTaint: true,
       backgroundColor: null,
       logging: false
     });
-
+    
     // Remove all tooltips after capture
     markers.forEach(marker => {
       marker.unbindTooltip();
     });
-
+    
     // Restore original zoom level
     mapInstance.setZoom(originalZoom, { animate: false });
-
+    
     return new Promise((resolve) => {
       canvas.toBlob((blob) => {
         resolve(blob);
@@ -273,8 +242,8 @@ function exportCombinedCSV(data, serials) {
 }
 
 /**
- * Load details for multiple selected serials
- * @param {string[]} serials - Array of serial numbers
+ * Load details for multiple selected probes and render combined view
+ * @param {string[]} serials - Array of probe serial numbers
  */
 async function loadMultipleSerialDetails(serials) {
   if (serials.length === 0) {
@@ -297,7 +266,7 @@ async function loadMultipleSerialDetails(serials) {
   try {
     const allData = [];
     for (const serial of serials) {
-      const data = await fetchSerialData(serial);
+      const data = await fetchProbeData(serial);
       if (data && data.length > 0) {
         // Add serial identifier to each row
         data.forEach(row => {
@@ -322,7 +291,7 @@ async function loadMultipleSerialDetails(serials) {
     
     // Render combined table
     // const cols = Object.keys(allData[0]);
-    const allowedCols = ['SERIAL', 'NAME', 'LATITUDE', 'LONGITUDE', 'DATETIME', 'EARFCN', 'PCI', 'ANTENNA USED', 'RSRP','RSRQ', 'SINR', 'TEMP','NODE_ID', 'SECTOR_ID'];
+    const allowedCols = ['SERIAL', 'NAME', 'LATITUDE', 'LONGITUDE', 'DATETIME', 'EARFCN', 'PCI', 'RSRP','RSRQ', 'SINR', 'TEMP'];
     const cols = allowedCols;
     const table = document.createElement('table');
     table.className = 'table table-sm table-striped';
@@ -330,8 +299,9 @@ async function loadMultipleSerialDetails(serials) {
       // Ορισμός labels για τις κεφαλίδες (αν θες να αλλάξεις το κείμενο που φαίνεται)
   const colLabels = {
     'DATETIME': 'Date/Time',
-    'ANTENNA USED': 'Antenna',
     'RSRP': 'RSRP (dBm)',
+    'RSRQ': 'RSRQ (dB)',
+    'SINR': 'SINR (dB)',
     'TEMP': 'Temp (°C)'
   };
 
@@ -481,13 +451,9 @@ function init() {
     filterEl.addEventListener('input', debounce(handleFilter, CONFIG.UI.FILTER_DEBOUNCE_MS));
   }
 
-  updateAlarmFilterButtons();
-  // updateAlarmBadges();
-  if (alarmCommFilterBtn) {
-    alarmCommFilterBtn.addEventListener('click', handleAlarmCommToggle);
-  }
-  if (alarmPerFilterBtn) {
-    alarmPerFilterBtn.addEventListener('click', handleAlarmPerToggle);
+  updateAlarmOnlyFilterButton();
+  if (alarmOnlyFilterBtn) {
+    alarmOnlyFilterBtn.addEventListener('click', handleAlarmOnlyToggle);
   }
   
   const runAutoRefresh = () => {

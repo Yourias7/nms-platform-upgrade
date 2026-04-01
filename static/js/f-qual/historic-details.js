@@ -147,6 +147,13 @@ function setEndDateInputValue(date) {
   }
 }
 
+function formatNumber(value, decimals = 1) {
+  if (value === null || value === undefined || value === '') return 'N/A';
+  const normalized = typeof value === 'string' ? value.replace(',', '.').trim() : value;
+  const num = typeof normalized === 'number' ? normalized : parseFloat(normalized);
+  return Number.isFinite(num) ? num.toFixed(decimals) : 'N/A';
+}
+
 function exportCombinedCSV(data) {
   if (!data || data.length === 0) return;
   
@@ -381,20 +388,6 @@ function parseCSVLine(line, delimiter = ',') {
 }
 
 /**
- * Safely format a numeric value for display.
- * Accepts strings or numbers and returns 'N/A' for non-numeric values.
- * @param {*} value - Value to format
- * @param {number} decimals - Number of decimal places
- * @returns {string}
- */
-function formatNumber(value, decimals = 1) {
-  if (value === null || value === undefined || value === '') return 'N/A';
-  const normalized = typeof value === 'string' ? value.replace(',', '.').trim() : value;
-  const num = typeof normalized === 'number' ? normalized : parseFloat(normalized);
-  return Number.isFinite(num) ? num.toFixed(decimals) : 'N/A';
-}
-
-/**
  * Validate CSV has required join key columns
  * @param {Array} headers - CSV headers
  * @returns {boolean} True if valid, throws error otherwise
@@ -420,6 +413,7 @@ function validateCsvHeaders(headers) {
 function buildCsvIndex(csvData) {
   const index = {};
   const extraColumns = new Set();
+  
   const requiredCols = ['BEST_CELLID'];
   
   csvData.forEach(row => {
@@ -429,15 +423,16 @@ function buildCsvIndex(csvData) {
       console.warn('[CSV] Skipping row with missing join keys:', row);
       return;
     }
-
+    
     const key = cellid;
-
+    
     // Skip duplicate keys (use first occurrence)
     if (index[key]) {
       console.warn(`[CSV] Duplicate key found, using first occurrence: ${key}`);
       return;
     }
     
+    // Extract extra columns (all except the required ones)
     const enrichment = {};
     Object.entries(row).forEach(([colName, value]) => {
       if (!requiredCols.includes(colName)) {

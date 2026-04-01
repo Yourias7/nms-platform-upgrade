@@ -22,7 +22,6 @@ let currentPage = 1;
 let currentTotal = null; // total records across all pages
 let sortColumn = 'datetime'; // Default sort column
 let sortDirection = 'asc'; // 'asc' or 'desc'
-let currentPerformanceExportAlarms = [];
 
 function getPerformanceAlarmKey(alarm) {
   if (!alarm) return null;
@@ -184,95 +183,6 @@ function bindClearAlarmFiltersButton() {
     clearPerformanceRowFilters();
   });
 }
-// οπως στο app.js export csv
-function exportPerformanceCSV(alarms) {
-  if (!alarms || alarms.length === 0) return;
-
-  const allowedCols = ['SITE', 'SERIAL', 'DATETIME', 'STATUS', 'RSRP', 'SINR', 'TEMP', 'LATITUDE', 'LONGITUDE'];
-  const rows = [allowedCols.join(',')];
-  
-  alarms.forEach((alarm) => {
-    const values = allowedCols.map((col) => {
-      let val = '';
-      switch (col) {
-        case 'SITE':
-          val = alarm.site;
-          break;
-        case 'SERIAL':
-          val = alarm.serial;
-          break;
-        case 'DATETIME':
-          val = alarm.datetime;
-          break;
-        case 'STATUS':
-          val = alarm.status;
-          break;
-        case 'RSRP':
-          val = alarm.rsrp;
-          break;
-        case 'SINR':
-          val = alarm.sinr;
-          break;
-        case 'TEMP':
-          val = alarm.temp;
-          break;
-        case 'LATITUDE':
-          val = alarm.latitude;
-          break;
-        case 'LONGITUDE':
-          val = alarm.longitude;
-          break;
-        default:
-          val = '';
-      }
-
-      if (val === null || val === undefined) val = '';
-      val = String(val);
-      if (val.includes(',') || val.includes('"') || val.includes('\n')) {
-        val = '"' + val.replace(/"/g, '""') + '"';
-      }
-      return val;
-    });
-
-    rows.push(values.join(','));
-  });
-
-  const csvContent = rows.join('\n');
-  const timestamp = new Date().toISOString().replace(/[:.]/g, '-').replace('T', '_').slice(0, 19);
-  const filename = `Performance_Alarms_${timestamp}.csv`;
-
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
-
-function updatePerformanceExportButton(alarms) {
-  const exportBtn = document.getElementById('exportPerformanceCsvBtn');
-  if (!exportBtn) return;
-
-  currentPerformanceExportAlarms = Array.isArray(alarms) ? [...alarms] : [];
-  const hasData = currentPerformanceExportAlarms.length > 0;
-  exportBtn.disabled = !hasData;
-}
-
-function bindPerformanceExportButton() {
-  const exportBtn = document.getElementById('exportPerformanceCsvBtn');
-  if (!exportBtn) return;
-  if (exportBtn.dataset.bound === '1') return;
-  exportBtn.dataset.bound = '1';
-
-  exportBtn.addEventListener('click', (event) => {
-    event.preventDefault();
-    if (!currentPerformanceExportAlarms || currentPerformanceExportAlarms.length === 0) return;
-    exportPerformanceCSV(currentPerformanceExportAlarms);
-  });
-}
 
 /**
  * Render Bootstrap pagination controls below the alarms table
@@ -361,7 +271,7 @@ async function fetchPerformanceAlarmsPage(startDate, endDate, serial = 'all', pa
     let result;
     
     // Fetch from appropriate endpoint based on serial selection
-    // print(serial+"\NHEEEEEEEEEEEEEEEEEREEEEEEEEEEEEEEEEEEEEEEEEEEEEE\N");
+    print(serial+"\NHEEEEEEEEEEEEEEEEEREEEEEEEEEEEEEEEEEEEEEEEEEEEEE\N");
     if (serial === 'all') {
       // Fetch all systems' alarm data
       result = await fetchPagedAllAlarmData(
@@ -938,7 +848,6 @@ function renderPerformanceAlarmsTable(alarms, total = null) {
     // Dispatch event for map (empty)
     window.dispatchEvent(new CustomEvent('performance-alarms:table-rendered', { detail: { alarms: [], selectedKeys: [] } }));
     window.dispatchEvent(new CustomEvent('alarms:table-rendered', { detail: { alarms: [] } }));
-    updatePerformanceExportButton([]);
     return;
   }
   
@@ -949,7 +858,6 @@ function renderPerformanceAlarmsTable(alarms, total = null) {
   
   // Sort alarms by current sort column and direction
   const sortedAlarms = sortPerformanceAlarms(alarms, sortColumn, sortDirection);
-  updatePerformanceExportButton(sortedAlarms);
   
   // Create table
   const table = document.createElement('table');
@@ -1176,9 +1084,6 @@ async function init() {
   if (loadBtn) {
     loadBtn.addEventListener('click', loadPerformanceAlarms);
   }
-
-  // Setup Export button
-  bindPerformanceExportButton();
   
   // Setup Clear button
   const clearBtn = document.getElementById('clearSelectedBtn');

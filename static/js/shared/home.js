@@ -16,26 +16,33 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   });
 
-  // 2) Launch button navigates to the correct platform entry page
-  launchBtn.addEventListener('click', function () {
-    if (!selectedOption) return;
+  // Handle launch button click
+  launchBtn.addEventListener('click', function() {
+    if (selectedOption) {
+      // Store the selection in sessionStorage for later use if needed
+      sessionStorage.setItem('selectedPlatform', selectedOption);
+      
+      // Navigate based on selected option
+      let destination = '/4skelion/liveview'; // Default for 4skelion
 
-    // Optional: keep it in session storage (useful later)
-    sessionStorage.setItem('selectedPlatform', selectedOption);
-
-    // Default: keep 4skelion working as it already is
-    let destination = '/4skelion/liveview';
-
-    // ✅ NEW: 3skelion now goes to its own liveview
-    if (selectedOption === '3skelion') {
-      destination = '/3skelion/liveview';
+      switch (selectedOption) {
+        case '4skelion':
+          destination = '/4skelion/liveview';
+          break;
+        case 'f-steering':
+          destination = '/coming_soon';
+          break;
+        case '3skelion':
+          destination = '/3skelion/liveview';
+          break;
+        case 'f-qual':
+          destination = '/f-qual/liveview';
+          break;
+        default:
+          destination = '/coming_soon';
+      }
+      
+      window.location.href = destination;
     }
-
-    // Everything else still “Coming Soon” for now
-    if (selectedOption === 'f-steering' || selectedOption === 'f-qual') {
-      destination = '/coming_soon';
-    }
-
-    window.location.href = destination;
   });
 });

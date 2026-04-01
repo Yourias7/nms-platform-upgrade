@@ -10,7 +10,7 @@ let alarmChart = null;
 let currentAbortController = null; // Track ongoing requests
 
 // Date range constants
-const MAX_DAYS_BACK = 15;
+const MAX_DAYS_BACK = 30000; // Effectively no limit, but can be adjusted if needed
 
 /**
  * Show loading state in chart area
@@ -79,7 +79,7 @@ function initializeDateInputs() {
     const startDate = new Date(startDateInput.value);
     if (startDate < maxDaysBack) {
       startDateInput.value = formatDate(maxDaysBack);
-      alert('Start date cannot be more than 15 days in the past');
+      alert(`Start date cannot be more than ${MAX_DAYS_BACK} days in the past`);
     }
   });
   
@@ -123,7 +123,7 @@ async function fetchAlarmStatistics(startDate, endDate) {
     params.append('sinr_threshold', thresholds.sinr);
     params.append('temp_threshold', thresholds.temp);
     
-    const url = `/alarms/statistics?${params.toString()}`;
+    const url = `/alarms/probes/statistics?${params.toString()}`;
     const statistics = await fetchJSON(url, signal);
     return statistics;
   } catch (err) {

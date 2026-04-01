@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="/static/css/style.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+    <script src="/static/js/shared/error-handler.js"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
     <link rel="icon" href="/static/img/favicon.ico" type="image/x-icon">
@@ -26,7 +27,7 @@
 
     <nav class="navbar mb-4">
       <div class="container-fluid">
-        <a class="navbar-brand d-flex align-items-center" href="#">
+        <a class="navbar-brand d-flex align-items-center" href="/">
           <img src="/static/img/New%20folder/Picture1.png" alt="logo" style="height:24px; width:24px; margin-right:8px;"/>
           <span>NMS Platform</span>
         </a>
@@ -76,6 +77,11 @@
             <div class="col-12 col-md-3" style="width: auto;">
             <button id="serialLoadBtn" class="btn btn-primary w-100" type="button">Load</button>
         </div>
+            <div class="col-12 col-md-3" style="width: auto;">
+              <button id="exportPerformanceCsvBtn" class="btn btn-outline-primary w-100" type="button" style="width: auto; height: 38px;" disabled>
+                Export CSV
+              </button>
+            </div>
         <!-- Clear Selected Button -->
         <div class="col-12 col-md-3" style="width: auto;">
             <button id="clearSelectedBtn" type="button" class="btn btn-sm btn-outline-secondary" style="width: auto; height: 38px;">

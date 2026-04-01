@@ -12,7 +12,17 @@ import { CONFIG } from './config.js';
 export async function fetchJSON(url, signal = null) {
   const options = signal ? { signal } : {};
   const res = await fetch(url, options);
-  return await res.json();
+  
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`HTTP ${res.status}: ${text || res.statusText}`);
+  }
+  
+  try {
+    return await res.json();
+  } catch (err) {
+    throw new Error(`Failed to parse JSON from ${url}: ${err.message}`);
+  }
 }
 
 /**
@@ -36,6 +46,17 @@ export async function fetchHistoricSerialsList() {
 }
 
 /**
+ * Fetch list of all historic serial numbers
+ * @returns {Promise<string[]>} Array of probe serial numbers
+ */
+export async function fetchProbeSerialsList() {
+  console.log('[Dashboard] Fetching probe serials list from API:', CONFIG.API.PROBE_SERIALS);
+  const res = await fetch(CONFIG.API.PROBE_SERIALS);
+  console.log('[Dashboard] Received response for probe serials list:', res);
+  return await res.json();
+}
+
+/**
  * Fetch all records for a specific serial
  * @param {string} serial - Serial number to fetch
  * @param {AbortSignal} [signal] - Optional AbortSignal for cancellation
@@ -44,6 +65,18 @@ export async function fetchHistoricSerialsList() {
 export async function fetchSerialData(serial, signal = null) {
   const options = signal ? { signal } : {};
   const res = await fetch(`${CONFIG.API.SYSTEMS}/${encodeURIComponent(serial)}`, options);
+  return await res.json();
+}
+
+/**
+ * Fetch all records for a specific serial
+ * @param {string} serial - Serial number to fetch
+ * @param {AbortSignal} [signal] - Optional AbortSignal for cancellation
+ * @returns {Promise<Object[]>} Array of record objects
+ */
+export async function fetchProbeData(serial, signal = null) {
+  const options = signal ? { signal } : {};
+  const res = await fetch(`${CONFIG.API.PROBES}/${encodeURIComponent(serial)}`, options);
   return await res.json();
 }
 
@@ -137,6 +170,57 @@ export async function fetchAlarmSerialData(serial, early, latest, thresholds = n
 }
 
 /**
+ * Fetch paginated alarm records for a specific serial
+ * @param {string} serial - Serial number to fetch
+ * @param {string} early - Start datetime (ISO format)
+ * @param {string} latest - End datetime (ISO format)
+ * @param {number} page - 1-based page number
+ * @param {number} limit - Records per page
+ * @param {Object} thresholds - Optional threshold values {rsrp, sinr, temp}
+ * @param {AbortSignal} [signal] - Optional AbortSignal for cancellation
+ * @returns {Promise<{data: Object[], total: number}>}
+ */
+export async function fetchPagedAlarmSerialData(serial, early, latest, page = 1, limit = 100000, thresholds = null, signal = null) {
+  let url = `${CONFIG.API.ALARM_SYSTEMS}/${encodeURIComponent(serial)}/${encodeURIComponent(early)}/${encodeURIComponent(latest)}?page=${page}&limit=${limit}`;
+  
+  // Add threshold parameters if provided
+  if (thresholds) {
+    if (thresholds.rsrp !== undefined) url += `&rsrp_threshold=${thresholds.rsrp}`;
+    if (thresholds.sinr !== undefined) url += `&sinr_threshold=${thresholds.sinr}`;
+    if (thresholds.temp !== undefined) url += `&temp_threshold=${thresholds.temp}`;
+  }
+  
+  const options = signal ? { signal } : {};
+  const res = await fetch(url, options);
+  return await res.json();
+}
+
+/**
+ * Fetch paginated alarm records for ALL systems ordered by datetime
+ * @param {string} early - Start datetime (ISO format)
+ * @param {string} latest - End datetime (ISO format)
+ * @param {number} page - 1-based page number
+ * @param {number} limit - Records per page
+ * @param {Object} thresholds - Optional threshold values {rsrp, sinr, temp}
+ * @param {AbortSignal} [signal] - Optional AbortSignal for cancellation
+ * @returns {Promise<{data: Object[], total: number}>}
+ */
+export async function fetchPagedAllAlarmData(early, latest, page = 1, limit = 100000, thresholds = null, signal = null) {
+  let url = `/alarms/all/${encodeURIComponent(early)}/${encodeURIComponent(latest)}?page=${page}&limit=${limit}`;
+  
+  // Add threshold parameters if provided
+  if (thresholds) {
+    if (thresholds.rsrp !== undefined) url += `&rsrp_threshold=${thresholds.rsrp}`;
+    if (thresholds.sinr !== undefined) url += `&sinr_threshold=${thresholds.sinr}`;
+    if (thresholds.temp !== undefined) url += `&temp_threshold=${thresholds.temp}`;
+  }
+  
+  const options = signal ? { signal } : {};
+  const res = await fetch(url, options);
+  return await res.json();
+}
+
+/**
  * Fetch LED status data (RSRP/SINR/TEMP) for a serial
  * @param {string} serial - Serial number to check
  * @returns {Promise<{rsrp: number|null, sinr: number|null, temp: number|null, lat: number|null, lon: number|null}>}
@@ -169,6 +253,28 @@ export async function fetchLEDStatus(serial) {
 
   return { rsrp: null, sinr: null, temp: null, lat: null, lon: null, datetime: null };
 }
+/**
+* @returns {Promise<Object>} map like { "123": "BOAT_A", ... }
+ */
+export async function fetchProbeNameMap() {
+  const res = await fetch(CONFIG.API.PROBE_NAME_MAP);
+  const payload = await res.json();
+
+  // If backend already returns an object map
+  if (payload && !Array.isArray(payload) && typeof payload === 'object') {
+    return payload;
+  }
+
+  // If backend returns array of objects
+  const map = {};
+  (payload || []).forEach((x) => {
+    const serial = x?.SERIAL ?? x?.serial ?? x?.Serial ?? x?.id;
+    const name = x?.NAME ?? x?.name ?? x?.Name ?? x?.label;
+    if (serial) map[String(serial)] = name ?? String(serial);
+  });
+  return map;
+}
+
 /**
 * @returns {Promise<Object>} map like { "123": "BOAT_A", ... }
  */
