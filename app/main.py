@@ -93,6 +93,15 @@ def get_alarm_systems(serial: str, early: str, latest: str, page: int = 1, limit
     logger.info(f"Retrieved {len(result['data'])} alarm records (page {page}) out of {result['total']} total for SERIAL: {serial} with thresholds RSRP<={rsrp_threshold}, SINR<={sinr_threshold}, TEMP>={temp_threshold}")
     return result
 
+@app.get("/3skelion/alarms/systems/{serial}/{early}/{latest}")
+def get_3skelion_alarm_systems(serial: str, early: str, latest: str,
+                               rsrp_threshold: float = -120, sinr_threshold: float = 0, temp_threshold: float = 75):
+    data = get_3skelion_alarm_records_by_serial(
+        serial, early=early, latest=latest,
+        rsrp_threshold=rsrp_threshold, sinr_threshold=sinr_threshold, temp_threshold=temp_threshold
+    )
+    return data
+
 @app.get("/alarms/probes/{serial}/{early}/{latest}")
 def get_alarm_probes(serial: str, early: str, latest: str, page: int = 1, limit: int = 100000, rsrp_threshold: float = -120, sinr_threshold: float = 0, temp_threshold: float = 75):
     offset = (page - 1) * limit
@@ -121,6 +130,13 @@ def get_alarm_statistics_endpoint(early: str = None, latest: str = None, rsrp_th
     """Return alarm statistics for all systems (total samples vs alarm samples)."""
     data = get_alarm_statistics(early=early, latest=latest, rsrp_threshold=rsrp_threshold, sinr_threshold=sinr_threshold, temp_threshold=temp_threshold)
     logger.info(f"Retrieved statistics for {len(data)} systems with thresholds RSRP<={rsrp_threshold}, SINR<={sinr_threshold}, TEMP>={temp_threshold}")
+    return data
+
+@app.get("/3skelion/alarms/statistics")
+def get_3skelion_alarm_statistics_endpoint(early: str = None, latest: str = None, rsrp_threshold: float = -120, sinr_threshold: float = 0, temp_threshold: float = 75):
+    """Return alarm statistics for 3skelion systems (total samples vs alarm samples)."""
+    data = get_3skelion_alarm_statistics(early=early, latest=latest, rsrp_threshold=rsrp_threshold, sinr_threshold=sinr_threshold, temp_threshold=temp_threshold)
+    logger.info(f"Retrieved statistics for {len(data)} 3skelion systems with thresholds RSRP<={rsrp_threshold}, SINR<={sinr_threshold}, TEMP>={temp_threshold}")
     return data
 
 @app.get("/playback/Historic/{serial}/earliest")
