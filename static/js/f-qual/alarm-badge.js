@@ -28,7 +28,19 @@ function isCommunicationAlarm(timestamp) {
  */
 async function countCommunicationAlarms() {
   try {
-    const serials = await fetchJSON(CONFIG.API.PROBE_SERIALS);
+    let serials;
+    try {
+      serials = await fetchJSON(CONFIG.API.PROBE_SERIALS);
+    } catch (err) {
+      console.warn('[Alarm Badge] Failed to fetch probes list - backend may be unavailable:', err.message);
+      return 0;
+    }
+
+    if (!Array.isArray(serials) || serials.length === 0) {
+      console.debug('[Alarm Badge] No probes found');
+      return 0;
+    }
+
     let alarmCount = 0;
     
     for (const serial of serials) {
@@ -56,13 +68,13 @@ async function countCommunicationAlarms() {
         }
       } catch (err) {
         // Skip this serial on error
-        console.warn(`Failed to check alarm for ${serial}:`, err);
+        console.debug(`[Alarm Badge] Failed to check alarm for ${serial}:`, err.message);
       }
     }
     
     return alarmCount;
   } catch (err) {
-    console.error('Error counting alarms:', err);
+    console.warn('[Alarm Badge] Error counting alarms:', err.message);
     return 0;
   }
 }
@@ -96,19 +108,36 @@ function updateAlarmBadge(count) {
  * Check and update alarm badge
  */
 async function refreshAlarmBadge() {
-  const count = await countCommunicationAlarms();
-  updateAlarmBadge(count);
+  try {
+    const count = await countCommunicationAlarms();
+    updateAlarmBadge(count);
+    console.debug('[Alarm Badge] Badge updated with count:', count);
+  } catch (err) {
+    console.warn('[Alarm Badge] Failed to refresh badge:', err.message);
+    // Silently fail - don't show errors for non-critical feature
+  }
 }
 
 /**
  * Initialize alarm badge monitoring
  */
 function initAlarmBadge() {
-  // Initial check
-  refreshAlarmBadge();
-  
-  // Periodic refresh
-  setInterval(refreshAlarmBadge, BADGE_REFRESH_INTERVAL);
+  try {
+    console.debug('[Alarm Badge] Initializing alarm badge monitoring');
+    // Initial check
+    refreshAlarmBadge();
+    
+    // Periodic refresh (don't await, let it run in background)
+    setInterval(() => {
+      refreshAlarmBadge().catch(err => {
+        console.debug('[Alarm Badge] Periodic refresh error (ignored):', err.message);
+      });
+    }, BADGE_REFRESH_INTERVAL);
+    
+    console.debug('[Alarm Badge] Monitoring initialized with interval:', BADGE_REFRESH_INTERVAL, 'ms');
+  } catch (err) {
+    console.warn('[Alarm Badge] Failed to initialize alarm badge:', err.message);
+  }
 }
 
 // Auto-start on DOM ready
