@@ -17,6 +17,8 @@ let currentFilter = '';
 let selectedSerials = [];
 let serialNameMap = {};
 let serialAlarmCache = new Map();
+let serialCommAlarmCache = new Map();
+let serialPerfAlarmCache = new Map();
 let currentlyRenderedSerials = [];
 
 /**
@@ -37,6 +39,8 @@ export function setSerials(newSerials) {
   serialAlarmCache.forEach((_, serial) => {
     if (!serialSet.has(serial)) {
       serialAlarmCache.delete(serial);
+      serialCommAlarmCache.delete(serial);
+      serialPerfAlarmCache.delete(serial);
     }
   });
 }
@@ -135,7 +139,13 @@ export function isSerialInAlarm(serial) {
   return serialAlarmCache.get(serial) === true;
 }
 
+export function isCommAlarm(serial) {
+  return serialCommAlarmCache.get(serial) === true;
+}
 
+export function isPerfAlarm(serial) {
+  return serialPerfAlarmCache.get(serial) === true;
+}
 
 /**
  * Determine LED color based on RSRP/SINR/TEMP thresholds
@@ -162,6 +172,12 @@ function showClearBtn(show) {
   const btn = document.getElementById('clearSelectedBtn');
   if (!btn) return;
   btn.style.display = show ? 'inline-block' : 'none';
+}
+
+function shouldShowClearBtn() {
+  const filterInput = document.getElementById('filter');
+  const hasFilterText = !!(filterInput && filterInput.value.trim() !== '');
+  return selectedSerials.length > 0 || hasFilterText;
 }
 
 function bindClearButton(onSelectSerial) {
@@ -193,6 +209,16 @@ function bindClearButton(onSelectSerial) {
 
     // 5) προαιρετικά ενημέρωσε UI/Details (αν το onSelectSerial το χειρίζεται)
     try { onSelectSerial(null, null); } catch (_) {}
+
+    // 6) Clear the filter input text too (like 4skelion)
+    const filterInput = document.getElementById('filter');
+    if (filterInput) {
+      const hadValue = filterInput.value;
+      filterInput.value = '';
+      if (hadValue !== '') {
+        filterInput.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    }
   });
 }
 
@@ -245,13 +271,13 @@ export async function renderSerials(data, onSelectSerial, loadMultipleDetails = 
 
   bindClearButton(onSelectSerial);
   bindSelectAllButton(onSelectSerial, loadMultipleDetails);
-  showClearBtn(selectedSerials.length > 0);
+  showClearBtn(shouldShowClearBtn());
   
   if (!data || data.length === 0) {
     serialListEl.innerHTML = '<div class="text-muted text-center p-3">No serials found</div>';
     if (serialCountEl) serialCountEl.textContent = `0`;
     clearMapMarkers();
-    showClearBtn(false);
+    showClearBtn(shouldShowClearBtn());
     return;
   }
   try {
@@ -328,9 +354,12 @@ export async function renderSerials(data, onSelectSerial, loadMultipleDetails = 
 
       const inCommunicationAlarm = !last || (Date.now() - last.getTime() > SIX_HOURS_MS);
       const inKpiAlarm = ledClass === 'led-red';
+
+      serialCommAlarmCache.set(s, inCommunicationAlarm);
+      serialPerfAlarmCache.set(s, inKpiAlarm);
       serialAlarmCache.set(s, inCommunicationAlarm || inKpiAlarm);
 
-      // Always set icon color deterministically (no leftover stale color)
+      // icon stays the same
       icon.classList.toggle('comm-alarm', inCommunicationAlarm);
     } catch (err) {
       serialAlarmCache.set(s, false);
@@ -373,11 +402,12 @@ export async function renderSerials(data, onSelectSerial, loadMultipleDetails = 
  * @param {Function} loadMultipleDetails - Function to load details for multiple serials
  */
 export function filterSerials(query, onSelectSerial, options = {}, loadMultipleDetails = null) {
-  const { alarmOnly = false } = options;
+  const { alarmComm = false, alarmPer = false } = options;
+
   currentFilter = query;
   const ql = query.toLowerCase();
   let filtered = serials;
-  
+
   if (ql) {
     filtered = filtered.filter(s => {
       const serialMatch = s.toLowerCase().includes(ql);
@@ -386,8 +416,12 @@ export function filterSerials(query, onSelectSerial, options = {}, loadMultipleD
     });
   }
 
-  if (alarmOnly) {
-    filtered = filtered.filter(s => isSerialInAlarm(s));
+  if (alarmComm || alarmPer) {
+    filtered = filtered.filter(s => {
+      const hasCommAlarm = alarmComm && isCommAlarm(s);
+      const hasPerfAlarm = alarmPer && isPerfAlarm(s);
+      return hasCommAlarm || hasPerfAlarm;
+    });
   }
 
   renderSerials(filtered, onSelectSerial, loadMultipleDetails);

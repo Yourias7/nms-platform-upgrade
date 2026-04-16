@@ -17,28 +17,49 @@ import {
   clearSelectedSerials,
   renderSerials, 
   filterSerials,
-  isSerialInAlarm
+//  isSerialInAlarm,
+  isCommAlarm,
+  isPerfAlarm
 } from './serials.js';
 import { loadSerialDetails, clearDetails } from './details.js';
 
 // DOM elements
 const filterEl = document.getElementById('filter');
-const alarmOnlyFilterBtn = document.getElementById('alarmOnlyFilterBtn');
+const alarmCommFilterBtn = document.getElementById('alarmCommFilterBtn');
+const alarmPerFilterBtn = document.getElementById('alarmPerFilterBtn');
 let autoRefreshTimer = null;
-let alarmOnlyFilterActive = false;
 
-function updateAlarmOnlyFilterButton() {
-  if (!alarmOnlyFilterBtn) return;
+let alarmCommActive = false;
+let alarmPerActive = false;
 
-  alarmOnlyFilterBtn.classList.toggle('btn-danger', alarmOnlyFilterActive);
-  alarmOnlyFilterBtn.classList.toggle('btn-outline-danger', !alarmOnlyFilterActive);
-  alarmOnlyFilterBtn.setAttribute('aria-pressed', alarmOnlyFilterActive ? 'true' : 'false');
-  alarmOnlyFilterBtn.textContent = alarmOnlyFilterActive ? 'Showing Alarms Only' : 'Show Alarms Only';
+// function updateAlarmOnlyFilterButton() {
+//   if (!alarmOnlyFilterBtn) return;
+
+//   alarmOnlyFilterBtn.classList.toggle('btn-danger', alarmOnlyFilterActive);
+//   alarmOnlyFilterBtn.classList.toggle('btn-outline-danger', !alarmOnlyFilterActive);
+//   alarmOnlyFilterBtn.setAttribute('aria-pressed', alarmOnlyFilterActive ? 'true' : 'false');
+//   alarmOnlyFilterBtn.textContent = alarmOnlyFilterActive ? 'Showing Alarms Only' : 'Show Alarms Only';
+// }
+
+function updateAlarmFilterButtons() {
+  if (alarmCommFilterBtn) {
+    alarmCommFilterBtn.classList.toggle('btn-danger', alarmCommActive);
+    alarmCommFilterBtn.classList.toggle('btn-outline-danger', !alarmCommActive);
+    alarmCommFilterBtn.setAttribute('aria-pressed', alarmCommActive ? 'true' : 'false');
+    alarmCommFilterBtn.textContent = 'Communication';
+  }
+
+  if (alarmPerFilterBtn) {
+    alarmPerFilterBtn.classList.toggle('btn-danger', alarmPerActive);
+    alarmPerFilterBtn.classList.toggle('btn-outline-danger', !alarmPerActive);
+    alarmPerFilterBtn.setAttribute('aria-pressed', alarmPerActive ? 'true' : 'false');
+    alarmPerFilterBtn.textContent = 'Performance';
+  }
 }
 
 function applyActiveFilters() {
   const currentFilter = getCurrentFilter() || '';
-  filterSerials(currentFilter, handleSerialSelect, { alarmOnly: alarmOnlyFilterActive }, loadMultipleSerialDetails);
+  filterSerials(currentFilter, handleSerialSelect, { alarmComm: alarmCommActive, alarmPer: alarmPerActive }, loadMultipleSerialDetails);
 }
 
 /**
@@ -87,8 +108,12 @@ async function handleSerialSelect(serial, card) {
         ? allSerials.filter(s => s.toLowerCase().includes(currentFilter.toLowerCase()))
         : allSerials;
 
-      if (alarmOnlyFilterActive) {
-        displaySerials = displaySerials.filter(s => isSerialInAlarm(s));
+      if (alarmCommActive || alarmPerActive) {
+        displaySerials = displaySerials.filter(s => {
+          const hasCommAlarm = alarmCommActive && isCommAlarm(s);
+          const hasPerAlarm = alarmPerActive && isPerfAlarm(s);
+          return hasCommAlarm || hasPerAlarm;
+        });
       }
 
       updateMapMarkers(displaySerials);
@@ -118,12 +143,18 @@ async function handleSerialSelect(serial, card) {
  */
 function handleFilter() {
   const query = filterEl.value.trim();
-  filterSerials(query, handleSerialSelect, { alarmOnly: alarmOnlyFilterActive }, loadMultipleSerialDetails);
+  filterSerials(query, handleSerialSelect, { alarmComm: alarmCommActive, alarmPer: alarmPerActive }, loadMultipleSerialDetails);
 }
 
-function handleAlarmOnlyToggle() {
-  alarmOnlyFilterActive = !alarmOnlyFilterActive;
-  updateAlarmOnlyFilterButton();
+function handleAlarmCommToggle() {
+  alarmCommActive = !alarmCommActive;
+  updateAlarmFilterButtons();
+  applyActiveFilters();
+}
+
+function handleAlarmPerToggle() {
+  alarmPerActive = !alarmPerActive;
+  updateAlarmFilterButtons();
   applyActiveFilters();
 }
 
@@ -458,9 +489,13 @@ function init() {
     filterEl.addEventListener('input', debounce(handleFilter, CONFIG.UI.FILTER_DEBOUNCE_MS));
   }
 
-  updateAlarmOnlyFilterButton();
-  if (alarmOnlyFilterBtn) {
-    alarmOnlyFilterBtn.addEventListener('click', handleAlarmOnlyToggle);
+  updateAlarmFilterButtons();
+
+  if (alarmCommFilterBtn) {
+    alarmCommFilterBtn.addEventListener('click', handleAlarmCommToggle);
+  }
+  if (alarmPerFilterBtn) {
+    alarmPerFilterBtn.addEventListener('click', handleAlarmPerToggle);
   }
   
   const runAutoRefresh = () => {
