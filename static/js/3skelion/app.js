@@ -4,6 +4,7 @@
 import { CONFIG } from '../shared/config.js';
 import { fetchSerialsList, fetchSerialData } from '../shared/api.js';
 import { debounce } from '../shared/utils.js';
+import { isInAlarm } from './settings.js';
 import { initMap, preloadCustomIcon, updateMapMarkers, getMarkers, getMap, hideMapLoading } from './map.js';
 import { 
   getSerials, 
@@ -24,6 +25,7 @@ import {
 import { loadSerialDetails, clearDetails } from './details.js';
 
 // DOM elements
+const COMM_THRESHOLD_MS = 6 * 60 * 60 * 1000; // 6 hours
 const filterEl = document.getElementById('filter');
 const alarmCommFilterBtn = document.getElementById('alarmCommFilterBtn');
 const alarmPerFilterBtn = document.getElementById('alarmPerFilterBtn');
@@ -366,87 +368,57 @@ async function loadMultipleSerialDetails(serials) {
     thead.appendChild(trh);
     table.appendChild(thead);
     
-    // // Table body
-    // const tbody = document.createElement('tbody');
-    // allData.forEach(row => {
-    //   const tr = document.createElement('tr');
-    //   cols.forEach(c => {
-    //     const td = document.createElement('td');
-    //     let v = row[c];
-    //     if (v === null || v === undefined) v = '';
-
-    //     const colName = String(c).trim().toUpperCase();
-
-    //     // Format DATETIME values if present
-    //     if (colName === 'DATETIME' && v !== '') {
-    //       if (typeof v === 'string') {
-    //         v = v.replace(/T/g, ' ');
-    //       } else {
-    //         v = String(v).replace(/T/g, ' ');
-    //       }
-    //     }
-
-    //     td.textContent = v;
 // Table body (MULTI) - only allowedCols + case-insensitive keys
 const tbody = document.createElement('tbody');
 
-allData.forEach(row => {
-  const tr = document.createElement('tr');
+  allData.forEach((row) => {
+    const tr = document.createElement('tr');
 
-  // normalize keys once per row (case-insensitive)
-  const rowU = {};
-  for (const [k, v] of Object.entries(row || {})) {
-    rowU[String(k).trim().toUpperCase()] = v;
-  }
-
-  allowedCols.forEach(colKey => {
-    const td = document.createElement('td');
-    const colName = String(colKey).trim().toUpperCase();
-
-    let v = rowU[colName];
-    if (v === null || v === undefined) v = '';
-
-    // DATETIME formatting
-    if (colName === 'TIME' && v !== '') {
-      v = String(v).replace(/T/g, ' ');
+    // normalize keys once per row (case-insensitive)
+    const rowU = {};
+    for (const [k, v0] of Object.entries(row || {})) {
+      rowU[String(k).trim().toUpperCase()] = v0;
     }
 
-    td.textContent = v;
+    // comm alarm per row (TIME)
+    const tRaw = rowU['TIME'] || rowU['DATETIME'];
+    const last = tRaw ? new Date(String(tRaw).replace(' ', 'T')) : null;
+    const commAlarm = !last || (Date.now() - last.getTime() > COMM_THRESHOLD_MS);
 
+    allowedCols.forEach((colKey) => {
+      const td = document.createElement('td');
+      const colName = String(colKey).trim().toUpperCase();
+      const raw = rowU[colName];
 
+      let v = raw;
+      if (v === null || v === undefined) v = '';
 
-    //     // Highlight RSRP values under -120 in red
-    //     if (colName === 'RSRP' && v !== '' && parseFloat(v) < -120) {
-    //       td.style.color = 'red';
-    //       td.style.fontWeight = 'bold';
-    //     }
-        
-    //     tr.appendChild(td);
-    //   });
-    //   tbody.appendChild(tr);
-    // });
-    // table.appendChild(tbody);
-        // Highlight rules (βάλε όσους θες)
-    if (colName === 'BEST_RSRP' && v !== '' && parseFloat(v) < -120) {
-      td.style.color = 'red';
-      td.style.fontWeight = 'bold';
-    }
-    if (colName === 'BEST_SNR' && v !== '' && parseFloat(v) <= 0) {
-      td.style.color = 'red';
-      td.style.fontWeight = 'bold';
-    }
-    if (colName === 'TEMP' && v !== '' && parseFloat(v) >= 85) {
-      td.style.color = 'red';
-      td.style.fontWeight = 'bold';
-    }
+      // formatting (similar to details.js)
+      if (colName === 'TIME' && v !== '') v = String(v).replace(/T/g, ' ');
+      if ((colName === 'LAT' || colName === 'LON') && v !== '' && Number.isFinite(Number(v))) v = Number(v).toFixed(6);
+      if (colName === 'BEST_RSRP' && v !== '' && Number.isFinite(Number(v))) v = Number(v).toFixed(0);
+      if ((colName === 'BEST_RSRQ' || colName === 'BEST_SNR') && v !== '' && Number.isFinite(Number(v))) v = Number(v).toFixed(2);
+      if (colName === 'TEMP' && v !== '' && Number.isFinite(Number(v))) v = Number(v).toFixed(1);
 
-    tr.appendChild(td);
+      td.textContent = v;
+
+      const mark = () => td.classList.add('alarm-culprit');
+
+      // culprits
+      if (colName === 'TIME' && commAlarm) mark();
+      if (colName === 'BEST_RSRP' && isInAlarm('rsrp', raw)) mark();
+      if (colName === 'BEST_SNR' && isInAlarm('sinr', raw)) mark();
+      if (colName === 'TEMP' && isInAlarm('temp', raw)) mark();
+      if (colName === 'LAT' && isInAlarm('lat', raw)) mark();
+      if (colName === 'LON' && isInAlarm('lon', raw)) mark();
+
+      tr.appendChild(td);
+    });
+
+    tbody.appendChild(tr);
   });
 
-  tbody.appendChild(tr);
-});
-
-table.appendChild(tbody);
+  table.appendChild(tbody);
     
     detailsEl.innerHTML = '';
     detailsEl.appendChild(table);

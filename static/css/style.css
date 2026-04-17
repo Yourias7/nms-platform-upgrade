@@ -463,6 +463,11 @@ body::after {
   outline: 1px solid rgba(220, 53, 69, 0.7);
 }
 
+.table tbody td.alarm-culprit {
+  color: #dc3545 !important;
+  font-weight: 700 !important;
+}
+
 /* Alarm badge on navbar */
 .alarm-badge {
   display: inline-flex;

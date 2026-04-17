@@ -3,12 +3,15 @@
 
 import { fetchSerialData, getExportUrl } from '../shared/api.js';
 import { getMarkers, getMap } from './map.js';
+import { isInAlarm } from './settings.js';
 
 // Sorting state
 let currentDetailsData = [];
 let currentSerial = null;
 let sortColumn = null;
 let sortDirection = 'asc';
+
+const COMM_THRESHOLD_MS = 6 * 60 * 60 * 1000; // 6 hours
 
 function formatCell(col, val) {
   if (val === null || val === undefined || val === '') return '';
@@ -300,6 +303,9 @@ export function renderDetailsTable(serial, data) {
   const tbody = document.createElement('tbody');
   data.forEach(row => {
     const tr = document.createElement('tr');
+    const tRaw = row.TIME || row.DATETIME;
+    const last = tRaw ? new Date(tRaw) : null;
+    const commAlarm = !last || (Date.now() - last.getTime() > COMM_THRESHOLD_MS);
     
     allowedCols.forEach(colKey => {
       const td = document.createElement('td');
@@ -316,22 +322,21 @@ export function renderDetailsTable(serial, data) {
       }
       
       td.textContent = v;
-      
-      // Highlights (Κόκκινο χρώμα σε κακές τιμές)
-      if (colName === 'BEST_RSRP' && v !== '' && parseFloat(v) <= -120) {
-        td.style.color = 'red';
-        td.style.fontWeight = 'bold';
-      }
 
-      if (colName === 'BEST_SNR' && v !== '' && parseFloat(v) <= 0) {
-        td.style.color = 'red';
-        td.style.fontWeight = 'bold';
-      }
+      // Helper to mark culprit cell (works even with .table { color: ... !important; })
+      const mark = () => td.classList.add('alarm-culprit');
 
-      if (colName === 'TEMP' && v !== '' && parseFloat(v) >= 85) {
-        td.style.color = 'red';
-        td.style.fontWeight = 'bold';
-      }
+      // Communication culprit
+      if (colName === 'TIME' && commAlarm) mark();
+
+      // Performance culprits (use Settings thresholds)
+      if (colName === 'BEST_RSRP' && isInAlarm('rsrp', raw)) mark();
+      if (colName === 'BEST_SNR' && isInAlarm('sinr', raw)) mark();
+      if (colName === 'TEMP' && isInAlarm('temp', raw)) mark();
+
+      // GPS culprits (optional, but consistent with your Settings alarms)
+      if (colName === 'LAT' && isInAlarm('lat', raw)) mark();
+      if (colName === 'LON' && isInAlarm('lon', raw)) mark();
       
       tr.appendChild(td);
     });

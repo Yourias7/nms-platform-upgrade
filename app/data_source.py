@@ -1590,6 +1590,72 @@ def get_3skelion_live_records_by_serial(serial: str):
     finally:
         db.close()
 
+def export_3skelion_live_csv(serial: str) -> str:
+    """
+    Export latest 3skelion live record (LiveOldSheet$) as CSV.
+    Matches the columns you show in the LiveView details table.
+    """
+    db = SessionLocal()
+    try:
+        ser = str(serial).strip()
+
+        sql = text("""
+            SELECT TOP (1)
+                SERIAL,
+                [TIME],
+                LAT,
+                LON,
+                TEMP,
+                SCANID,
+                BEST_RSRP,
+                BEST_SNR,
+                BEST_RSRQ,
+                BEST_CELLID,
+                BEST_ANTENNA
+            FROM [3skelion2].[dbo].[LiveOldSheet$]
+            WHERE SERIAL = :serial
+            ORDER BY [TIME] DESC, SCANID DESC
+        """)
+
+        row = db.execute(sql, {"serial": ser}).mappings().first()
+
+        # Prepare CSV
+        output = io.StringIO()
+        writer = csv.writer(output)
+
+        headers = [
+            "SHIP","SERIAL","LAT","LON","TIME",
+            "BEST_ANTENNA","BEST_CELLID","BEST_RSRP","BEST_RSRQ","BEST_SNR","TEMP"
+        ]
+        writer.writerow(headers)
+
+        if not row:
+            return output.getvalue()
+
+        r = dict(row)
+        ship = get_ship_name(ser)
+
+        time_val = r.get("TIME")
+        time_str = time_val.isoformat() if time_val else ""
+
+        writer.writerow([
+            ship,
+            ser,
+            r.get("LAT",""),
+            r.get("LON",""),
+            time_str.replace("T"," "),
+            r.get("BEST_ANTENNA",""),
+            r.get("BEST_CELLID",""),
+            r.get("BEST_RSRP",""),
+            r.get("BEST_RSRQ",""),
+            r.get("BEST_SNR",""),
+            r.get("TEMP",""),
+        ])
+
+        return output.getvalue()
+    finally:
+        db.close()
+
 def live_3skelion_serials_with_locations():
     db = SessionLocal()
     try:
