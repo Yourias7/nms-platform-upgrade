@@ -3,6 +3,7 @@
 
 import { fetchSerialData, getExportUrl } from '../shared/api.js';
 import { getMarkers, getMap } from './map.js';
+import { isInAlarm } from './settings.js';
 
 // Sorting state
 let currentDetailsData = [];
@@ -10,6 +11,15 @@ let currentSerial = null;
 let sortColumn = null;
 let sortDirection = 'asc';
 const allowedCols = ['SERIAL', 'NAME', 'LATITUDE', 'LONGITUDE', 'DATETIME', 'EARFCN', 'PCI', 'ANTENNA USED', 'RSRP','RSRQ', 'SINR', 'TEMP','NODE_ID', 'SECTOR_ID'];
+
+const COMM_THRESHOLD_MS = 3 * 60 * 60 * 1000; // 4skelion comm alarm = 3 hours
+
+function parseBackendDate(value) {
+  if (!value) return null;
+  const s = String(value).trim().replace(' ', 'T'); // supports "YYYY-MM-DD HH:MM:SS"
+  const d = new Date(s);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
 
 /**
  * Sort details table by column
@@ -193,6 +203,18 @@ export function renderDetailsTable(serial, data) {
     exportBtn.style.display = 'none';
     return;
   }
+
+  // Find latest DATETIME in the returned records (live state)
+  let latestMs = null;
+  for (const r of data) {
+    const d = parseBackendDate(r?.DATETIME);
+    if (d) {
+      const ms = d.getTime();
+      if (latestMs === null || ms > latestMs) latestMs = ms;
+    }
+  }
+
+  const commAlarm = (latestMs === null) || (Date.now() - latestMs > COMM_THRESHOLD_MS);
   
   // Ορισμός labels για τις κεφαλίδες (αν θες να αλλάξεις το κείμενο που φαίνεται)
   const colLabels = {
@@ -266,21 +288,27 @@ export function renderDetailsTable(serial, data) {
       
       td.textContent = v;
       
-      // Highlights (Κόκκινο χρώμα σε κακές τιμές)
-      if (colName === 'RSRP' && v !== '' && parseFloat(v) <= -120) {
-        td.style.color = 'red';
-        td.style.fontWeight = 'bold';
+      // --- Culprit highlighting (client-friendly) ---
+      // highlight ONLY the KPI(s) responsible, and ONLY on the latest row for this ship
+      const mark = () => td.classList.add('alarm-culprit');
+
+      // determine if THIS row is the latest row
+      const rowDt = parseBackendDate(row.DATETIME);
+      const isLatestRow = rowDt && latestMs !== null && Math.abs(rowDt.getTime() - latestMs) < 1000;
+
+      // Communication culprit: DATETIME only (latest row)
+      if (isLatestRow && commAlarm && colName === 'DATETIME') {
+        mark();
       }
 
-      if (colName === 'SINR' && v !== '' && parseFloat(v) <= 0) {
-        td.style.color = 'red';
-        td.style.fontWeight = 'bold';
-      }
+      // Performance culprits: only KPIs that fail thresholds (latest row only)
+      if (isLatestRow && colName === 'RSRP' && isInAlarm('rsrp', row[colKey])) mark();
+      if (isLatestRow && colName === 'SINR' && isInAlarm('sinr', row[colKey])) mark();
+      if (isLatestRow && colName === 'TEMP' && isInAlarm('temp', row[colKey])) mark();
 
-      if (colName === 'TEMP' && v !== '' && parseFloat(v) >= 85) {
-        td.style.color = 'red';
-        td.style.fontWeight = 'bold';
-      }
+      // GPS culprits (optional αλλά πολύ χρήσιμο)
+      if (isLatestRow && colName === 'LATITUDE' && isInAlarm('lat', row[colKey])) mark();
+      if (isLatestRow && colName === 'LONGITUDE' && isInAlarm('lon', row[colKey])) mark();
       
       tr.appendChild(td);
     });

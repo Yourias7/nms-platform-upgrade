@@ -4,6 +4,7 @@
 import { CONFIG } from '../shared/config.js';
 import { fetchSerialsList, fetchSerialData } from '../shared/api.js';
 import { debounce } from '../shared/utils.js';
+import { isInAlarm } from './settings.js';
 import { initMap, preloadCustomIcon, updateMapMarkers, getMarkers, getMap, hideMapLoading } from './map.js';
 import {
   getSerials,
@@ -29,6 +30,15 @@ const alarmCommFilterBtn = document.getElementById('alarmCommFilterBtn');
 const alarmPerFilterBtn = document.getElementById('alarmPerFilterBtn');
 const alarmCommCountBadge = document.getElementById('alarmCommCountBadge');
 const alarmPerCountBadge = document.getElementById('alarmPerCountBadge');
+const COMM_THRESHOLD_MS = 3 * 60 * 60 * 1000; // 4skelion comm alarm = 3 hours
+
+function parseBackendDate(value) {
+  if (!value) return null;
+  const s = String(value).trim().replace(' ', 'T');
+  const d = new Date(s);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
 let autoRefreshTimer = null;
 let alarmCommActive = false;
 let alarmPerActive = false;
@@ -311,6 +321,27 @@ async function loadMultipleSerialDetails(serials) {
       exportBtn.style.display = 'none';
       return;
     }
+
+    // Build latest DATETIME per SERIAL (to be client-friendly: highlight only the latest row)
+    const latestMsBySerial = new Map();
+
+    for (const r of allData) {
+      const ser = r.SERIAL;
+      const d = parseBackendDate(r.DATETIME);
+      if (!ser) continue;
+      if (d) {
+        const ms = d.getTime();
+        const prev = latestMsBySerial.get(ser);
+        if (prev === undefined || ms > prev) latestMsBySerial.set(ser, ms);
+      }
+    }
+
+    const commAlarmBySerial = new Map();
+    for (const ser of serials) {
+      const ms = latestMsBySerial.get(ser);
+      const inComm = (ms === undefined) || (Date.now() - ms > COMM_THRESHOLD_MS);
+      commAlarmBySerial.set(ser, inComm);
+    }
     
     // Show export button for multiple serials (will export combined data as CSV)
     exportBtn.style.display = 'inline-block';
@@ -321,32 +352,21 @@ async function loadMultipleSerialDetails(serials) {
     };
     
     // Render combined table
-    // const cols = Object.keys(allData[0]);
+
     const allowedCols = ['SERIAL', 'NAME', 'LATITUDE', 'LONGITUDE', 'DATETIME', 'EARFCN', 'PCI', 'ANTENNA USED', 'RSRP','RSRQ', 'SINR', 'TEMP','NODE_ID', 'SECTOR_ID'];
     const cols = allowedCols;
     const table = document.createElement('table');
     table.className = 'table table-sm table-striped';
 
-      // Ορισμός labels για τις κεφαλίδες (αν θες να αλλάξεις το κείμενο που φαίνεται)
-  const colLabels = {
-    'DATETIME': 'Date/Time',
-    'ANTENNA USED': 'Antenna',
-    'RSRP': 'RSRP (dBm)',
-    'TEMP': 'Temp (°C)'
-  };
+    // Ορισμός labels για τις κεφαλίδες (αν θες να αλλάξεις το κείμενο που φαίνεται)
+    const colLabels = {
+      'DATETIME': 'Date/Time',
+      'ANTENNA USED': 'Antenna',
+      'RSRP': 'RSRP (dBm)',
+      'TEMP': 'Temp (°C)'
+    };
 
-    
-    // Table header
-    // const thead = document.createElement('thead');
-    // const trh = document.createElement('tr');
-    // cols.forEach(c => {
-    //   const th = document.createElement('th');
-    //   th.textContent = c;
-    //   trh.appendChild(th);
-    // });
-    // thead.appendChild(trh);
-    // table.appendChild(thead);
-      // Δημιουργία Header
+    // Δημιουργία Header
     const thead = document.createElement('thead');
     const trh = document.createElement('tr');
     allowedCols.forEach(colKey => {
@@ -358,91 +378,64 @@ async function loadMultipleSerialDetails(serials) {
     thead.appendChild(trh);
     table.appendChild(thead);
     
-    // // Table body
-    // const tbody = document.createElement('tbody');
-    // allData.forEach(row => {
-    //   const tr = document.createElement('tr');
-    //   cols.forEach(c => {
-    //     const td = document.createElement('td');
-    //     let v = row[c];
-    //     if (v === null || v === undefined) v = '';
+    const tbody = document.createElement('tbody');
 
-    //     const colName = String(c).trim().toUpperCase();
+    allData.forEach(row => {
+      const tr = document.createElement('tr');
 
-    //     // Format DATETIME values if present
-    //     if (colName === 'DATETIME' && v !== '') {
-    //       if (typeof v === 'string') {
-    //         v = v.replace(/T/g, ' ');
-    //       } else {
-    //         v = String(v).replace(/T/g, ' ');
-    //       }
-    //     }
+      // normalize keys once per row (case-insensitive)
+      const rowU = {};
+      for (const [k, v] of Object.entries(row || {})) {
+        rowU[String(k).trim().toUpperCase()] = v;
+      }
 
-    //     td.textContent = v;
-// Table body (MULTI) - only allowedCols + case-insensitive keys
-const tbody = document.createElement('tbody');
+      allowedCols.forEach(colKey => {
+        const td = document.createElement('td');
+        const colName = String(colKey).trim().toUpperCase();
 
-allData.forEach(row => {
-  const tr = document.createElement('tr');
+        let v = rowU[colName];
+        if (v === null || v === undefined) v = '';
 
-  // normalize keys once per row (case-insensitive)
-  const rowU = {};
-  for (const [k, v] of Object.entries(row || {})) {
-    rowU[String(k).trim().toUpperCase()] = v;
-  }
+        // DATETIME formatting
+        if (colName === 'DATETIME' && v !== '') {
+          v = String(v).replace(/T/g, ' ');
+        }
 
-  allowedCols.forEach(colKey => {
-    const td = document.createElement('td');
-    const colName = String(colKey).trim().toUpperCase();
+        td.textContent = v;
 
-    let v = rowU[colName];
-    if (v === null || v === undefined) v = '';
+        // --- Culprit highlighting (client-friendly) ---
+        const mark = () => td.classList.add('alarm-culprit');
 
-    // DATETIME formatting
-    if (colName === 'DATETIME' && v !== '') {
-      v = String(v).replace(/T/g, ' ');
-    }
+        const rowSerial = rowU['SERIAL'];
+        const latestMs = latestMsBySerial.get(rowSerial);
+        const rowDt = parseBackendDate(rowU['DATETIME']);
+        const isLatestRow = rowDt && latestMs !== undefined && Math.abs(rowDt.getTime() - latestMs) < 1000;
 
-    td.textContent = v;
+        const commAlarm = commAlarmBySerial.get(rowSerial) === true;
 
+        // Communication culprit (latest row only)
+        if (isLatestRow && commAlarm && colName === 'DATETIME') mark();
 
+        // Performance culprits (latest row only, only KPI that fails)
+        if (isLatestRow && colName === 'RSRP' && isInAlarm('rsrp', rowU['RSRP'])) mark();
+        if (isLatestRow && colName === 'SINR' && isInAlarm('sinr', rowU['SINR'])) mark();
+        if (isLatestRow && colName === 'TEMP' && isInAlarm('temp', rowU['TEMP'])) mark();
 
-    //     // Highlight RSRP values under -120 in red
-    //     if (colName === 'RSRP' && v !== '' && parseFloat(v) < -120) {
-    //       td.style.color = 'red';
-    //       td.style.fontWeight = 'bold';
-    //     }
-        
-    //     tr.appendChild(td);
-    //   });
-    //   tbody.appendChild(tr);
-    // });
-    // table.appendChild(tbody);
-        // Highlight rules (βάλε όσους θες)
-    if (colName === 'RSRP' && v !== '' && parseFloat(v) < -120) {
-      td.style.color = 'red';
-      td.style.fontWeight = 'bold';
-    }
-    if (colName === 'SINR' && v !== '' && parseFloat(v) <= 0) {
-      td.style.color = 'red';
-      td.style.fontWeight = 'bold';
-    }
-    if (colName === 'TEMP' && v !== '' && parseFloat(v) >= 85) {
-      td.style.color = 'red';
-      td.style.fontWeight = 'bold';
-    }
+        // GPS culprits (optional)
+        if (isLatestRow && colName === 'LATITUDE' && isInAlarm('lat', rowU['LATITUDE'])) mark();
+        if (isLatestRow && colName === 'LONGITUDE' && isInAlarm('lon', rowU['LONGITUDE'])) mark();
 
-    tr.appendChild(td);
-  });
+        tr.appendChild(td);
+      });
 
-  tbody.appendChild(tr);
-});
+      tbody.appendChild(tr);
+    });
 
-table.appendChild(tbody);
+    table.appendChild(tbody);
     
     detailsEl.innerHTML = '';
     detailsEl.appendChild(table);
-    
+      
   } catch (err) {
     detailsEl.innerHTML = '<div class="text-danger">Error loading details</div>';
     console.error('Error loading multiple serial details:', err);
