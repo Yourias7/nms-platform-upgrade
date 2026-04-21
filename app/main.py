@@ -4,7 +4,7 @@ from app.data_source import (get_alarm_probes_statistics, get_alarm_records_by_p
 get_historic_records_by_serial, get_all_historic_records, get_live_records_by_probe, get_live_records_by_serial, list_historic_probes, list_live_probes, list_live_probes_serial_name_pairs, list_live_serial_name_pairs, list_live_serials, list_historic_serials, 
 export_live_csv, export_historic_csv, live_serials_with_locations, historic_serials_with_locations,list_3skelion_serials,list_3skelion_serial_name_pairs,
 get_3skelion_live_records_by_serial, live_3skelion_serials_with_locations,list_3skelion_playback_serials,get_3skelion_historic_records_by_serial,
-get_3skelion_alarm_records_by_serial,get_3skelion_alarm_statistics,export_3skelion_live_csv)
+get_3skelion_alarm_records_by_serial,get_3skelion_alarm_statistics,export_3skelion_live_csv, get_all_3skelion_historic_records, export_3skelion_historic_csv)
 from fastapi.responses import StreamingResponse, FileResponse, RedirectResponse
 import io
 import mimetypes
@@ -468,8 +468,25 @@ def export_3skelion_serial(serial: str):
 def list_3skelion_historic_serials_endpoint():
     return list_3skelion_playback_serials()
 
+@app.get("/3skelion/playback/Historic/all/{early}/{latest}")
+def get_all_3skelion_systems_paged(early: str, latest: str, page: int = 1, limit: int = 500):
+    offset = (page - 1) * limit
+    return get_all_3skelion_historic_records(early=early, latest=latest, limit=limit, offset=offset)
 
 @app.get("/3skelion/playback/Historic/{serial}/{early}/{latest}")
 def get_3skelion_historic_paged(serial: str, early: str, latest: str, page: int = 1, limit: int = 500):
     offset = (page - 1) * limit
     return get_3skelion_historic_records_by_serial(serial, early=early, latest=latest, limit=limit, offset=offset)
+
+
+from typing import Optional  # αν δεν υπάρχει ήδη
+
+@app.get("/3skelion/export/Historic/{serial}")
+def export_3skelion_historic_serial(serial: str, startDate: Optional[str] = None, endDate: Optional[str] = None):
+    filename = f"{serial}.csv"
+    csv_text = export_3skelion_historic_csv(serial, start_date=startDate, end_date=endDate)
+    return Response(
+        content=csv_text,
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename=\"{filename}\""}
+    )

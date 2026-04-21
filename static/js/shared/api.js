@@ -110,7 +110,7 @@ export async function fetchLatestSerialData(serial) {
  */
 export async function fetchPagedHistoricAllData(early, latest, page = 1, limit = 500, signal = null) {
   const options = signal ? { signal } : {};
-  const url = `/playback/Historic/all/${encodeURIComponent(early)}/${encodeURIComponent(latest)}?page=${page}&limit=${limit}`;
+  const url = `${CONFIG.API.HISTORIC_SYSTEMS}/all/${encodeURIComponent(early)}/${encodeURIComponent(latest)}?page=${page}&limit=${limit}`;
   const res = await fetch(url, options);
   return await res.json();
 }

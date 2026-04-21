@@ -69,7 +69,7 @@
     <!-- Back Button -->
     <div class="row mb-3">
       <div class="col-12">
-        <a href="/playback" class="back-btn" style="display: inline-flex; align-items: center; text-decoration: none;">
+        <a id="backToPlaybackBtn" href="/3skelion/playback" class="back-btn" style="display: inline-flex; align-items: center; text-decoration: none;">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-left" viewBox="0 0 16 16" style="margin-right: 6px;">
             <path fill-rule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8z"/>
           </svg>
@@ -134,7 +134,6 @@
                     <th>LATITUDE</th>
                     <th>LONGITUDE</th>
                     <th>DATETIME</th>
-                    <th>HEADING</th>
                     <th>RSRP</th>
                     <th>SINR</th>
                     <th>TEMP</th>
@@ -144,8 +143,6 @@
                     <th>S1SINR</th>
                     <th>S2RSRP</th>
                     <th>S2SINR</th>
-                    <th>S3RSRP</th>
-                    <th>S3SINR</th>
                   </tr>
                 </thead>
                 <tbody id="historicTableBody"></tbody>
@@ -159,6 +156,7 @@
     </div>
   </main>
 
+  <script>window.NMS_PLATFORM = "3skelion";</script>
   <!-- Load alarm badge (runs on all pages) -->
   <script type="module" src="/static/js/3skelion/alarm-badge.js"></script>
 

@@ -354,11 +354,6 @@ function renderHistoricTable(data, serial, total = null) {
     }
     row.appendChild(datetimeCell);
 
-    // HEADING
-    const headingCell = document.createElement('td');
-    headingCell.textContent = record.HEADING !== null && record.HEADING !== undefined ? record.HEADING.toFixed(1) : 'N/A';
-    row.appendChild(headingCell);
-
     // RSRP
     const rsrpCell = document.createElement('td');
     rsrpCell.textContent = record.RSRP !== null && record.RSRP !== undefined ? record.RSRP.toFixed(1) : 'N/A';
@@ -404,16 +399,6 @@ function renderHistoricTable(data, serial, total = null) {
     s2sinrCell.textContent = record.S2SINR !== null && record.S2SINR !== undefined ? record.S2SINR.toFixed(1) : 'N/A';
     row.appendChild(s2sinrCell);
 
-    // S3RSRP
-    const s3rsrpCell = document.createElement('td');
-    s3rsrpCell.textContent = record.S3RSRP !== null && record.S3RSRP !== undefined ? record.S3RSRP.toFixed(1) : 'N/A';
-    row.appendChild(s3rsrpCell);
-
-    // S3SINR
-    const s3sinrCell = document.createElement('td');
-    s3sinrCell.textContent = record.S3SINR !== null && record.S3SINR !== undefined ? record.S3SINR.toFixed(1) : 'N/A';
-    row.appendChild(s3sinrCell);
-
     tbody.appendChild(row);
   });
 
@@ -425,7 +410,10 @@ function renderHistoricTable(data, serial, total = null) {
     exportBtn.style.display = 'none';
   } else {
     exportBtn.style.display = 'inline-block';
-    exportBtn.href = getHistoricExportUrl(serial);
+    //exportBtn.href = getHistoricExportUrl(serial);
+    const startDate = getStartDateInputValue();
+    const endDate = getEndDateInputValue();
+    exportBtn.href = `${getHistoricExportUrl(serial)}?startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`;
   }
   const totalPages = Math.ceil(total / PAGE_SIZE);
   renderPaginator(total, currentPage, PAGE_SIZE);

@@ -1891,35 +1891,22 @@ def get_3skelion_historic_records_by_serial(serial: str, early: str, latest: str
     Return paginated historic records from:
       [3skelion2].[dbo].[NewSheet$]
 
-    Inputs:
-      early/latest come from the UI as strings (usually 'YYYY-MM-DD').
-
-    Output format:
-      {
-        "data": [ { ...record... }, ... ],
-        "total": <int>
-      }
-
-    IMPORTANT:
-      - The frontend playback.js expects fields: DATETIME, RSRP, SINR and coords (LAT/LON).
-      - In 3skelion, we map:
-          RSRP  = BEST_RSRP
-          SINR  = BEST_SNR
-          DATETIME = TIME
+    Frontend expects:
+      - DATETIME (ISO string)
+      - RSRP, SINR (Best)
+      - LAT/LON for map
+      - S0RSRP/S0SINR, S1RSRP/S1SINR, S2RSRP/S2SINR for Ant1..Ant3
+      - NAME/LATITUDE/LONGITUDE aliases for historic-details table
     """
     db = SessionLocal()
     try:
         ser = str(serial).strip()
 
-        # Parse early/latest (usually YYYY-MM-DD)
         start_dt = datetime.fromisoformat(early)
-
         end_dt_raw = datetime.fromisoformat(latest)
-        # Αν latest είναι date-only, θέλουμε να πιάσουμε ΟΛΗ τη μέρα:
-        # π.χ. 2025-01-25 => μέχρι 2025-01-26 00:00 (exclusive)
         end_exclusive = end_dt_raw + timedelta(days=1) if len(latest) <= 10 else end_dt_raw
 
-        # Total count (για pagination UI)
+        # total for pagination
         count_sql = text("""
             SELECT COUNT(*) AS total
             FROM [3skelion2].[dbo].[NewSheet$]
@@ -1929,141 +1916,7 @@ def get_3skelion_historic_records_by_serial(serial: str, early: str, latest: str
         """)
         total = db.execute(count_sql, {"serial": ser, "start_dt": start_dt, "end_dt": end_exclusive}).scalar() or 0
 
-        # Main page query
-        data_sql = text("""
-            SELECT
-                SERIAL,
-                [TIME] AS DATETIME,     -- alias ώστε το frontend να το βλέπει σαν DATETIME
-                LAT,
-                LON,
-                TEMP,
-                SCANID,
-
-                BEST_RSRP,
-                BEST_SNR,
-                BEST_RSRQ,
-                BEST_CELLID,
-                BEST_ANTENNA
-
-            FROM [3skelion2].[dbo].[NewSheet$]
-            WHERE SERIAL = :serial
-              AND [TIME] >= :start_dt
-              AND [TIME] <  :end_dt
-            ORDER BY [TIME] ASC
-            OFFSET :offset ROWS
-            FETCH NEXT :limit ROWS ONLY
-        """)
-
-        rows = db.execute(
-            data_sql,
-            {"serial": ser, "start_dt": start_dt, "end_dt": end_exclusive, "offset": int(offset), "limit": int(limit)}
-        ).mappings().all()
-
-        # Υπολογίζουμε το SHIP ΜΙΑ φορά (ίδιο για όλα τα rows)
-        ship = get_ship_name(ser)
-
-        result = []
-        for r in rows:
-            rec = dict(r)
-
-            # ✅ computed field για PowerBI-like usage
-            rec["SHIP"] = ship
-
-            # ✅ mapping ώστε playback map/chart να δουλέψει κατευθείαν
-            rec["RSRP"] = rec.get("BEST_RSRP")
-            rec["SINR"] = rec.get("BEST_SNR")
-
-            # ✅ JSON friendly datetime
-            dt = rec.get("DATETIME")
-            rec["DATETIME"] = dt.isoformat() if dt else None
-
-            result.append(rec)
-
-        return {"data": result, "total": int(total)}
-    finally:
-        db.close()
-
-
-# =========================
-# 3SKELION - PLAYBACK (HISTORIC) FROM NewSheet$
-# =========================
-from datetime import datetime, timedelta
-from sqlalchemy.sql import text
-
-from app.ship_lookup import get_ship_name  # το mapping που ήδη φτιάξαμε
-
-
-def list_3skelion_playback_serials():
-    """
-    Playback serials list for 3skelion.
-
-    TIP: Για να είναι ΠΑΝΤΑ γρήγορο, το παίρνουμε από LiveOldSheet$
-    (εκεί υπάρχουν τα 30 συστήματα σίγουρα).
-    Αν το πάρεις από NewSheet$ μπορεί να κάνει αχρείαστο heavy DISTINCT.
-    """
-    db = SessionLocal()
-    try:
-        sql = text("""
-            SELECT DISTINCT SERIAL
-            FROM [3skelion2].[dbo].[LiveOldSheet$]
-            WHERE SERIAL IS NOT NULL AND LTRIM(RTRIM(SERIAL)) <> ''
-            ORDER BY SERIAL
-        """)
-        rows = db.execute(sql).fetchall()
-        return [r[0] for r in rows]
-    finally:
-        db.close()
-
-
-def get_3skelion_historic_records_by_serial(serial: str, early: str, latest: str, limit: int = 500, offset: int = 0):
-    """
-    Return paginated historic records from:
-      [3skelion2].[dbo].[NewSheet$]
-
-    Inputs:
-      early/latest come from the UI as strings (usually 'YYYY-MM-DD').
-
-    Output format:
-      {
-        "data": [ { ...record... }, ... ],
-        "total": <int>
-      }
-
-    IMPORTANT:
-      - The frontend playback.js expects fields: DATETIME, RSRP, SINR and coords (LAT/LON).
-      - In 3skelion, we map:
-          RSRP  = BEST_RSRP
-          SINR  = BEST_SNR
-          DATETIME = TIME
-    """
-    db = SessionLocal()
-    try:
-        ser = str(serial).strip()
-
-        # Parse early/latest (usually YYYY-MM-DD)
-        start_dt = datetime.fromisoformat(early)
-
-        end_dt_raw = datetime.fromisoformat(latest)
-        # Αν latest είναι date-only, θέλουμε να πιάσουμε ΟΛΗ τη μέρα:
-        # π.χ. 2025-01-25 => μέχρι 2025-01-26 00:00 (exclusive)
-        end_exclusive = end_dt_raw + timedelta(days=1) if len(latest) <= 10 else end_dt_raw
-
-        # Total count (για pagination UI)
-        count_sql = text("""
-            SELECT COUNT(*) AS total
-            FROM [3skelion2].[dbo].[NewSheet$]
-            WHERE SERIAL = :serial
-              AND [TIME] >= :start_dt
-              AND [TIME] <  :end_dt
-        """)
-        total = db.execute(count_sql, {"serial": ser, "start_dt": start_dt, "end_dt": end_exclusive}).scalar() or 0
-
-        # --- 3skelion playback: per-antenna fields (Ant1..Ant4) ---
-        # Frontend expects:
-        #   S0RSRP..S3RSRP and S0SINR..S3SINR
-        # DB usually has: RSRP_1..RSRP_4 and SNR_1..SNR_4 (sometimes SINR_1..SINR_4)
-        # We auto-detect existing columns once and return NULL for missing ones
-        # (so the SQL never fails if e.g. RSRP_4 doesn't exist).
+        # detect columns once (so SQL never fails if a column is missing)
         if not hasattr(get_3skelion_historic_records_by_serial, "_newsheet_cols"):
             cols_sql = text(
                 "SELECT COLUMN_NAME "
@@ -2080,12 +1933,11 @@ def get_3skelion_historic_records_by_serial(serial: str, early: str, latest: str
                 return f"{col_name} AS {alias}"
             return f"CAST(NULL AS float) AS {alias}"
 
+        # 3skelion = 3 antennas (S0..S2)
         antenna_select_parts = []
-        for i in range(1, 5):
-            # RSRP per antenna -> S0RSRP..S3RSRP
+        for i in range(1, 4):
             antenna_select_parts.append(_sel_float(f"RSRP_{i}", f"S{i-1}RSRP"))
 
-            # SINR per antenna -> S0SINR..S3SINR (DB might call it SNR_i or SINR_i)
             if f"SNR_{i}".upper() in cols:
                 antenna_select_parts.append(_sel_float(f"SNR_{i}", f"S{i-1}SINR"))
             elif f"SINR_{i}".upper() in cols:
@@ -2094,11 +1946,11 @@ def get_3skelion_historic_records_by_serial(serial: str, early: str, latest: str
                 antenna_select_parts.append(f"CAST(NULL AS float) AS S{i-1}SINR")
 
         antenna_select_sql = ",\n                ".join(antenna_select_parts)
-        # Main page query
+
         data_sql = text(f"""
             SELECT
                 SERIAL,
-                [TIME] AS DATETIME,     -- alias ώστε το frontend να το βλέπει σαν DATETIME
+                [TIME] AS DATETIME,
                 LAT,
                 LON,
                 TEMP,
@@ -2109,7 +1961,8 @@ def get_3skelion_historic_records_by_serial(serial: str, early: str, latest: str
                 BEST_RSRQ,
                 BEST_CELLID,
                 BEST_ANTENNA,
-                {antenna_select_sql}    
+
+                {antenna_select_sql}
 
             FROM [3skelion2].[dbo].[NewSheet$]
             WHERE SERIAL = :serial
@@ -2125,26 +1978,228 @@ def get_3skelion_historic_records_by_serial(serial: str, early: str, latest: str
             {"serial": ser, "start_dt": start_dt, "end_dt": end_exclusive, "offset": int(offset), "limit": int(limit)}
         ).mappings().all()
 
-        # Υπολογίζουμε το SHIP ΜΙΑ φορά (ίδιο για όλα τα rows)
         ship = get_ship_name(ser)
 
         result = []
         for r in rows:
             rec = dict(r)
 
-            # ✅ computed field για PowerBI-like usage
+            # PowerBI-like computed field
             rec["SHIP"] = ship
 
-            # ✅ mapping ώστε playback map/chart να δουλέψει κατευθείαν
+            # Best mapping
             rec["RSRP"] = rec.get("BEST_RSRP")
             rec["SINR"] = rec.get("BEST_SNR")
 
-            # ✅ JSON friendly datetime
+            # Aliases for historic-details
+            rec["NAME"] = ship
+            rec["LATITUDE"] = rec.get("LAT")
+            rec["LONGITUDE"] = rec.get("LON")
+            rec["HEADING"] = None
+
+            # JSON datetime
             dt = rec.get("DATETIME")
             rec["DATETIME"] = dt.isoformat() if dt else None
 
             result.append(rec)
 
         return {"data": result, "total": int(total)}
+    finally:
+        db.close()
+
+
+def get_all_3skelion_historic_records(early: str, latest: str, limit: int = 500, offset: int = 0):
+    db = SessionLocal()
+    try:
+        start_dt = datetime.fromisoformat(early)
+        end_dt_raw = datetime.fromisoformat(latest)
+        end_exclusive = end_dt_raw + timedelta(days=1) if len(latest) <= 10 else end_dt_raw
+
+        count_sql = text("""
+            SELECT COUNT(*) AS total
+            FROM [3skelion2].[dbo].[NewSheet$]
+            WHERE [TIME] >= :start_dt
+              AND [TIME] <  :end_dt
+        """)
+        total = db.execute(count_sql, {"start_dt": start_dt, "end_dt": end_exclusive}).scalar() or 0
+
+        if not hasattr(get_all_3skelion_historic_records, "_newsheet_cols"):
+            cols_sql = text(
+                "SELECT COLUMN_NAME "
+                "FROM [3skelion2].INFORMATION_SCHEMA.COLUMNS "
+                "WHERE TABLE_NAME = 'NewSheet$'"
+            )
+            col_rows = db.execute(cols_sql).fetchall()
+            get_all_3skelion_historic_records._newsheet_cols = {r[0].upper() for r in col_rows}
+        cols = get_all_3skelion_historic_records._newsheet_cols
+
+        def _sel_float(col_name: str, alias: str) -> str:
+            if col_name.upper() in cols:
+                return f"{col_name} AS {alias}"
+            return f"CAST(NULL AS float) AS {alias}"
+
+        ant_parts = []
+        for i in range(1, 4):
+            ant_parts.append(_sel_float(f"RSRP_{i}", f"S{i-1}RSRP"))
+            if f"SNR_{i}".upper() in cols:
+                ant_parts.append(_sel_float(f"SNR_{i}", f"S{i-1}SINR"))
+            elif f"SINR_{i}".upper() in cols:
+                ant_parts.append(_sel_float(f"SINR_{i}", f"S{i-1}SINR"))
+            else:
+                ant_parts.append(f"CAST(NULL AS float) AS S{i-1}SINR")
+        ant_select_sql = ",\n                ".join(ant_parts)
+
+        data_sql = text(f"""
+            SELECT
+                SERIAL,
+                [TIME] AS DATETIME,
+                LAT,
+                LON,
+                TEMP,
+                BEST_RSRP,
+                BEST_SNR,
+                {ant_select_sql}
+            FROM [3skelion2].[dbo].[NewSheet$]
+            WHERE [TIME] >= :start_dt
+              AND [TIME] <  :end_dt
+            ORDER BY [TIME] ASC
+            OFFSET :offset ROWS
+            FETCH NEXT :limit ROWS ONLY
+        """)
+
+        rows = db.execute(data_sql, {
+            "start_dt": start_dt,
+            "end_dt": end_exclusive,
+            "offset": int(offset),
+            "limit": int(limit)
+        }).mappings().all()
+
+        out = []
+        for r in rows:
+            rec = dict(r)
+            ser = rec.get("SERIAL")
+            ship = get_ship_name(ser)
+
+            rec["NAME"] = ship
+            rec["LATITUDE"] = rec.get("LAT")
+            rec["LONGITUDE"] = rec.get("LON")
+            rec["RSRP"] = rec.get("BEST_RSRP")
+            rec["SINR"] = rec.get("BEST_SNR")
+
+            dt = rec.get("DATETIME")
+            rec["DATETIME"] = dt.isoformat() if dt else None
+
+            out.append(rec)
+
+        return {"data": out, "total": int(total)}
+    finally:
+        db.close()
+
+
+def export_3skelion_historic_csv(serial: str, start_date: str | None = None, end_date: str | None = None) -> str:
+    """
+    Export 3skelion historic rows (NewSheet$) as CSV.
+
+    - Respects selected date range when start_date/end_date are provided.
+    - Output columns: WITHOUT HEADING / S3RSRP / S3SINR
+    """
+    db = SessionLocal()
+    try:
+        ser = str(serial).strip()
+
+        time_filter_sql = ""
+        params = {"serial": ser}
+
+        if start_date and end_date:
+            start_dt = datetime.fromisoformat(start_date)
+            end_dt_raw = datetime.fromisoformat(end_date)
+            end_exclusive = end_dt_raw + timedelta(days=1) if len(end_date) <= 10 else end_dt_raw
+
+            time_filter_sql = " AND [TIME] >= :start_dt AND [TIME] < :end_dt"
+            params["start_dt"] = start_dt
+            params["end_dt"] = end_exclusive
+
+        # Detect columns once (avoid SQL crash if missing)
+        if not hasattr(export_3skelion_historic_csv, "_newsheet_cols"):
+            cols_sql = text(
+                "SELECT COLUMN_NAME "
+                "FROM [3skelion2].INFORMATION_SCHEMA.COLUMNS "
+                "WHERE TABLE_NAME = 'NewSheet$'"
+            )
+            col_rows = db.execute(cols_sql).fetchall()
+            export_3skelion_historic_csv._newsheet_cols = {r[0].upper() for r in col_rows}
+
+        cols = export_3skelion_historic_csv._newsheet_cols
+
+        def _sel_float(col_name: str, alias: str) -> str:
+            if col_name.upper() in cols:
+                return f"{col_name} AS {alias}"
+            return f"CAST(NULL AS float) AS {alias}"
+
+        # 3 antennas => S0..S2
+        ant_parts = []
+        for i in range(1, 4):
+            ant_parts.append(_sel_float(f"RSRP_{i}", f"S{i-1}RSRP"))
+
+            if f"SNR_{i}".upper() in cols:
+                ant_parts.append(_sel_float(f"SNR_{i}", f"S{i-1}SINR"))
+            elif f"SINR_{i}".upper() in cols:
+                ant_parts.append(_sel_float(f"SINR_{i}", f"S{i-1}SINR"))
+            else:
+                ant_parts.append(f"CAST(NULL AS float) AS S{i-1}SINR")
+
+        ant_select_sql = ",\n                ".join(ant_parts)
+
+        sql = text(f"""
+            SELECT
+                SERIAL,
+                [TIME] AS DATETIME,
+                LAT AS LATITUDE,
+                LON AS LONGITUDE,
+                BEST_RSRP AS RSRP,
+                BEST_SNR  AS SINR,
+                TEMP,
+                {ant_select_sql}
+            FROM [3skelion2].[dbo].[NewSheet$]
+            WHERE SERIAL = :serial
+            {time_filter_sql}
+            ORDER BY [TIME] ASC
+        """)
+
+        rows = db.execute(sql, params).mappings().all()
+
+        output = io.StringIO()
+        writer = csv.writer(output)
+
+        ship = get_ship_name(ser)
+
+        headers = [
+            "SERIAL", "NAME", "LATITUDE", "LONGITUDE", "DATETIME",
+            "RSRP", "SINR", "TEMP",
+            "S0RSRP", "S0SINR", "S1RSRP", "S1SINR", "S2RSRP", "S2SINR",
+        ]
+        writer.writerow(headers)
+
+        for r in rows:
+            dt = r.get("DATETIME")
+            dt_str = dt.isoformat(sep=" ") if dt else ""
+            writer.writerow([
+                r.get("SERIAL", ""),
+                ship,
+                r.get("LATITUDE", ""),
+                r.get("LONGITUDE", ""),
+                dt_str,
+                r.get("RSRP", ""),
+                r.get("SINR", ""),
+                r.get("TEMP", ""),
+                r.get("S0RSRP", ""),
+                r.get("S0SINR", ""),
+                r.get("S1RSRP", ""),
+                r.get("S1SINR", ""),
+                r.get("S2RSRP", ""),
+                r.get("S2SINR", ""),
+            ])
+
+        return output.getvalue()
     finally:
         db.close()
