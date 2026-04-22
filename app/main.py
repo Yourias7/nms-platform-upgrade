@@ -1,6 +1,10 @@
 from fastapi import FastAPI, Request, Response
 import logging
-from app.data_source import get_alarm_probes_statistics, get_alarm_records_by_probe, get_alarm_records_by_serial, get_all_alarm_probe_records, get_all_alarm_records, get_alarm_statistics, get_all_historic_probe_records, get_earliest_datetime_for_serial, get_historic_records_by_probe, get_latest_datetime_for_serial, get_historic_records_by_serial, get_all_historic_records, get_live_records_by_probe, get_live_records_by_serial, list_historic_probes, list_live_probes, list_live_probes_serial_name_pairs, list_live_serial_name_pairs, list_live_serials, list_historic_serials, export_live_csv, export_historic_csv, live_serials_with_locations, historic_serials_with_locations
+from app.data_source import (get_alarm_probes_statistics, get_alarm_records_by_probe, get_alarm_records_by_serial, get_all_alarm_probe_records, get_all_alarm_records, get_alarm_statistics, get_all_historic_probe_records, get_earliest_datetime_for_serial, get_historic_records_by_probe, get_latest_datetime_for_serial, 
+get_historic_records_by_serial, get_all_historic_records, get_live_records_by_probe, get_live_records_by_serial, list_historic_probes, list_live_probes, list_live_probes_serial_name_pairs, list_live_serial_name_pairs, list_live_serials, list_historic_serials, 
+export_live_csv, export_historic_csv, live_serials_with_locations, historic_serials_with_locations,list_3skelion_serials,list_3skelion_serial_name_pairs,
+get_3skelion_live_records_by_serial, live_3skelion_serials_with_locations,list_3skelion_playback_serials,get_3skelion_historic_records_by_serial,
+get_3skelion_alarm_records_by_serial,get_3skelion_alarm_statistics)
 from fastapi.responses import StreamingResponse, FileResponse, RedirectResponse
 import io
 import mimetypes
@@ -24,6 +28,20 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
+@app.middleware("http")
+async def disable_cache_for_dev(request: Request, call_next):
+    response: Response = await call_next(request)
+
+    path = request.url.path
+    content_type = response.headers.get("content-type", "")
+
+    # Disable caching for static files + HTML pages (dev convenience)
+    if path.startswith("/static/") or content_type.startswith("text/html"):
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+
+    return response
 
 @app.get("/Systems/Live/{serial}")
 def get_system(serial: str):
@@ -75,6 +93,15 @@ def get_alarm_systems(serial: str, early: str, latest: str, page: int = 1, limit
     logger.info(f"Retrieved {len(result['data'])} alarm records (page {page}) out of {result['total']} total for SERIAL: {serial} with thresholds RSRP<={rsrp_threshold}, SINR<={sinr_threshold}, TEMP>={temp_threshold}")
     return result
 
+@app.get("/3skelion/alarms/systems/{serial}/{early}/{latest}")
+def get_3skelion_alarm_systems(serial: str, early: str, latest: str,
+                               rsrp_threshold: float = -120, sinr_threshold: float = 0, temp_threshold: float = 75):
+    data = get_3skelion_alarm_records_by_serial(
+        serial, early=early, latest=latest,
+        rsrp_threshold=rsrp_threshold, sinr_threshold=sinr_threshold, temp_threshold=temp_threshold
+    )
+    return data
+
 @app.get("/alarms/probes/{serial}/{early}/{latest}")
 def get_alarm_probes(serial: str, early: str, latest: str, page: int = 1, limit: int = 100000, rsrp_threshold: float = -120, sinr_threshold: float = 0, temp_threshold: float = 75):
     offset = (page - 1) * limit
@@ -105,11 +132,11 @@ def get_alarm_statistics_endpoint(early: str = None, latest: str = None, rsrp_th
     logger.info(f"Retrieved statistics for {len(data)} systems with thresholds RSRP<={rsrp_threshold}, SINR<={sinr_threshold}, TEMP>={temp_threshold}")
     return data
 
-@app.get("/alarms/probes/statistics")
-def get_alarm_statistics_probes_endpoint(early: str = None, latest: str = None, rsrp_threshold: float = -120, sinr_threshold: float = 0, temp_threshold: float = 75):
-    """Return alarm statistics for all probes (total samples vs alarm samples)."""
-    data = get_alarm_probes_statistics(early=early, latest=latest, rsrp_threshold=rsrp_threshold, sinr_threshold=sinr_threshold, temp_threshold=temp_threshold)
-    logger.info(f"Retrieved statistics for {len(data)} probes with thresholds RSRP<={rsrp_threshold}, SINR<={sinr_threshold}, TEMP>={temp_threshold}")
+@app.get("/3skelion/alarms/statistics")
+def get_3skelion_alarm_statistics_endpoint(early: str = None, latest: str = None, rsrp_threshold: float = -120, sinr_threshold: float = 0, temp_threshold: float = 75):
+    """Return alarm statistics for 3skelion systems (total samples vs alarm samples)."""
+    data = get_3skelion_alarm_statistics(early=early, latest=latest, rsrp_threshold=rsrp_threshold, sinr_threshold=sinr_threshold, temp_threshold=temp_threshold)
+    logger.info(f"Retrieved statistics for {len(data)} 3skelion systems with thresholds RSRP<={rsrp_threshold}, SINR<={sinr_threshold}, TEMP>={temp_threshold}")
     return data
 
 @app.get("/playback/Historic/{serial}/earliest")
@@ -179,7 +206,7 @@ def error_page(request: Request):
 
 
 @app.get("/4skelion/liveview")
-def liveview(request: Request):
+def liveview_4skelion(request: Request):
     """Render the live view UI."""
     try:
         return templates.TemplateResponse("4skelion/liveview.html", {"request": request})
@@ -187,7 +214,7 @@ def liveview(request: Request):
         return templates.TemplateResponse("coming_soon.html", {"request": request})
     
 @app.get("/3skelion/liveview")
-def liveview(request: Request):
+def liveview_3skelion(request: Request):
     """Render the live view UI."""
     try:
         return templates.TemplateResponse("3skelion/liveview.html", {"request": request})
@@ -195,7 +222,7 @@ def liveview(request: Request):
         return templates.TemplateResponse("coming_soon.html", {"request": request})
     
 @app.get("/f-qual/liveview")
-def liveview(request: Request):
+def liveview_f_qual(request: Request):
     """Render the live view UI."""
     try:
         return templates.TemplateResponse("f-qual/liveview.html", {"request": request})
@@ -211,91 +238,91 @@ def coming_soon(request: Request):
 
 
 @app.get("/4skelion/alarms")
-def alarms(request: Request):
+def alarms_4skelion(request: Request):
     try:
         return RedirectResponse(url="/4skelion/alarms/summary")
     except Exception:
         return templates.TemplateResponse("coming_soon.html", {"request": request})
     
 @app.get("/3skelion/alarms")
-def alarms(request: Request):
+def alarms_3skelion(request: Request):
     try:
         return RedirectResponse(url="/3skelion/alarms/summary")
     except Exception:
         return templates.TemplateResponse("coming_soon.html", {"request": request})
     
 @app.get("/f-qual/alarms")
-def alarms(request: Request):
+def alarms_f_qual(request: Request):
     try:
         return RedirectResponse(url="/f-qual/alarms/summary")
     except Exception:
         return templates.TemplateResponse("coming_soon.html", {"request": request})
 
 @app.get("/4skelion/alarms/communication")
-def communication_alarms(request: Request):
+def communication_alarms_4skelion(request: Request):
     try:
         return templates.TemplateResponse("4skelion/communication_alarm.html", {"request": request})
     except Exception:
         return templates.TemplateResponse("coming_soon.html", {"request": request})
     
 @app.get("/3skelion/alarms/communication")
-def communication_alarms(request: Request):
+def communication_alarms_3skelion(request: Request):
     try:
         return templates.TemplateResponse("3skelion/communication_alarm.html", {"request": request})
     except Exception:
         return templates.TemplateResponse("coming_soon.html", {"request": request})
     
 @app.get("/f-qual/alarms/communication")
-def communication_alarms(request: Request):
+def communication_alarms_f_qual(request: Request):
     try:
         return templates.TemplateResponse("f-qual/communication_alarm.html", {"request": request})
     except Exception:
         return templates.TemplateResponse("coming_soon.html", {"request": request})
 
 @app.get("/4skelion/alarms/summary")
-def total_alarms(request: Request):
+def total_alarms_4skelion(request: Request):
     try:
         return templates.TemplateResponse("4skelion/alarm_summary.html", {"request": request})
     except Exception:
         return templates.TemplateResponse("coming_soon.html", {"request": request})
     
 @app.get("/3skelion/alarms/summary")
-def total_alarms(request: Request):
+def total_alarms_3skelion(request: Request):
     try:
         return templates.TemplateResponse("3skelion/alarm_summary.html", {"request": request})
     except Exception:
         return templates.TemplateResponse("coming_soon.html", {"request": request})
     
 @app.get("/f-qual/alarms/summary")
-def total_alarms(request: Request):
+def total_alarms_f_qual(request: Request):
     try:
         return templates.TemplateResponse("f-qual/alarm_summary.html", {"request": request})
     except Exception:
         return templates.TemplateResponse("coming_soon.html", {"request": request})
 
 @app.get("/4skelion/alarms/performance")
-def performance_alarms(request: Request):
+def performance_alarms_4skelion(request: Request):
     try:
         return templates.TemplateResponse("4skelion/performance_alarm.html", {"request": request})
     except Exception:
         return templates.TemplateResponse("coming_soon.html", {"request": request})
     
 @app.get("/3skelion/alarms/performance")
-def performance_alarms(request: Request):
+def performance_alarms_3skelion(request: Request):
     try:
         return templates.TemplateResponse("3skelion/performance_alarm.html", {"request": request})
     except Exception:
         return templates.TemplateResponse("coming_soon.html", {"request": request})
     
 @app.get("/f-qual/alarms/performance")
-def performance_alarms(request: Request):
+def performance_alarms_f_qual(request: Request):
     try:
         return templates.TemplateResponse("f-qual/performance_alarm.html", {"request": request})
     except Exception:
         return templates.TemplateResponse("coming_soon.html", {"request": request})
 
 @app.get("/4skelion/playback")
-def playback(request: Request):
+def playback_4skelion(request: Request):
     """Render the playback UI."""
     try:
         return templates.TemplateResponse("4skelion/playback.html", {"request": request})
@@ -303,7 +330,7 @@ def playback(request: Request):
         return templates.TemplateResponse("coming_soon.html", {"request": request})
 
 @app.get("/3skelion/playback")
-def playback(request: Request):
+def playback_3skelion(request: Request):
     """Render the playback UI."""
     try:
         return templates.TemplateResponse("3skelion/playback.html", {"request": request})
@@ -311,7 +338,7 @@ def playback(request: Request):
         return templates.TemplateResponse("coming_soon.html", {"request": request})
     
 @app.get("/f-qual/playback")
-def playback(request: Request):
+def playback_f_qual(request: Request):
     """Render the playback UI."""
     try:
         return templates.TemplateResponse("f-qual/playback.html", {"request": request})
@@ -319,7 +346,7 @@ def playback(request: Request):
         return templates.TemplateResponse("coming_soon.html", {"request": request})
 
 @app.get("/4skelion/settings")
-def settings(request: Request):
+def settings_4skelion(request: Request):
     """Render the settings UI."""
     try:
         return templates.TemplateResponse("4skelion/settings.html", {"request": request})
@@ -327,7 +354,7 @@ def settings(request: Request):
         return templates.TemplateResponse("coming_soon.html", {"request": request})
     
 @app.get("/3skelion/settings")
-def settings(request: Request):
+def settings_3skelion(request: Request):
     """Render the settings UI."""
     try:
         return templates.TemplateResponse("3skelion/settings.html", {"request": request})
@@ -335,7 +362,7 @@ def settings(request: Request):
         return templates.TemplateResponse("coming_soon.html", {"request": request})
     
 @app.get("/f-qual/settings")
-def settings(request: Request):
+def settings_f_qual(request: Request):
     """Render the settings UI."""
     try:
         return templates.TemplateResponse("f-qual/settings.html", {"request": request})
@@ -343,7 +370,7 @@ def settings(request: Request):
         return templates.TemplateResponse("coming_soon.html", {"request": request})
 
 @app.get("/4skelion/details")
-def details(request: Request):
+def details_4skelion(request: Request):
     """Render the Historic Details UI"""
     try:
         return templates.TemplateResponse("4skelion/historic_details.html", {"request": request})
@@ -351,7 +378,7 @@ def details(request: Request):
         return templates.TemplateResponse("coming_soon.html", {"request": request})
     
 @app.get("/3skelion/details")
-def details(request: Request):
+def details_3skelion(request: Request):
     """Render the Historic Details UI"""
     try:
         return templates.TemplateResponse("3skelion/historic_details.html", {"request": request})
@@ -359,7 +386,7 @@ def details(request: Request):
         return templates.TemplateResponse("coming_soon.html", {"request": request})
     
 @app.get("/f-qual/details")
-def details(request: Request):
+def details_f_qual(request: Request):
     """Render the Historic Details UI"""
     try:
         return templates.TemplateResponse("f-qual/historic_details.html", {"request": request})
@@ -392,4 +419,47 @@ def playback_historic_locations():
     """Return list of {serial, latitude, longitude} for serials with coordinates."""
     return historic_serials_with_locations()
 
+# =========================
+# 3SKELION API (NewSheet$)
+# =========================
 
+@app.get("/3skelion/systems/Live/serials")
+def list_3skelion_serials_endpoint():
+    """Return 3skelion serial list from dbo.[NewSheet$]."""
+    return list_3skelion_serials()
+
+
+@app.get("/3skelion/systems/Live/names")
+def list_3skelion_names_endpoint():
+    """
+    Return serial/name pairs.
+    For now: NAME == SERIAL (until we confirm a real name column exists).
+    """
+    return list_3skelion_serial_name_pairs()
+
+
+@app.get("/3skelion/Systems/Live/{serial}")
+def get_3skelion_system(serial: str):
+    """Return latest 3skelion record for SERIAL from dbo.[NewSheet$]."""
+    return get_3skelion_live_records_by_serial(serial)
+
+
+@app.get("/3skelion/systems/Live/locations")
+def systems_locations_3skelion():
+    """Return latest locations for map markers (3skelion)."""
+    return live_3skelion_serials_with_locations()
+
+
+# =========================
+# 3SKELION - PLAYBACK API
+# =========================
+
+@app.get("/3skelion/playback/Historic/serials")
+def list_3skelion_historic_serials_endpoint():
+    return list_3skelion_playback_serials()
+
+
+@app.get("/3skelion/playback/Historic/{serial}/{early}/{latest}")
+def get_3skelion_historic_paged(serial: str, early: str, latest: str, page: int = 1, limit: int = 500):
+    offset = (page - 1) * limit
+    return get_3skelion_historic_records_by_serial(serial, early=early, latest=latest, limit=limit, offset=offset)

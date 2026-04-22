@@ -1,26 +1,27 @@
 // static/js/config.js
 // Configuration constants for the NMS Platform
 
+// We use this flag to decide whether the page is 3skelion or not.
+// Default behavior stays EXACTLY the same for 4skelion pages.
+const PLATFORM = globalThis.NMS_PLATFORM || '4skelion';
+
+// If 3skelion page: prefix all API calls with /3skelion
+const API_PREFIX = (PLATFORM === '3skelion') ? '/3skelion' : '';
+
 export const CONFIG = {
   // API Endpoints
   API: {
-    SERIALS: '/systems/Live/serials',
-    SYSTEMS: '/Systems/Live',
-    SERIAL_NAME_MAP: '/systems/Live/names',
-    EXPORT: '/export/Live',
-    LOCATIONS: '/systems/Live/locations',
-    HISTORIC_SERIALS: '/playback/Historic/serials',
-    HISTORIC_SYSTEMS: '/playback/Historic',
-    ALARM_SYSTEMS: '/alarms/systems',
-    HISTORIC_EXPORT: '/export/Historic',
-    HISTORIC_LOCATIONS: '/playback/Historic/locations',
-    PROBE_SERIALS: '/probes/Live/serials',
-    PROBES: '/Probes/Live',
-    PROBE_NAME_MAP: '/probes/Live/names',
-    PROBE_EXPORT: '/probes/export/Live',
-    PROBE_HISTORIC_SERIALS: '/probes/Historic/serials',
-    PROBE_HISTORIC_EXPORT: '/probes/export/Historic',
-    ALARM_PROBES: '/probes/alarms'
+    SERIALS: `${API_PREFIX}/systems/Live/serials`,
+    SYSTEMS: `${API_PREFIX}/Systems/Live`,
+    SERIAL_NAME_MAP: `${API_PREFIX}/systems/Live/names`,
+    EXPORT: `${API_PREFIX}/export/Live`,
+    LOCATIONS: `${API_PREFIX}/systems/Live/locations`,
+    HISTORIC_SERIALS: `${API_PREFIX}/playback/Historic/serials`,
+    HISTORIC_SYSTEMS: `${API_PREFIX}/playback/Historic`,
+    ALARM_SYSTEMS: `${API_PREFIX}/alarms/systems`,
+    ALARM_STATISTICS: `${API_PREFIX}/alarms/statistics`,
+    HISTORIC_EXPORT: `${API_PREFIX}/export/Historic`,
+    HISTORIC_LOCATIONS: `${API_PREFIX}/playback/Historic/locations`,
   },
 
   // Map settings

@@ -1,23 +1,17 @@
 // Home page selection and launch logic
 let selectedOption = null;
 
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
   const featureCards = document.querySelectorAll('.feature-card');
   const launchBtn = document.getElementById('launchBtn');
 
-  // Handle card selection
+  // 1) Selecting a card just stores which platform we want to open
   featureCards.forEach(card => {
-    card.addEventListener('click', function() {
-      // Remove selected class from all cards
+    card.addEventListener('click', function () {
       featureCards.forEach(c => c.classList.remove('selected'));
-      
-      // Add selected class to clicked card
       this.classList.add('selected');
-      
-      // Store the selected option
+
       selectedOption = this.dataset.option;
-      
-      // Enable the launch button
       launchBtn.disabled = false;
     });
   });
@@ -35,8 +29,11 @@ document.addEventListener('DOMContentLoaded', function() {
         case '4skelion':
           destination = '/4skelion/liveview';
           break;
-        case 'f-steering' || '3skelion':
+        case 'f-steering':
           destination = '/coming_soon';
+          break;
+        case '3skelion':
+          destination = '/3skelion/liveview';
           break;
         case 'f-qual':
           destination = '/f-qual/liveview';
