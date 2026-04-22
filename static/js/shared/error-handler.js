@@ -106,12 +106,19 @@ document.addEventListener('error', (event) => {
   }
 }, true);
 
-// Detect network errors during fetch/XHR
+// Detect network errors during fetch/XHR (log but don't treat as fatal)
+// This helps track network issues without breaking the app when optional features fail
 const originalFetch = window.fetch;
 window.fetch = function(...args) {
   return originalFetch.apply(this, args).catch((error) => {
-    console.error('[Page Handler] Fetch error:', error);
-    // Re-throw to allow normal error handling, but log it
+    // Only log as error if it's a critical failure
+    // Most network errors are handled by the calling code's try-catch
+    if (error.message && error.message.includes('NetworkError')) {
+      console.debug('[Page Handler] Network error (will be handled by caller):', error.message);
+    } else {
+      console.warn('[Page Handler] Fetch error (will be handled by caller):', error);
+    }
+    // Re-throw to allow normal error handling
     throw error;
   });
 };
