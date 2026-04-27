@@ -1500,7 +1500,7 @@ def export_historic_csv(serial: str) -> str:
         db.close()
         
 # =========================
-# 3SKELION (NewSheet$) READS
+# 3SKELION (NewSheet_Last15Days) READS
 # =========================
 # Goal: Provide a minimal "Live" experience for 3skelion.
 # We return data shaped similarly to the existing /Systems/Live/{serial} endpoint,
@@ -1509,7 +1509,7 @@ def export_historic_csv(serial: str) -> str:
 
 def list_3skelion_serials():
     """
-    Return list of distinct SERIAL values from dbo.[NewSheet$] (3skelion table).
+    Return list of distinct SERIAL values from dbo.[NewSheet_Last15Days] (3skelion table).
     """
     db = SessionLocal()
     try:
@@ -1702,7 +1702,7 @@ def live_3skelion_serials_with_locations():
         db.close()
 
 # =========================
-# 3SKELION - ALARMS (NewSheet$)
+# 3SKELION - ALARMS (NewSheet_Last15Days)
 # =========================
 
 def get_3skelion_alarm_records_by_serial(
@@ -1715,7 +1715,7 @@ def get_3skelion_alarm_records_by_serial(
 ):
     """
     Return alarm samples for one SERIAL from:
-      [3skelion2].[dbo].[NewSheet$]
+      [3skelion2].[dbo].[NewSheet_Last15Days]
 
     Output fields are normalized so the existing JS works:
       SERIAL, NAME, LATITUDE, LONGITUDE, DATETIME, RSRP, SINR, TEMP
@@ -1741,7 +1741,7 @@ def get_3skelion_alarm_records_by_serial(
                 TEMP,
                 BEST_RSRP AS RSRP,
                 BEST_SNR  AS SINR
-            FROM [3skelion2].[dbo].[NewSheet$]
+            FROM [3skelion2].[dbo].[NewSheet_Last15Days]
             WHERE SERIAL = :serial
               AND [TIME] >= :sdate
               AND [TIME] <= :edate
@@ -1788,7 +1788,7 @@ def get_3skelion_alarm_statistics(
 ):
     """
     Return alarm statistics per system (top systems by alarm rate)
-    from [3skelion2].[dbo].[NewSheet$]
+    from [3skelion2].[dbo].[NewSheet_Last15Days]
     """
     db = SessionLocal()
     try:
@@ -1815,7 +1815,7 @@ def get_3skelion_alarm_statistics(
                 SUM(CASE WHEN BEST_SNR  <= :sinr_threshold THEN 1 ELSE 0 END) AS sinr_alarms,
                 SUM(CASE WHEN (LAT = 0 OR LON = 0) THEN 1 ELSE 0 END) AS gps_alarms,
                 SUM(CASE WHEN TEMP >= :temp_threshold THEN 1 ELSE 0 END) AS temp_alarms
-            FROM [3skelion2].[dbo].[NewSheet$]
+            FROM [3skelion2].[dbo].[NewSheet_Last15Days]
             WHERE SERIAL IS NOT NULL
               AND [TIME] >= :sdate
               AND [TIME] <= :edate
@@ -1854,7 +1854,7 @@ def get_3skelion_alarm_statistics(
         db.close()        
         
 # =========================
-# 3SKELION - PLAYBACK (HISTORIC) FROM NewSheet$
+# 3SKELION - PLAYBACK (HISTORIC) FROM NewSheet_Last15Days
 # =========================
 from datetime import datetime, timedelta
 
@@ -1867,7 +1867,7 @@ def list_3skelion_playback_serials():
 
     TIP: Για να είναι ΠΑΝΤΑ γρήγορο, το παίρνουμε από LiveOldSheet$
     (εκεί υπάρχουν τα 30 συστήματα σίγουρα).
-    Αν το πάρεις από NewSheet$ μπορεί να κάνει αχρείαστο heavy DISTINCT.
+    Αν το πάρεις από NewSheet_Last15Days μπορεί να κάνει αχρείαστο heavy DISTINCT.
     """
     db = SessionLocal()
     try:
@@ -1886,7 +1886,7 @@ def list_3skelion_playback_serials():
 def get_3skelion_historic_records_by_serial(serial: str, early: str, latest: str, limit: int = 500, offset: int = 0):
     """
     Return paginated historic records from:
-      [3skelion2].[dbo].[NewSheet$]
+      [3skelion2].[dbo].[NewSheet_Last15Days]
 
     Frontend expects:
       - DATETIME (ISO string)
@@ -1906,7 +1906,7 @@ def get_3skelion_historic_records_by_serial(serial: str, early: str, latest: str
         # total for pagination
         count_sql = text("""
             SELECT COUNT(*) AS total
-            FROM [3skelion2].[dbo].[NewSheet$]
+            FROM [3skelion2].[dbo].[NewSheet_Last15Days]
             WHERE SERIAL = :serial
               AND [TIME] >= :start_dt
               AND [TIME] <  :end_dt
@@ -1918,7 +1918,7 @@ def get_3skelion_historic_records_by_serial(serial: str, early: str, latest: str
             cols_sql = text(
                 "SELECT COLUMN_NAME "
                 "FROM [3skelion2].INFORMATION_SCHEMA.COLUMNS "
-                "WHERE TABLE_NAME = 'NewSheet$'"
+                "WHERE TABLE_NAME = 'NewSheet_Last15Days'"
             )
             col_rows = db.execute(cols_sql).fetchall()
             get_3skelion_historic_records_by_serial._newsheet_cols = {r[0].upper() for r in col_rows}
@@ -1961,7 +1961,7 @@ def get_3skelion_historic_records_by_serial(serial: str, early: str, latest: str
 
                 {antenna_select_sql}
 
-            FROM [3skelion2].[dbo].[NewSheet$]
+            FROM [3skelion2].[dbo].[NewSheet_Last15Days]
             WHERE SERIAL = :serial
               AND [TIME] >= :start_dt
               AND [TIME] <  :end_dt
@@ -2014,7 +2014,7 @@ def get_all_3skelion_historic_records(early: str, latest: str, limit: int = 500,
 
         count_sql = text("""
             SELECT COUNT(*) AS total
-            FROM [3skelion2].[dbo].[NewSheet$]
+            FROM [3skelion2].[dbo].[NewSheet_Last15Days]
             WHERE [TIME] >= :start_dt
               AND [TIME] <  :end_dt
         """)
@@ -2024,7 +2024,7 @@ def get_all_3skelion_historic_records(early: str, latest: str, limit: int = 500,
             cols_sql = text(
                 "SELECT COLUMN_NAME "
                 "FROM [3skelion2].INFORMATION_SCHEMA.COLUMNS "
-                "WHERE TABLE_NAME = 'NewSheet$'"
+                "WHERE TABLE_NAME = 'NewSheet_Last15Days'"
             )
             col_rows = db.execute(cols_sql).fetchall()
             get_all_3skelion_historic_records._newsheet_cols = {r[0].upper() for r in col_rows}
@@ -2056,7 +2056,7 @@ def get_all_3skelion_historic_records(early: str, latest: str, limit: int = 500,
                 BEST_RSRP,
                 BEST_SNR,
                 {ant_select_sql}
-            FROM [3skelion2].[dbo].[NewSheet$]
+            FROM [3skelion2].[dbo].[NewSheet_Last15Days]
             WHERE [TIME] >= :start_dt
               AND [TIME] <  :end_dt
             ORDER BY [TIME] ASC
@@ -2095,7 +2095,7 @@ def get_all_3skelion_historic_records(early: str, latest: str, limit: int = 500,
 
 def export_3skelion_historic_csv(serial: str, start_date: str | None = None, end_date: str | None = None) -> str:
     """
-    Export 3skelion historic rows (NewSheet$) as CSV.
+    Export 3skelion historic rows (NewSheet_Last15Days) as CSV.
 
     - Respects selected date range when start_date/end_date are provided.
     - Output columns: WITHOUT HEADING / S3RSRP / S3SINR
@@ -2121,7 +2121,7 @@ def export_3skelion_historic_csv(serial: str, start_date: str | None = None, end
             cols_sql = text(
                 "SELECT COLUMN_NAME "
                 "FROM [3skelion2].INFORMATION_SCHEMA.COLUMNS "
-                "WHERE TABLE_NAME = 'NewSheet$'"
+                "WHERE TABLE_NAME = 'NewSheet_Last15Days'"
             )
             col_rows = db.execute(cols_sql).fetchall()
             export_3skelion_historic_csv._newsheet_cols = {r[0].upper() for r in col_rows}
@@ -2157,7 +2157,7 @@ def export_3skelion_historic_csv(serial: str, start_date: str | None = None, end
                 BEST_SNR  AS SINR,
                 TEMP,
                 {ant_select_sql}
-            FROM [3skelion2].[dbo].[NewSheet$]
+            FROM [3skelion2].[dbo].[NewSheet_Last15Days]
             WHERE SERIAL = :serial
             {time_filter_sql}
             ORDER BY [TIME] ASC

@@ -420,12 +420,12 @@ def playback_historic_locations():
     return historic_serials_with_locations()
 
 # =========================
-# 3SKELION API (NewSheet$)
+# 3SKELION API (NewSheet_Last15Days$)
 # =========================
 
 @app.get("/3skelion/systems/Live/serials")
 def list_3skelion_serials_endpoint():
-    """Return 3skelion serial list from dbo.[NewSheet$]."""
+    """Return 3skelion serial list from dbo.[NewSheet_Last15Days$]."""
     return list_3skelion_serials()
 
 
@@ -440,7 +440,7 @@ def list_3skelion_names_endpoint():
 
 @app.get("/3skelion/Systems/Live/{serial}")
 def get_3skelion_system(serial: str):
-    """Return latest 3skelion record for SERIAL from dbo.[NewSheet$]."""
+    """Return latest 3skelion record for SERIAL from dbo.[NewSheet_Last15Days$]."""
     return get_3skelion_live_records_by_serial(serial)
 
 
