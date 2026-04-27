@@ -12,6 +12,7 @@ let currentAlarms = [];
 let sortColumn = null;
 let sortDirection = 'asc';
 let selectedAlarmKeys = new Set();
+let allData = []; // for Export CSV
 
 function pad2(n) {
   return String(n).padStart(2, '0');
@@ -102,6 +103,88 @@ function bindClearFiltersButton() {
   clearBtn.addEventListener('click', (event) => {
     event.preventDefault();
     clearAlarmFilters();
+  });
+}
+
+// -----------------------
+// Export CSV (Communication Alarms)
+// -----------------------
+function escapeCell(value) {
+  if (value === null || value === undefined) return '';
+  const s = String(value);
+  if (/[",\n]/.test(s)) {
+    return '"' + s.replace(/"/g, '""') + '"';
+  }
+  return s;
+}
+
+function exportCombinedCSV(data) {
+  if (!data || data.length === 0) return;
+
+  // Same columns as 4skelion export
+  const headers = [
+    'serial',
+    'site',
+    'status',
+    'lastUpdate',
+    'hoursAgo',
+    'latitude',
+    'longitude'
+  ];
+
+  const lines = [];
+  lines.push(headers.join(','));
+
+  for (const alarm of data) {
+    const row = [
+      alarm.serial ?? '',
+      alarm.site ?? '',
+      alarm.status ?? '',
+      alarm.lastUpdate ?? '',
+      (typeof alarm.hoursAgo === 'number' ? alarm.hoursAgo.toFixed(2) : (alarm.hoursAgo ?? '')),
+      alarm.latitude ?? '',
+      alarm.longitude ?? ''
+    ].map(escapeCell);
+
+    lines.push(row.join(','));
+  }
+
+  const csvContent = lines.join('\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+
+  const a = document.createElement('a');
+  const url = URL.createObjectURL(blob);
+  a.href = url;
+
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const dd = String(now.getDate()).padStart(2, '0');
+  const HH = String(now.getHours()).padStart(2, '0');
+  const MI = String(now.getMinutes()).padStart(2, '0');
+  const SS = String(now.getSeconds()).padStart(2, '0');
+  a.download = `AlarmView_${yyyy}-${mm}-${dd}_${HH}-${MI}-${SS}.csv`;
+
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function updateExportButtonState() {
+  const exportBtn = document.getElementById('exportBtn');
+  if (!exportBtn) return;
+  exportBtn.disabled = !allData || allData.length === 0;
+}
+
+function bindExportButton() {
+  const exportBtn = document.getElementById('exportBtn');
+  if (!exportBtn) return;
+  if (exportBtn.dataset.bound === '1') return;
+  exportBtn.dataset.bound = '1';
+
+  exportBtn.addEventListener('click', () => {
+    exportCombinedCSV(allData);
   });
 }
 
@@ -322,6 +405,11 @@ export function renderAlarmsTable(alarms) {
     currentAlarms = alarms;
   }
 
+  // Keep latest table data for export
+  allData = Array.isArray(alarms) ? [...alarms] : [];
+  bindExportButton();
+  updateExportButtonState();
+
   const availableAlarmKeys = new Set(alarms.map(getAlarmKey));
   selectedAlarmKeys = new Set(
     Array.from(selectedAlarmKeys).filter(key => availableAlarmKeys.has(key))
@@ -334,6 +422,9 @@ export function renderAlarmsTable(alarms) {
     selectedAlarmKeys = new Set();
     updateClearFiltersButtonState();
     alarmsArea.innerHTML = '<div class="text-center text-muted p-4">No active alarms</div>';
+    allData = [];
+    bindExportButton();
+    updateExportButtonState();
     // Dispatch event even when there are no alarms
     window.dispatchEvent(new CustomEvent('alarms:table-rendered', {
       detail: {

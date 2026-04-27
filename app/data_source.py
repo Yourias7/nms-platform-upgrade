@@ -1,6 +1,6 @@
 import logging
 import threading
-from sqlalchemy.sql import func, text, case
+from sqlalchemy.sql import func, text, case # type: ignore
 import time
 from datetime import datetime, timedelta
 from .database import SessionLocal
@@ -1506,8 +1506,6 @@ def export_historic_csv(serial: str) -> str:
 # We return data shaped similarly to the existing /Systems/Live/{serial} endpoint,
 # so we can reuse most of the existing frontend code with minimal changes.
 
-from sqlalchemy.sql import text
-
 
 def list_3skelion_serials():
     """
@@ -1859,7 +1857,6 @@ def get_3skelion_alarm_statistics(
 # 3SKELION - PLAYBACK (HISTORIC) FROM NewSheet$
 # =========================
 from datetime import datetime, timedelta
-from sqlalchemy.sql import text
 
 from app.ship_lookup import get_ship_name  # το mapping που ήδη φτιάξαμε
 

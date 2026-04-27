@@ -13,6 +13,7 @@ let sortColumn = null;
 let sortDirection = 'asc';
 let selectedSerial = 'all';
 let selectedPerformanceAlarmKeys = new Set();
+let activeTypeFilters = new Set(); // 'RSRP', 'SINR', 'GPS'
 let allPerformanceAlarms = [];
 let lassoFilteredAlarmKeys = null;
 let currentAbortController = null; // Track ongoing requests
@@ -42,10 +43,65 @@ function updateClearAlarmFiltersButtonState() {
 }
 
 function getVisiblePerformanceAlarms() {
-  if (!lassoFilteredAlarmKeys || lassoFilteredAlarmKeys.size === 0) {
-    return allPerformanceAlarms;
+  let alarms = allPerformanceAlarms;
+
+  if (lassoFilteredAlarmKeys && lassoFilteredAlarmKeys.size > 0) {
+    alarms = alarms.filter(a => lassoFilteredAlarmKeys.has(getPerformanceAlarmKey(a)));
   }
-  return allPerformanceAlarms.filter((alarm) => lassoFilteredAlarmKeys.has(getPerformanceAlarmKey(alarm)));
+
+  alarms = applyTypeFilters(alarms);
+  return alarms;
+}
+
+function applyTypeFilters(alarms) {
+  if (!activeTypeFilters || activeTypeFilters.size === 0) return alarms;
+
+  return alarms.filter(alarm => {
+    const status = String(alarm.status || '').toUpperCase();
+    for (const f of activeTypeFilters) {
+      if (!status.includes(String(f).toUpperCase())) return false;
+    }
+    return true;
+  });
+}
+
+function setFilterBtnState(btn, active) {
+  if (!btn) return;
+  btn.classList.toggle('btn-warning', active);
+  btn.classList.toggle('btn-outline-warning', !active);
+}
+
+function updateTypeFilterButtons() {
+  setFilterBtnState(document.getElementById('filterRsrpBtn'), activeTypeFilters.has('RSRP'));
+  setFilterBtnState(document.getElementById('filterSinrBtn'), activeTypeFilters.has('SINR'));
+  setFilterBtnState(document.getElementById('filterGpsBtn'),  activeTypeFilters.has('GPS'));
+}
+
+function toggleTypeFilter(key) {
+  if (activeTypeFilters.has(key)) activeTypeFilters.delete(key);
+  else activeTypeFilters.add(key);
+
+  updateTypeFilterButtons();
+  renderPerformanceAlarmsTable(getVisiblePerformanceAlarms());
+}
+
+function bindTypeFilterButtons() {
+  const rsrpBtn = document.getElementById('filterRsrpBtn');
+  const sinrBtn = document.getElementById('filterSinrBtn');
+  const gpsBtn  = document.getElementById('filterGpsBtn');
+
+  if (!rsrpBtn || !sinrBtn || !gpsBtn) return;
+  if (rsrpBtn.dataset.bound === '1') return;
+
+  rsrpBtn.dataset.bound = '1';
+  sinrBtn.dataset.bound = '1';
+  gpsBtn.dataset.bound  = '1';
+
+  rsrpBtn.addEventListener('click', () => toggleTypeFilter('RSRP'));
+  sinrBtn.addEventListener('click', () => toggleTypeFilter('SINR'));
+  gpsBtn.addEventListener('click',  () => toggleTypeFilter('GPS'));
+
+  updateTypeFilterButtons();
 }
 
 function clearPerformanceRowFilters() {
@@ -724,21 +780,41 @@ async function loadPerformanceAlarms() {
  * Clear filters and reset to defaults
  */
 function clearFilters() {
-  const serialInput = document.getElementById('serialInput');
-  
-  if (serialInput) {
-    serialInput.value = 'All systems';
-    selectedSerial = 'all';
+  if (currentAbortController) {
+    try { currentAbortController.abort(); } catch (e) {}
+    currentAbortController = null;
   }
-  
-  // Reset dates to yesterday
-  initializeDateInputs();
 
+  const serialInput = document.getElementById('serialInput');
+  const startDateInput = document.getElementById('startDateInput');
+  const endDateInput = document.getElementById('endDateInput');
+
+  if (serialInput) serialInput.value = '';
+  if (startDateInput) startDateInput.value = '';
+  if (endDateInput) endDateInput.value = '';
+
+  selectedSerial = 'all';
+  allPerformanceAlarms = [];
+  selectedPerformanceAlarmKeys.clear();
   lassoFilteredAlarmKeys = null;
+
+  activeTypeFilters.clear();
+  updateTypeFilterButtons();
+
   window.dispatchEvent(new CustomEvent('performance-alarms:clear-lasso'));
-  
-  // Reload with defaults
-  loadPerformanceAlarms();
+
+  const alarmMessage = document.getElementById('alarmMessage');
+  const performanceAlarmsArea = document.getElementById('performanceAlarmsArea');
+
+  if (alarmMessage) alarmMessage.textContent = '';
+  if (performanceAlarmsArea) {
+    performanceAlarmsArea.innerHTML =
+      '<div class="text-center text-muted p-4">Select a date range and click Load.</div>';
+  }
+
+  window.dispatchEvent(new CustomEvent('performance-alarms:table-rendered', {
+    detail: { alarms: [], selectedKeys: [] }
+  }));
 }
 
 /**
@@ -763,6 +839,7 @@ async function init() {
   const clearBtn = document.getElementById('clearSelectedBtn');
   if (clearBtn) {
     clearBtn.addEventListener('click', clearFilters);
+    bindTypeFilterButtons();
   }
   
   // Load initial data (last 24 hours, all systems)
