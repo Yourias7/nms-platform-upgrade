@@ -38,6 +38,17 @@ export async function fetchSerialsList() {
  * Fetch list of all historic serial numbers
  * @returns {Promise<string[]>} Array of historic serial numbers
  */
+export async function fetchHistoricProbesList() {
+  console.log('[Playback Page] Fetching historic probes list from API:', CONFIG.API.HISTORIC_PROBES);
+  const res = await fetch(CONFIG.API.PROBE_HISTORIC_SERIALS);
+  console.log('[Playback Page] Received response for historic probes list:', res);
+  return await res.json();
+}
+
+/**
+ * Fetch list of all historic serial numbers
+ * @returns {Promise<string[]>} Array of historic serial numbers
+ */
 export async function fetchHistoricSerialsList() {
   console.log('[Playback Page] Fetching historic serials list from API:', CONFIG.API.HISTORIC_SERIALS);
   const res = await fetch(CONFIG.API.HISTORIC_SERIALS);
@@ -76,7 +87,7 @@ export async function fetchSerialData(serial, signal = null) {
  */
 export async function fetchProbeData(serial, signal = null) {
   const options = signal ? { signal } : {};
-  const res = await fetch(`${CONFIG.API.PROBES}/${encodeURIComponent(serial)}`, options);
+  const res = await fetch(`${CONFIG.API.PROBE_SYSTEMS}/${encodeURIComponent(serial)}`, options);
   return await res.json();
 }
 
@@ -93,8 +104,21 @@ export async function fetchEarliestSerialData(serial) {
   
 }
 
+export async function fetchEarliestProbeData(serial) {
+  const res = await fetch(`${CONFIG.API.PROBE_SYSTEMS}/${encodeURIComponent(serial)}?limit=1&order=asc`);
+  const data = await res.json();
+  return (data && data.length > 0) ? data[0] : null;
+  
+}
+
 export async function fetchLatestSerialData(serial) {
   const res = await fetch(`${CONFIG.API.SYSTEMS}/${encodeURIComponent(serial)}?limit=1`);
+  const data = await res.json();
+  return (data && data.length > 0) ? data[0] : null;
+}
+
+export async function fetchLatestProbeData(serial) {
+  const res = await fetch(`${CONFIG.API.PROBE_SYSTEMS}/${encodeURIComponent(serial)}?limit=1`);
   const data = await res.json();
   return (data && data.length > 0) ? data[0] : null;
 }
@@ -136,6 +160,23 @@ export async function fetchPagedHistoricAllData(early, latest, page = 1, limit =
 export async function fetchHistoricSerialData(serial, early, latest, page = 1, limit = 500, signal = null) {
   const options = signal ? { signal } : {};
   const url = `${CONFIG.API.HISTORIC_SYSTEMS}/${encodeURIComponent(serial)}/${encodeURIComponent(early)}/${encodeURIComponent(latest)}?page=${page}&limit=${limit}`;
+  const res = await fetch(url, options);
+  return await res.json();
+}
+
+/**
+ * Fetch paginated historic records for a specific serial
+ * @param {string} serial - Serial number to fetch
+ * @param {string} early - Start datetime (ISO format)
+ * @param {string} latest - End datetime (ISO format)
+ * @param {number} page - 1-based page number
+ * @param {number} limit - Records per page
+ * @param {AbortSignal} [signal] - Optional AbortSignal for cancellation
+ * @returns {Promise<{data: Object[], total: number}>}
+ */
+export async function fetchHistoricProbeData(serial, early, latest, page = 1, limit = 500, signal = null) {
+  const options = signal ? { signal } : {};
+  const url = `${CONFIG.API.PROBE_HISTORIC_SYSTEMS}/${encodeURIComponent(serial)}/${encodeURIComponent(early)}/${encodeURIComponent(latest)}?page=${page}&limit=${limit}`;
   const res = await fetch(url, options);
   return await res.json();
 }
@@ -253,11 +294,33 @@ export async function fetchLEDStatus(serial) {
 
   return { rsrp: null, sinr: null, temp: null, lat: null, lon: null, datetime: null };
 }
+// /**
+// * @returns {Promise<Object>} map like { "123": "BOAT_A", ... }
+//  */
+// export async function fetchProbeNameMap() {
+//   const res = await fetch(CONFIG.API.PROBE_NAME_MAP);
+//   const payload = await res.json();
+
+//   // If backend already returns an object map
+//   if (payload && !Array.isArray(payload) && typeof payload === 'object') {
+//     return payload;
+//   }
+
+//   // If backend returns array of objects
+//   const map = {};
+//   (payload || []).forEach((x) => {
+//     const serial = x?.SERIAL ?? x?.serial ?? x?.Serial ?? x?.id;
+//     const name = x?.NAME ?? x?.name ?? x?.Name ?? x?.label;
+//     if (serial) map[String(serial)] = name ?? String(serial);
+//   });
+//   return map;
+// }
+
 /**
 * @returns {Promise<Object>} map like { "123": "BOAT_A", ... }
  */
-export async function fetchProbeNameMap() {
-  const res = await fetch(CONFIG.API.PROBE_NAME_MAP);
+export async function fetchSerialNameMap() {
+  const res = await fetch(CONFIG.API.SERIAL_NAME_MAP);
   const payload = await res.json();
 
   // If backend already returns an object map
@@ -274,12 +337,11 @@ export async function fetchProbeNameMap() {
   });
   return map;
 }
-
 /**
 * @returns {Promise<Object>} map like { "123": "BOAT_A", ... }
  */
-export async function fetchSerialNameMap() {
-  const res = await fetch(CONFIG.API.SERIAL_NAME_MAP);
+export async function fetchProbeNameMap() {
+  const res = await fetch(CONFIG.API.PROBE_NAME_MAP);
   const payload = await res.json();
 
   // If backend already returns an object map

@@ -1,8 +1,8 @@
 // static/js/playback.js
 // Playback page - RSRP time-series visualization
 import { CONFIG } from '../shared/config.js';
-import { fetchSerialData, fetchSerialNameMap, fetchEarliestSerialData, fetchLatestSerialData } from '../shared/api.js';
-import { fetchHistoricSerialsList, fetchHistoricSerialData } from '../shared/api.js';
+import { fetchProbeData, fetchProbeNameMap, fetchEarliestProbeData, fetchLatestProbeData } from '../shared/api.js';
+import { fetchHistoricProbesList, fetchHistoricProbeData } from '../shared/api.js';
 
 let chartInstance = null;
 let chartInstance2 = null;
@@ -368,7 +368,7 @@ async function populateSerialOptions(serials) {
 
   // Fetch mapping of serial -> display name
   try {
-    serialNameMap = await fetchSerialNameMap();
+    serialNameMap = await fetchProbeNameMap();
   } catch (err) {
     console.warn('[Playback] Failed to fetch serial name map', err);
     serialNameMap = {};
@@ -521,8 +521,8 @@ async function setDefaultDatesForSerial(serial) {
   if (!serial) return;
 
   try {
-    const earliestRecord = await fetchEarliestSerialData(serial);
-    const latestRecord = await fetchLatestSerialData(serial);
+    const earliestRecord = await fetchEarliestProbeData(serial);
+    const latestRecord = await fetchLatestProbeData(serial);
 
     if (earliestRecord && earliestRecord.DATETIME) {
       const startDate = formatDateForInput(earliestRecord.DATETIME);
@@ -598,7 +598,7 @@ async function loadHistoricData(serial, startDate, endDate) {
   currentAbortController = new AbortController();
   const signal = currentAbortController.signal;
 
-  const response = await fetchHistoricSerialData(serial, startDate, endDate, 1, 500, signal);
+  const response = await fetchHistoricProbeData(serial, startDate, endDate, 1, 500, signal);
   const records = response.data || response || [];
   return { serial, records: sortByDatetime(records || []) };
 }
@@ -1651,7 +1651,7 @@ async function init() {
 
   setPlaybackMessage('Loading serials...', 'muted');
   try {
-    const serials = await fetchHistoricSerialsList();
+    const serials = await fetchHistoricProbesList();
     await populateSerialOptions(serials || []);
     setPlaybackMessage(serials && serials.length > 0 ? '' : 'No serials available.', 'muted');
     

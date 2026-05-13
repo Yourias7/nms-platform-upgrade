@@ -1,6 +1,7 @@
 # models.py
 from sqlalchemy import Column, Integer, Float, String, DateTime
-from .database import Base
+from .database import Base, engine_2
+from sqlalchemy.orm import declarative_base
 
 # Live Measurement Model
 class LiveMeasurement(Base):
@@ -87,9 +88,14 @@ class HistoricMeasurement(Base):
     S3PCI = Column(String(255), name="S3.PCI")
     S3RSRQ = Column(Float, name="S3.RSRQ")
 
-# Real-time Probes Measurement Model
-class RealTimeProbeMeasurement(Base):
-    __tablename__ = "ProbesLive$"
+# ==================== SECOND DATABASE SOURCE ====================
+
+# Declarative base for second database
+Base2 = declarative_base()
+
+# Real-time Probes Measurement Model (Second Database)
+class RealTimeProbeMeasurement(Base2):
+    __tablename__ = "LiveSheet$"
 
     SERIAL = Column(String(255), primary_key=True, index=True, name="SN")
     NAME = Column(String(255), name="Name")
@@ -102,29 +108,29 @@ class RealTimeProbeMeasurement(Base):
     HEADING = Column(Float, name="Heading")
     SPEED = Column(Float, name="Speed")
     TEMP = Column(Float, name="Temperature")
-    LINETYPE= Column(String(255), name="LineType")
+    LINETYPE = Column(String(255), name="LineType")
     BAND = Column(String(255), name="Band")
     NETEXIST = Column(Float, name="NetExist?")
     REGISTERED = Column(Float, name="Registered?")
     MCC = Column(Float)
     MNC = Column(Float)
     RSRP = Column(Float, name="RSRP dBm")
-    RSRQ= Column(Integer, name="RSRQ dB")
+    RSRQ = Column(Integer, name="RSRQ dB")
     SINR = Column(Float, name="SNIR dB")
     TEMP = Column(Float, name="Temperature")
     EARFCN = Column(String(255))
     PCI = Column(String(255))
-    CID= Column(String(255), name="CELL ID")
-    CID_DEC= Column(String(255), name="CELL ID DECIMAL")
+    CID = Column(String(255), name="CELL ID")
+    CID_DEC = Column(String(255), name="CELL ID DECIMAL")
     TAC = Column(String(255))
     HTTP_KBPS = Column(Float, name="HTTP kbps")
     PING_RTT = Column(Float, name="PING RTT ms")
     BW_DL = Column(Float, name="BW DL")
     BW_UL = Column(Float, name="BW UL")
 
-# Probes Historic Measurement Model
-class ProbesHistoricMeasurement(Base):
-    __tablename__ = "ProbesHistoric$"
+    # Probes Historic Measurement Model
+class ProbesHistoricMeasurement(Base2):
+    __tablename__ = "Historic"
 
     SERIAL = Column(String(255), primary_key=True, index=True, name="SN")
     NAME = Column(String(255), name="Name")

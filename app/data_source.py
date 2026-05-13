@@ -3,7 +3,7 @@ import threading
 from sqlalchemy.sql import func, text, case # type: ignore
 import time
 from datetime import datetime, timedelta
-from .database import SessionLocal
+from .database import SessionLocal, SessionLocal_2
 from .models import HistoricMeasurement, LiveMeasurement, RealTimeProbeMeasurement, ProbesHistoricMeasurement
 import csv
 import io
@@ -38,12 +38,12 @@ def list_live_serials():
         db.close()
 
 def list_live_probes():
-    """Return list of all distinct SERIAL values from database."""
-    db = SessionLocal()
+    """Return list of all distinct SERIAL values from probes database."""
+    db = SessionLocal_2()
     try:
         rows = db.query(RealTimeProbeMeasurement.SERIAL).distinct().all()
         serials = [r[0] for r in rows if r[0] is not None]
-        logger.info(f"Retrieved {len(serials)} distinct serials from database")
+        logger.info(f"Retrieved {len(serials)} distinct probes from database")
         return serials
     finally:
         db.close()
@@ -63,7 +63,7 @@ def list_live_serial_name_pairs():
         db.close()
 
 def list_live_probes_serial_name_pairs():
-    db = SessionLocal()
+    db = SessionLocal_2()
     try:
         rows = (
             db.query(RealTimeProbeMeasurement.SERIAL, RealTimeProbeMeasurement.NAME)
@@ -120,7 +120,7 @@ def list_historic_alarm_probes():
             logger.info("Returning cached historic serials")
             return list(_historic_serials_cache)
 
-    db = SessionLocal()
+    db = SessionLocal_2()
     try:
         cutoff = datetime.utcnow() - timedelta(days=15)
         rows = (
@@ -187,7 +187,7 @@ def list_historic_probes():
             logger.info("Returning cached historic serials")
             return list(_historic_serials_cache)
 
-    db = SessionLocal()
+    db = SessionLocal_2()
     try:
         cutoff = datetime.utcnow() - timedelta(days=15)
         rows = (
@@ -330,7 +330,7 @@ def get_historic_records_by_serial(serial: str, early: str = None, latest: str =
 
 def get_historic_records_by_probe(serial: str, early: str = None, latest: str = None, limit: int = 500, offset: int = 0):
     """Return paginated measurement records for a given SERIAL from database."""
-    db = SessionLocal()
+    db = SessionLocal_2()
     try:
         ser = str(serial).strip()
         sdate = datetime.fromisoformat(early) if early else None
@@ -360,7 +360,7 @@ def get_historic_records_by_probe(serial: str, early: str = None, latest: str = 
                 ProbesHistoricMeasurement.MOBILITY.label("MOBILITY"),
                 ProbesHistoricMeasurement.NETEXIST.label("NETEXIST"),
                 ProbesHistoricMeasurement.REGISTERED.label("REGISTERED"),
-                ProbesHistoricMeasurement.SCAN.label("SCAN#"),
+                ProbesHistoricMeasurement.SCAN.label("SCAN"),
                 ProbesHistoricMeasurement.TAC.label("TAC"),
             )
             .filter(ProbesHistoricMeasurement.SERIAL == ser)
@@ -408,7 +408,7 @@ def get_historic_records_by_probe(serial: str, early: str = None, latest: str = 
 
 def get_all_historic_probe_records(early: str = None, latest: str = None, limit: int = 500, offset: int = 0):
     """Return paginated measurement records for ALL serials within the specified date range."""
-    db = SessionLocal()
+    db = SessionLocal_2()
     try:
         sdate = datetime.fromisoformat(early) if early else None
         edate = datetime.fromisoformat(latest) if latest else None
@@ -600,7 +600,7 @@ def get_all_historic_records(early: str = None, latest: str = None, limit: int =
 
 def get_alarm_records_by_probe(serial: str, early: str = None, latest: str = None, rsrp_threshold: float = -120, sinr_threshold: float = 0, temp_threshold: float = 75, limit: int = 100000, offset: int = 0):
     """Return list of alarm records for a given PROBE from database with pagination."""
-    db = SessionLocal()
+    db = SessionLocal_2()
     try:
         ser = str(serial).strip()
         sdate = datetime.fromisoformat(early) if early else None
@@ -839,7 +839,7 @@ def get_all_alarm_records(early: str = None, latest: str = None, rsrp_threshold:
 
 def get_all_alarm_probe_records(early: str = None, latest: str = None, rsrp_threshold: float = -120, sinr_threshold: float = 0, temp_threshold: float = 75, limit: int = 100000, offset: int = 0):
     """Return list of alarm records for all serials from database with pagination, ordered by DATETIME."""
-    db = SessionLocal()
+    db = SessionLocal_2()
     try:
         sdate = datetime.fromisoformat(early) if early else None
         edate = datetime.fromisoformat(latest) if latest else None
@@ -927,7 +927,7 @@ def get_all_alarm_probe_records(early: str = None, latest: str = None, rsrp_thre
 
 def get_live_records_by_probe(serial: str):
     """Return list of measurement records for a given PROBE from database."""
-    db = SessionLocal()
+    db = SessionLocal_2()
     try:
         ser = str(serial).strip()
         rows = db.query(RealTimeProbeMeasurement).filter(RealTimeProbeMeasurement.SERIAL == ser).all()
@@ -1118,7 +1118,7 @@ def get_latest_datetime_for_serial(serial: str) -> str:
 
 def get_latest_datetime_for_probe(serial: str) -> str:
     """Return latest datetime for a given PROBE from database."""
-    db = SessionLocal()
+    db = SessionLocal_2()
     try:
         ser = str(serial).strip()
         row = (
@@ -1293,7 +1293,7 @@ def get_alarm_probes_statistics(early: str = None, latest: str = None, rsrp_thre
     
     Optimized version using single SQL query with conditional aggregation instead of N+1 queries.
     """
-    db = SessionLocal()
+    db = SessionLocal_2()
     try:
         try:
             sdate = datetime.fromisoformat(early) if early else None

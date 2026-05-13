@@ -1134,7 +1134,7 @@ async function renderTableForSerial(serial, page = 1) {
 async function initializeSerialDropdown() {
   try {
     // Fetch serials and name map
-    allSerials = await fetchJSON(CONFIG.API.HISTORIC_SERIALS);
+    allSerials = await fetchJSON(CONFIG.API.PROBE_HISTORIC_SERIALS);
     serialNameMap = await fetchSerialNameMap();
     
     const serialInput = document.getElementById('serialInput');

@@ -45,7 +45,7 @@ async function countCommunicationAlarms() {
     
     for (const serial of serials) {
       try {
-        const records = await fetchJSON(`${CONFIG.API.PROBES}/${encodeURIComponent(serial)}`);
+        const records = await fetchJSON(`${CONFIG.API.PROBE_SYSTEMS}/${encodeURIComponent(serial)}`);
         
         if (!records || records.length === 0) {
           alarmCount++;
