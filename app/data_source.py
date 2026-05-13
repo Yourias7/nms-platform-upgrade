@@ -1,5 +1,6 @@
 import logging
 import threading
+from typing import Optional
 from sqlalchemy.sql import func, text, case # type: ignore
 import time
 from datetime import datetime, timedelta
@@ -2093,7 +2094,7 @@ def get_all_3skelion_historic_records(early: str, latest: str, limit: int = 500,
         db.close()
 
 
-def export_3skelion_historic_csv(serial: str, start_date: str | None = None, end_date: str | None = None) -> str:
+def export_3skelion_historic_csv(serial: str, start_date: Optional[str] = None, end_date: Optional[str] = None) -> str:
     """
     Export 3skelion historic rows (NewSheet_Last15Days) as CSV.
 
