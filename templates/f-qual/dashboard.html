@@ -39,7 +39,7 @@
         <img src="/static/img/New%20folder/Picture1.png" alt="logo" style="height:24px; width:24px; margin-right:8px;" />
         <span>NMS Platform</span>
         <div class="dropdown" style="margin-left: 20px;">
-            <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+            <button id="dropdown-toggle" class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                 Select system
             </button>
             <ul id="dropdown-menu" class="dropdown-menu"></ul>
@@ -70,7 +70,17 @@
     <div class="row">
         <h5 class="card-title mb-0">System Information</h5>
         <div id="systems-container" class="d-flex flex-wrap gap-3 mt-3">
-            <!-- System cards will be dynamically inserted here --> 
+            <!-- System cards will be dynamically inserted here -->
+            <div class="card">
+                <div class="card-title" style="padding: 0.5rem 1rem; font-size: 1.25rem; font-weight: 500;">
+                    RSRP / Signal Strength
+                </div>
+                <div class="card-body">
+                    <h1 class="card-title">Special title treatment</h5>
+                    <p id="rsrp-value" class="card-text">With supporting text below as a natural lead-in to additional content.</p>
+                </div>
+            </div>
+        </div>
     </div>
   </main>
 
