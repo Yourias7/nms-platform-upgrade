@@ -360,6 +360,28 @@ export async function fetchProbeNameMap() {
 }
 
 /**
+* @returns {Promise<Object>} map like { "123": "BOAT_A", ... }
+ */
+export async function fetchHistoricProbeNameMap() {
+  const res = await fetch(CONFIG.API.PROBE_HISTORIC_NAME_MAP);
+  const payload = await res.json();
+
+  // If backend already returns an object map
+  if (payload && !Array.isArray(payload) && typeof payload === 'object') {
+    return payload;
+  }
+
+  // If backend returns array of objects
+  const map = {};
+  (payload || []).forEach((x) => {
+    const serial = x?.SERIAL ?? x?.serial ?? x?.Serial ?? x?.id;
+    const name = x?.NAME ?? x?.name ?? x?.Name ?? x?.label;
+    if (serial) map[String(serial)] = name ?? String(serial);
+  });
+  return map;
+}
+
+/**
  * Get export URL for a serial
  * @param {string} serial - Serial number to export
  * @returns {string} Export URL

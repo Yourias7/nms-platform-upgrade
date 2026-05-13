@@ -599,6 +599,20 @@ def get_all_historic_records(early: str = None, latest: str = None, limit: int =
     finally:
         db.close()
 
+def list_historic_probes_serial_name_pairs():
+    db = SessionLocal_2()
+    try:
+        rows = (
+            db.query(ProbesHistoricMeasurement.SERIAL, ProbesHistoricMeasurement.NAME)
+            .distinct()
+            .all()
+        )
+        # only systems with serial, since name can be non-unique and not useful without serial
+        pairs = [{"SERIAL": s, "NAME": n} for (s, n) in rows if s is not None]
+        return pairs
+    finally:
+        db.close()
+
 def get_alarm_records_by_probe(serial: str, early: str = None, latest: str = None, rsrp_threshold: float = -120, sinr_threshold: float = 0, temp_threshold: float = 75, limit: int = 100000, offset: int = 0):
     """Return list of alarm records for a given PROBE from database with pagination."""
     db = SessionLocal_2()
@@ -2199,5 +2213,23 @@ def export_3skelion_historic_csv(serial: str, start_date: Optional[str] = None, 
             ])
 
         return output.getvalue()
+    finally:
+        db.close()
+
+
+def get_probe_rsrp(serial: str, early: str, latest: str):
+    """Return RSRP values for a probe in a date range."""
+    db = SessionLocal_2()
+    try:
+        sdate = datetime.fromisoformat(early)
+        edate = datetime.fromisoformat(latest)
+
+        rows = db.query(ProbesHistoricMeasurement.RSRP).filter(
+            ProbesHistoricMeasurement.SERIAL == serial,
+            ProbesHistoricMeasurement.DATETIME >= sdate,
+            ProbesHistoricMeasurement.DATETIME <= edate
+        ).all()
+
+        return [r[0] for r in rows if r[0] is not None]
     finally:
         db.close()
