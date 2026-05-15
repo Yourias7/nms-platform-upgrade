@@ -32,6 +32,13 @@ async function loadSerialsForFilter() {
             dropdownButton.textContent = itemLink.textContent || 'Select system';
             dropdownButton.dataset.selectedSerial = itemLink.dataset.serial || '';
         });
+
+        // Auto-select first item
+        const firstLink = dropdownMenu.querySelector('a.dropdown-item');
+        if (firstLink) {
+            dropdownButton.textContent = firstLink.textContent || 'Select system';
+            dropdownButton.dataset.selectedSerial = firstLink.dataset.serial || '';
+        }
     }
 }
 
@@ -234,10 +241,14 @@ async function loadTempData() {
 
 async function loadDashboard() {
 
-    // Initial Load of probe name dropdown
+    // Initial Load of probe name dropdown, then load all cards with the default serial
     await loadSerialsForFilter().catch((err) => {
         console.error('Failed to load probe name dropdown:', err);
     });
+    loadRsrpData();
+    loadSinrData();
+    loadRttData();
+    loadTempData();
 
     const dropdownButton = document.getElementById('dropdown-toggle');
     if (dropdownButton) {
