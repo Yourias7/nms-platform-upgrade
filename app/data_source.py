@@ -2217,19 +2217,32 @@ def export_3skelion_historic_csv(serial: str, start_date: Optional[str] = None, 
         db.close()
 
 
-def get_probe_rsrp(serial: str, early: str, latest: str):
-    """Return RSRP values for a probe in a date range."""
+def get_probe_rsrp(serial: str):
+    """Return average RSRP for a probe over a date range."""
     db = SessionLocal_2()
     try:
-        sdate = datetime.fromisoformat(early)
-        edate = datetime.fromisoformat(latest)
+        sdate = datetime.now() - timedelta(days=30)  # default to last 30 days if no date provided
+        edate = datetime.now()
 
-        rows = db.query(ProbesHistoricMeasurement.RSRP).filter(
+
+        avg = db.query(
+            func.avg(ProbesHistoricMeasurement.RSRP)
+        ).filter(
             ProbesHistoricMeasurement.SERIAL == serial,
             ProbesHistoricMeasurement.DATETIME >= sdate,
             ProbesHistoricMeasurement.DATETIME <= edate
-        ).all()
+        ).scalar()
 
-        return [r[0] for r in rows if r[0] is not None]
+        return {"average_rsrp": float(avg) if avg is not None else None}
+    finally:
+        db.close()
+        
+def get_instant_probe_rsrp_data(serial: str):
+    """Return instant RSRP for a given probe SERIAL."""
+    db = SessionLocal_2()
+    try:
+        # This is a simplified example - you might want to get the most recent measurement
+        latest_measurement = db.query(RealTimeProbeMeasurement).filter(RealTimeProbeMeasurement.SERIAL == serial).order_by(RealTimeProbeMeasurement.DATETIME.desc()).first()
+        return {"instant_rsrp": float(latest_measurement.RSRP) if latest_measurement else None}
     finally:
         db.close()
