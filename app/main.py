@@ -202,51 +202,51 @@ def list_historic_probes_serials_endpoint():
 @app.get("/")
 def home(request: Request):
     """Render the home page."""
-    return templates.TemplateResponse("home.html", {"request": request})
+    return templates.TemplateResponse(request, "home.html", {"request": request})
 
 
 @app.get("/error")
 def error_page(request: Request):
     """Render the error page with optional error details."""
-    return templates.TemplateResponse("error.html", {"request": request})
+    return templates.TemplateResponse(request, "error.html", {"request": request})
 
 
 @app.get("/4skelion/liveview")
 def liveview_4skelion(request: Request):
     """Render the live view UI."""
     try:
-        return templates.TemplateResponse("4skelion/liveview.html", {"request": request})
+        return templates.TemplateResponse(request, "4skelion/liveview.html", {"request": request})
     except Exception:
-        return templates.TemplateResponse("coming_soon.html", {"request": request})
+        return templates.TemplateResponse(request, "coming_soon.html", {"request": request})
     
 @app.get("/3skelion/liveview")
 def liveview_3skelion(request: Request):
     """Render the live view UI."""
     try:
-        return templates.TemplateResponse("3skelion/liveview.html", {"request": request})
+        return templates.TemplateResponse(request, "3skelion/liveview.html", {"request": request})
     except Exception:
-        return templates.TemplateResponse("coming_soon.html", {"request": request})
+        return templates.TemplateResponse(request, "coming_soon.html", {"request": request})
     
 @app.get("/f-qual/liveview")
 def liveview_f_qual(request: Request):
     """Render the live view UI."""
     try:
-        return templates.TemplateResponse("f-qual/liveview.html", {"request": request})
+        return templates.TemplateResponse(request, "f-qual/liveview.html", {"request": request})
     except Exception:
-        return templates.TemplateResponse("coming_soon.html", {"request": request})
+        return templates.TemplateResponse(request, "coming_soon.html", {"request": request})
 
 @app.get("/f-qual/dashboard")
 def dashboard_f_qual(request: Request):
     """Render the dashboard UI."""
     try:
-        return templates.TemplateResponse("f-qual/dashboard.html", {"request": request})
+        return templates.TemplateResponse(request, "f-qual/dashboard.html", {"request": request})
     except Exception:
-        return templates.TemplateResponse("coming_soon.html", {"request": request})
+        return templates.TemplateResponse(request, "coming_soon.html", {"request": request})
 
 @app.get("/coming_soon")
 def coming_soon(request: Request):
     """Render the coming soon page."""
-    return templates.TemplateResponse("coming_soon.html", {"request": request})
+    return templates.TemplateResponse(request, "coming_soon.html", {"request": request})
 
 
 @app.get("/4skelion/alarms")
@@ -254,156 +254,156 @@ def alarms_4skelion(request: Request):
     try:
         return RedirectResponse(url="/4skelion/alarms/summary")
     except Exception:
-        return templates.TemplateResponse("coming_soon.html", {"request": request})
+        return templates.TemplateResponse(request, "coming_soon.html", {"request": request})
     
 @app.get("/3skelion/alarms")
 def alarms_3skelion(request: Request):
     try:
         return RedirectResponse(url="/3skelion/alarms/summary")
     except Exception:
-        return templates.TemplateResponse("coming_soon.html", {"request": request})
+        return templates.TemplateResponse(request, "coming_soon.html", {"request": request})
     
 @app.get("/f-qual/alarms")
 def alarms_f_qual(request: Request):
     try:
         return RedirectResponse(url="/f-qual/alarms/summary")
     except Exception:
-        return templates.TemplateResponse("coming_soon.html", {"request": request})
+        return templates.TemplateResponse(request, "coming_soon.html", {"request": request})
 
 @app.get("/4skelion/alarms/communication")
 def communication_alarms_4skelion(request: Request):
     try:
-        return templates.TemplateResponse("4skelion/communication_alarm.html", {"request": request})
+        return templates.TemplateResponse(request, "4skelion/communication_alarm.html", {"request": request})
     except Exception:
-        return templates.TemplateResponse("coming_soon.html", {"request": request})
+        return templates.TemplateResponse(request, "coming_soon.html", {"request": request})
     
 @app.get("/3skelion/alarms/communication")
 def communication_alarms_3skelion(request: Request):
     try:
-        return templates.TemplateResponse("3skelion/communication_alarm.html", {"request": request})
+        return templates.TemplateResponse(request, "3skelion/communication_alarm.html", {"request": request})
     except Exception:
-        return templates.TemplateResponse("coming_soon.html", {"request": request})
+        return templates.TemplateResponse(request, "coming_soon.html", {"request": request})
     
 @app.get("/f-qual/alarms/communication")
 def communication_alarms_f_qual(request: Request):
     try:
-        return templates.TemplateResponse("f-qual/communication_alarm.html", {"request": request})
+        return templates.TemplateResponse(request, "f-qual/communication_alarm.html", {"request": request})
     except Exception:
-        return templates.TemplateResponse("coming_soon.html", {"request": request})
+        return templates.TemplateResponse(request, "coming_soon.html", {"request": request})
 
 @app.get("/4skelion/alarms/summary")
 def total_alarms_4skelion(request: Request):
     try:
-        return templates.TemplateResponse("4skelion/alarm_summary.html", {"request": request})
+        return templates.TemplateResponse(request, "4skelion/alarm_summary.html", {"request": request})
     except Exception:
-        return templates.TemplateResponse("coming_soon.html", {"request": request})
+        return templates.TemplateResponse(request, "coming_soon.html", {"request": request})
     
 @app.get("/3skelion/alarms/summary")
 def total_alarms_3skelion(request: Request):
     try:
-        return templates.TemplateResponse("3skelion/alarm_summary.html", {"request": request})
+        return templates.TemplateResponse(request, "3skelion/alarm_summary.html", {"request": request})
     except Exception:
-        return templates.TemplateResponse("coming_soon.html", {"request": request})
+        return templates.TemplateResponse(request, "coming_soon.html", {"request": request})
     
 @app.get("/f-qual/alarms/summary")
 def total_alarms_f_qual(request: Request):
     try:
-        return templates.TemplateResponse("f-qual/alarm_summary.html", {"request": request})
+        return templates.TemplateResponse(request, "f-qual/alarm_summary.html", {"request": request})
     except Exception:
-        return templates.TemplateResponse("coming_soon.html", {"request": request})
+        return templates.TemplateResponse(request, "coming_soon.html", {"request": request})
 
 @app.get("/4skelion/alarms/performance")
 def performance_alarms_4skelion(request: Request):
     try:
-        return templates.TemplateResponse("4skelion/performance_alarm.html", {"request": request})
+        return templates.TemplateResponse(request, "4skelion/performance_alarm.html", {"request": request})
     except Exception:
-        return templates.TemplateResponse("coming_soon.html", {"request": request})
+        return templates.TemplateResponse(request, "coming_soon.html", {"request": request})
     
 @app.get("/3skelion/alarms/performance")
 def performance_alarms_3skelion(request: Request):
     try:
-        return templates.TemplateResponse("3skelion/performance_alarm.html", {"request": request})
+        return templates.TemplateResponse(request, "3skelion/performance_alarm.html", {"request": request})
     except Exception:
-        return templates.TemplateResponse("coming_soon.html", {"request": request})
+        return templates.TemplateResponse(request, "coming_soon.html", {"request": request})
     
 @app.get("/f-qual/alarms/performance")
 def performance_alarms_f_qual(request: Request):
     try:
-        return templates.TemplateResponse("f-qual/performance_alarm.html", {"request": request})
+        return templates.TemplateResponse(request, "f-qual/performance_alarm.html", {"request": request})
     except Exception:
-        return templates.TemplateResponse("coming_soon.html", {"request": request})
+        return templates.TemplateResponse(request, "coming_soon.html", {"request": request})
 
 @app.get("/4skelion/playback")
 def playback_4skelion(request: Request):
     """Render the playback UI."""
     try:
-        return templates.TemplateResponse("4skelion/playback.html", {"request": request})
+        return templates.TemplateResponse(request, "4skelion/playback.html", {"request": request})
     except Exception:
-        return templates.TemplateResponse("coming_soon.html", {"request": request})
+        return templates.TemplateResponse(request, "coming_soon.html", {"request": request})
 
 @app.get("/3skelion/playback")
 def playback_3skelion(request: Request):
     """Render the playback UI."""
     try:
-        return templates.TemplateResponse("3skelion/playback.html", {"request": request})
+        return templates.TemplateResponse(request, "3skelion/playback.html", {"request": request})
     except Exception:
-        return templates.TemplateResponse("coming_soon.html", {"request": request})
+        return templates.TemplateResponse(request, "coming_soon.html", {"request": request})
     
 @app.get("/f-qual/playback")
 def playback_f_qual(request: Request):
     """Render the playback UI."""
     try:
-        return templates.TemplateResponse("f-qual/playback.html", {"request": request})
+        return templates.TemplateResponse(request, "f-qual/playback.html", {"request": request})
     except Exception:
-        return templates.TemplateResponse("coming_soon.html", {"request": request})
+        return templates.TemplateResponse(request, "coming_soon.html", {"request": request})
 
 @app.get("/4skelion/settings")
 def settings_4skelion(request: Request):
     """Render the settings UI."""
     try:
-        return templates.TemplateResponse("4skelion/settings.html", {"request": request})
+        return templates.TemplateResponse(request, "4skelion/settings.html", {"request": request})
     except Exception:
-        return templates.TemplateResponse("coming_soon.html", {"request": request})
+        return templates.TemplateResponse(request, "coming_soon.html", {"request": request})
     
 @app.get("/3skelion/settings")
 def settings_3skelion(request: Request):
     """Render the settings UI."""
     try:
-        return templates.TemplateResponse("3skelion/settings.html", {"request": request})
+        return templates.TemplateResponse(request, "3skelion/settings.html", {"request": request})
     except Exception:
-        return templates.TemplateResponse("coming_soon.html", {"request": request})
+        return templates.TemplateResponse(request, "coming_soon.html", {"request": request})
     
 @app.get("/f-qual/settings")
 def settings_f_qual(request: Request):
     """Render the settings UI."""
     try:
-        return templates.TemplateResponse("f-qual/settings.html", {"request": request})
+        return templates.TemplateResponse(request, "f-qual/settings.html", {"request": request})
     except Exception:
-        return templates.TemplateResponse("coming_soon.html", {"request": request})
+        return templates.TemplateResponse(request, "coming_soon.html", {"request": request})
 
 @app.get("/4skelion/details")
 def details_4skelion(request: Request):
     """Render the Historic Details UI"""
     try:
-        return templates.TemplateResponse("4skelion/historic_details.html", {"request": request})
+        return templates.TemplateResponse(request, "4skelion/historic_details.html", {"request": request})
     except Exception:
-        return templates.TemplateResponse("coming_soon.html", {"request": request})
+        return templates.TemplateResponse(request, "coming_soon.html", {"request": request})
     
 @app.get("/3skelion/details")
 def details_3skelion(request: Request):
     """Render the Historic Details UI"""
     try:
-        return templates.TemplateResponse("3skelion/historic_details.html", {"request": request})
+        return templates.TemplateResponse(request, "3skelion/historic_details.html", {"request": request})
     except Exception:
-        return templates.TemplateResponse("coming_soon.html", {"request": request})
+        return templates.TemplateResponse(request, "coming_soon.html", {"request": request})
     
 @app.get("/f-qual/details")
 def details_f_qual(request: Request):
     """Render the Historic Details UI"""
     try:
-        return templates.TemplateResponse("f-qual/historic_details.html", {"request": request})
+        return templates.TemplateResponse(request, "f-qual/historic_details.html", {"request": request})
     except Exception:
-        return templates.TemplateResponse("coming_soon.html", {"request": request})
+        return templates.TemplateResponse(request, "coming_soon.html", {"request": request})
 
 @app.get("/export/Live/{serial}")
 def export_serial(serial: str):
