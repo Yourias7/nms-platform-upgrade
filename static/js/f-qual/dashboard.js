@@ -1,4 +1,4 @@
-import { fetchHistoricProbeNameMap, getExportUrl, fetchAverageRsrpProbeData, fetchInstantRsrpProbeData, fetchLiveProbeNameMap } from '../shared/api.js';
+import { fetchAverageRsrpProbeData, fetchInstantRsrpProbeData, fetchAverageSinrProbeData, fetchInstantSinrProbeData, fetchLiveProbeNameMap } from '../shared/api.js';
 
 async function loadSerialsForFilter() {
     const serials = await fetchLiveProbeNameMap();
@@ -86,6 +86,57 @@ async function loadRsrpData() {
     }
 }
 
+/**
+ * Load SINR data using current filter values and update the card
+ */
+async function loadSinrData() {
+    const dropdownButton = document.getElementById('dropdown-toggle');
+    const sinrDescElement = document.getElementById('sinr-desc');
+    const sinrTitleElement = document.getElementById('sinr-title');
+
+    const serial = dropdownButton?.dataset.selectedSerial;
+
+    if (!serial) {
+        sinrDescElement.textContent = 'Please select a system';
+        return;
+    }
+
+    try {
+        sinrDescElement.textContent = 'Loading...';
+        const datamain = await fetchInstantSinrProbeData(serial);
+        const data = await fetchAverageSinrProbeData(serial);
+        
+        if (datamain && typeof datamain === 'object') {
+            // Format and display the data
+            const diff = (datamain.instant_sinr - data.average_sinr) / data.average_sinr * 100;
+            console.log(`Instant SINR: ${datamain.instant_sinr}, Average SINR: ${data.average_sinr}, Diff: ${diff}%`);
+            if (!data.average_sinr) {
+                sinrDescElement.textContent = `No historical data available for comparison`;
+                sinrDescElement.style.color = 'white';
+            }
+            else if (diff < 0) {
+                sinrDescElement.textContent = `↓ ${Math.abs(diff).toFixed(1)}% Lower than avg of last 30 days`;
+                sinrDescElement.style.color = 'red';
+            } else if (diff > 0) {
+                sinrDescElement.textContent = `↑ ${diff.toFixed(1)}% Higher than avg of last 30 days`;
+                sinrDescElement.style.color = 'green';
+            }
+            else if (diff === 0) {
+                sinrDescElement.textContent = `Same as avg of last 30 days`;
+                sinrDescElement.style.color = 'white';
+            }
+            sinrTitleElement.textContent = `${datamain.instant_sinr.toFixed(2)} dB`;
+        } else {
+            sinrTitleElement.textContent = `N/A`;
+            sinrDescElement.textContent = 'No data available';
+        }
+    } catch (err) {
+        console.error('Failed to load SINR data:', err);
+        sinrTitleElement.textContent = `N/A`;
+        sinrDescElement.textContent = `Error loading data: ${err.message}`;
+    }
+}
+
 
 
 async function loadDashboard() {
@@ -110,6 +161,7 @@ async function loadDashboard() {
         dropdownMenu.addEventListener('click', () => {
             // Delay to ensure dropdown is closed and data attribute is set
             setTimeout(loadRsrpData, 100);
+            setTimeout(loadSinrData, 100);
         });
     }
 

@@ -433,12 +433,34 @@ export async function fetchInstantRsrpProbeData(serial) {
 }
 
 /**
- * Fetch instant RSRP probe data for a date range
+ * Fetch average RSRP probe data for a date range
  * @param {string} serial - Serial number to fetch
  * @returns {Promise<Object>} RSRP data
  */
 export async function fetchAverageRsrpProbeData(serial) {
   const url = `/probes/rsrp/${encodeURIComponent(serial)}`;
+  const res = await fetch(url);
+  return await res.json();
+}
+
+/**
+ * Fetch instant SINR probe data for a date range
+ * @param {string} serial - Serial number to fetch
+ * @returns {Promise<Object>} SINR data
+ */
+export async function fetchInstantSinrProbeData(serial) {
+  const url = `/probes/sinr/live/${encodeURIComponent(serial)}`;
+  const res = await fetch(url);
+  return await res.json();
+}
+
+/**
+ * Fetch average SINR probe data for a date range
+ * @param {string} serial - Serial number to fetch
+ * @returns {Promise<Object>} SINR data
+ */
+export async function fetchAverageSinrProbeData(serial) {
+  const url = `/probes/sinr/${encodeURIComponent(serial)}`;
   const res = await fetch(url);
   return await res.json();
 }

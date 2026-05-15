@@ -2246,3 +2246,33 @@ def get_instant_probe_rsrp_data(serial: str):
         return {"instant_rsrp": float(latest_measurement.RSRP) if latest_measurement else None}
     finally:
         db.close()
+        
+def get_probe_sinr(serial: str):
+    """Return average SINR for a probe over a date range."""
+    db = SessionLocal_2()
+    try:
+        sdate = datetime.now() - timedelta(days=30)  # default to last 30 days if no date provided
+        edate = datetime.now()
+
+
+        avg = db.query(
+            func.avg(ProbesHistoricMeasurement.SINR)
+        ).filter(
+            ProbesHistoricMeasurement.SERIAL == serial,
+            ProbesHistoricMeasurement.DATETIME >= sdate,
+            ProbesHistoricMeasurement.DATETIME <= edate
+        ).scalar()
+
+        return {"average_sinr": float(avg) if avg is not None else None}
+    finally:
+        db.close()
+        
+def get_instant_probe_sinr_data(serial: str):
+    """Return instant SINR for a given probe SERIAL."""
+    db = SessionLocal_2()
+    try:
+        # This is a simplified example - you might want to get the most recent measurement
+        latest_measurement = db.query(RealTimeProbeMeasurement).filter(RealTimeProbeMeasurement.SERIAL == serial).order_by(RealTimeProbeMeasurement.DATETIME.desc()).first()
+        return {"instant_sinr": float(latest_measurement.SINR) if latest_measurement else None}
+    finally:
+        db.close()

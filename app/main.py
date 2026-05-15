@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request, Response # type: ignore
 import logging
-from app.data_source import (get_alarm_probes_statistics, get_instant_probe_rsrp_data, get_probe_rsrp, get_alarm_records_by_probe, get_alarm_records_by_serial, get_all_alarm_probe_records, get_all_alarm_records, get_alarm_statistics, get_all_historic_probe_records, get_earliest_datetime_for_serial, get_historic_records_by_probe, get_latest_datetime_for_serial, 
-get_historic_records_by_serial, get_all_historic_records, get_live_records_by_probe, get_live_records_by_serial, list_historic_probes, list_historic_probes_serial_name_pairs, list_live_probes, list_live_probes_serial_name_pairs, list_live_serial_name_pairs, list_live_serials, list_historic_serials, 
+from app.data_source import (get_alarm_probes_statistics, get_instant_probe_rsrp_data, get_instant_probe_sinr_data, get_probe_rsrp, get_alarm_records_by_probe, get_alarm_records_by_serial, get_all_alarm_probe_records, get_all_alarm_records, get_alarm_statistics, get_all_historic_probe_records, get_earliest_datetime_for_serial, get_historic_records_by_probe, get_latest_datetime_for_serial, 
+get_historic_records_by_serial, get_all_historic_records, get_live_records_by_probe, get_live_records_by_serial, get_probe_sinr, list_historic_probes, list_historic_probes_serial_name_pairs, list_live_probes, list_live_probes_serial_name_pairs, list_live_serial_name_pairs, list_live_serials, list_historic_serials, 
 export_live_csv, export_historic_csv, live_serials_with_locations, historic_serials_with_locations,list_3skelion_serials,list_3skelion_serial_name_pairs,
 get_3skelion_live_records_by_serial, live_3skelion_serials_with_locations,list_3skelion_playback_serials,get_3skelion_historic_records_by_serial,
 get_3skelion_alarm_records_by_serial,get_3skelion_alarm_statistics,export_3skelion_live_csv, get_all_3skelion_historic_records, export_3skelion_historic_csv)
@@ -210,6 +210,26 @@ def get_instant_probe_rsrp(serial: str):
     logger.info(f"Instant RSRP for {serial}: {result['instant_rsrp']}")
     return result
 
+@app.get("/probes/sinr/{serial}")
+def get_avg_probe_sinr(serial: str):
+    """Return average SINR for a given probe SERIAL and time range."""
+    result = get_probe_sinr(serial)
+    logger.info(f"Average SINR for {serial}: {result['average_sinr']}")
+    return result
+
+@app.get("/probes/sinr/live/{serial}")
+def get_instant_probe_sinr(serial: str):
+    """Return instant SINR for a given probe SERIAL."""
+    result = get_instant_probe_sinr_data(serial)
+    logger.info(f"Instant SINR for {serial}: {result['instant_sinr']}")
+    return result
+
+@app.get("/probes/rsrp/live/{serial}")
+def get_instant_probe_rsrp(serial: str):
+    """Return instant RSRP for a given probe SERIAL."""
+    result = get_instant_probe_rsrp_data(serial)
+    logger.info(f"Instant RSRP for {serial}: {result['instant_rsrp']}")
+    return result
 
 
 
