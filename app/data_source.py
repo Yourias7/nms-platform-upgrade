@@ -2276,3 +2276,43 @@ def get_instant_probe_sinr_data(serial: str):
         return {"instant_sinr": float(latest_measurement.SINR) if latest_measurement else None}
     finally:
         db.close()
+        
+def get_probe_rtt(serial: str):
+    """Return average RTT for a probe over a date range."""
+    db = SessionLocal_2()
+    try:
+        sdate = datetime.now() - timedelta(days=30)  # default to last 30 days if no date provided
+        edate = datetime.now()
+
+
+        avg = db.query(
+            func.avg(ProbesHistoricMeasurement.PING_RTT)
+        ).filter(
+            ProbesHistoricMeasurement.SERIAL == serial,
+            ProbesHistoricMeasurement.DATETIME >= sdate,
+            ProbesHistoricMeasurement.DATETIME <= edate
+        ).scalar()
+
+        return {"average_rtt": float(avg) if avg is not None else None}
+    finally:
+        db.close()
+        
+def get_instant_probe_rtt_data(serial: str):
+    """Return instant RTT for a given probe SERIAL."""
+    db = SessionLocal_2()
+    try:
+        # This is a simplified example - you might want to get the most recent measurement
+        latest_measurement = db.query(RealTimeProbeMeasurement).filter(RealTimeProbeMeasurement.SERIAL == serial).order_by(RealTimeProbeMeasurement.DATETIME.desc()).first()
+        return {"instant_rtt": float(latest_measurement.PING_RTT) if latest_measurement else None}
+    finally:
+        db.close()
+        
+def get_instant_probe_temp_data(serial: str):
+    """Return instant temperature for a given probe SERIAL."""
+    db = SessionLocal_2()
+    try:
+        # This is a simplified example - you might want to get the most recent measurement
+        latest_measurement = db.query(RealTimeProbeMeasurement).filter(RealTimeProbeMeasurement.SERIAL == serial).order_by(RealTimeProbeMeasurement.DATETIME.desc()).first()
+        return {"instant_temp": float(latest_measurement.TEMP) if latest_measurement else None}
+    finally:
+        db.close()

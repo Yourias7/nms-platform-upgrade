@@ -1,4 +1,4 @@
-import { fetchAverageRsrpProbeData, fetchInstantRsrpProbeData, fetchAverageSinrProbeData, fetchInstantSinrProbeData, fetchLiveProbeNameMap } from '../shared/api.js';
+import { fetchInstantTempProbeData, fetchInstantRttProbeData, fetchAverageRttProbeData, fetchAverageRsrpProbeData, fetchInstantRsrpProbeData, fetchAverageSinrProbeData, fetchInstantSinrProbeData, fetchLiveProbeNameMap } from '../shared/api.js';
 
 async function loadSerialsForFilter() {
     const serials = await fetchLiveProbeNameMap();
@@ -137,6 +137,99 @@ async function loadSinrData() {
     }
 }
 
+/**
+ * Load RTT data using current filter values and update the card
+ */
+async function loadRttData() {
+    const dropdownButton = document.getElementById('dropdown-toggle');
+    const rttDescElement = document.getElementById('rtt-desc');
+    const rttTitleElement = document.getElementById('rtt-title');
+
+    const serial = dropdownButton?.dataset.selectedSerial;
+
+    if (!serial) {
+        rttDescElement.textContent = 'Please select a system';
+        return;
+    }
+
+    try {
+        rttDescElement.textContent = 'Loading...';
+        const datamain = await fetchInstantRttProbeData(serial);
+        const data = await fetchAverageRttProbeData(serial);
+        
+        if (datamain && typeof datamain === 'object') {
+            // Format and display the data
+            const diff = (datamain.instant_rtt - data.average_rtt) / data.average_rtt * 100;
+            console.log(`Instant RTT: ${datamain.instant_rtt}, Average RTT: ${data.average_rtt}, Diff: ${diff}%`);
+            if (!data.average_rtt) {
+                rttDescElement.textContent = `No historical data available for comparison`;
+                rttDescElement.style.color = 'white';
+            }
+            else if (diff < 0) {
+                rttDescElement.textContent = `↓ ${Math.abs(diff).toFixed(1)}% Lower than avg of last 30 days`;
+                rttDescElement.style.color = 'green';
+            } else if (diff > 0) {
+                rttDescElement.textContent = `↑ ${diff.toFixed(1)}% Higher than avg of last 30 days`;
+                rttDescElement.style.color = 'red';
+            }
+            else if (diff === 0) {
+                rttDescElement.textContent = `Same as avg of last 30 days`;
+                rttDescElement.style.color = 'white';
+            }
+            rttTitleElement.textContent = `${datamain.instant_rtt.toFixed(2)} ms`;
+        } else {
+            rttTitleElement.textContent = `N/A`;
+            rttDescElement.textContent = 'No data available';
+        }
+    } catch (err) {
+        console.error('Failed to load RTT data:', err);
+        rttTitleElement.textContent = `N/A`;
+        rttDescElement.textContent = `Error loading data: ${err.message}`;
+    }
+}
+
+
+/**
+ * Load temperature data using current filter values and update the card
+ */
+async function loadTempData() {
+    const dropdownButton = document.getElementById('dropdown-toggle');
+    const tempDescElement = document.getElementById('temp-desc');
+    const tempTitleElement = document.getElementById('temp-title');
+
+    const serial = dropdownButton?.dataset.selectedSerial;
+
+    if (!serial) {
+        tempDescElement.textContent = 'Please select a system';
+        return;
+    }
+
+    try {
+        tempDescElement.textContent = 'Loading...';
+        const datamain = await fetchInstantTempProbeData(serial);
+        
+        if (datamain && typeof datamain === 'object') {
+            // Format and display the data
+            console.log(`Instant Temperature: ${datamain.instant_temp} °C`);
+            if (datamain.instant_temp >= 50) {
+                tempDescElement.textContent = `High temperature - potential overheating`;
+                tempDescElement.style.color = 'red';
+            } else if (datamain.instant_temp >= 0 && datamain.instant_temp < 50) {
+                tempDescElement.textContent = `Normal`;
+                tempDescElement.style.color = 'green';
+            }
+            tempTitleElement.textContent = `${datamain.instant_temp} °C`;
+        } else {
+            tempTitleElement.textContent = `N/A`;
+            tempDescElement.textContent = 'No data available';
+        }
+    } catch (err) {
+        console.error('Failed to load temperature data:', err);
+        tempTitleElement.textContent = `N/A`;
+        tempDescElement.textContent = `Error loading data: ${err.message}`;
+    }
+}
+
 
 
 async function loadDashboard() {
@@ -162,6 +255,8 @@ async function loadDashboard() {
             // Delay to ensure dropdown is closed and data attribute is set
             setTimeout(loadRsrpData, 100);
             setTimeout(loadSinrData, 100);
+            setTimeout(loadRttData, 100);
+            setTimeout(loadTempData, 100);
         });
     }
 

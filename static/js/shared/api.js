@@ -464,3 +464,37 @@ export async function fetchAverageSinrProbeData(serial) {
   const res = await fetch(url);
   return await res.json();
 }
+
+/**
+ * Fetch average RTT probe data for a date range
+ * @param {string} serial - Serial number to fetch
+ * @returns {Promise<Object>} RTT data
+ */
+export async function fetchInstantRttProbeData(serial) {
+  const url = `/probes/rtt/live/${encodeURIComponent(serial)}`;
+  const res = await fetch(url);
+  return await res.json();
+}
+
+
+/**
+ * Fetch average RTT probe data for a date range
+ * @param {string} serial - Serial number to fetch
+ * @returns {Promise<Object>} RTT data
+ */
+export async function fetchAverageRttProbeData(serial) {
+  const url = `/probes/rtt/${encodeURIComponent(serial)}`;
+  const res = await fetch(url);
+  return await res.json();
+}
+
+/**
+ * Fetch average RTT probe data for a date range
+ * @param {string} serial - Serial number to fetch
+ * @returns {Promise<Object>} RTT data
+ */
+export async function fetchInstantTempProbeData(serial) {
+  const url = `/probes/temp/live/${encodeURIComponent(serial)}`;
+  const res = await fetch(url);
+  return await res.json();
+}
