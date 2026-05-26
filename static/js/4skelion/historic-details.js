@@ -563,27 +563,28 @@ function updateEnrichmentUI() {
 }
 
 function updateStoredCsvStatusUI() {
-  const statusEl = document.getElementById('storedCsvStatus');
-  const loadBtn = document.getElementById('loadStoredCsvBtn');
-  const clearBtn = document.getElementById('clearStoredCsvBtn');
-  const status = getCsvEnrichmentStatus();
+  getCsvEnrichmentStatus().then(status => {
+    const statusEl = document.getElementById('storedCsvStatus');
+    const loadBtn = document.getElementById('loadStoredCsvBtn');
+    const clearBtn = document.getElementById('clearStoredCsvBtn');
 
-  if (!statusEl) return;
+    if (!statusEl) return;
 
-  if (!status.hasStoredCsv) {
-    statusEl.textContent = 'No CSV uploaded in Settings yet.';
-    if (loadBtn) loadBtn.disabled = true;
-    if (clearBtn) clearBtn.disabled = true;
-    return;
-  }
+    if (!status.hasStoredCsv) {
+      statusEl.textContent = 'No CSV uploaded in Settings yet.';
+      if (loadBtn) loadBtn.disabled = true;
+      if (clearBtn) clearBtn.disabled = true;
+      return;
+    }
 
-  statusEl.textContent = `Stored CSV: ${status.fileName} · ${status.rowCount} rows · ${status.enrichmentColumns.length} extra column(s)`;
-  if (loadBtn) loadBtn.disabled = false;
-  if (clearBtn) clearBtn.disabled = false;
+    statusEl.textContent = `Stored CSV: ${status.fileName} · ${status.rowCount} rows · ${status.enrichmentColumns.length} extra column(s)`;
+    if (loadBtn) loadBtn.disabled = false;
+    if (clearBtn) clearBtn.disabled = false;
+  });
 }
 
-function loadStoredCsvFromSettings() {
-  const stored = loadCsvEnrichmentFromStorage();
+async function loadStoredCsvFromSettings() {
+  const stored = await loadCsvEnrichmentFromStorage();
   if (!stored) {
     setPlaybackMessage('No stored CSV found in Settings.', 'warning');
     return;

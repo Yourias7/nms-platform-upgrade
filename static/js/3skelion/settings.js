@@ -19,23 +19,24 @@ const DEFAULT_THRESHOLDS = {
 };
 
 function updateSettingsCsvStatusUI() {
-  const status = getCsvEnrichmentStatus();
-  const statusEl = document.getElementById('settingsCsvStatus');
-  const loadBtn = document.getElementById('settingsLoadCsvBtn');
-  const clearBtn = document.getElementById('settingsClearCsvBtn');
+  getCsvEnrichmentStatus().then(status => {
+    const statusEl = document.getElementById('settingsCsvStatus');
+    const loadBtn = document.getElementById('settingsLoadCsvBtn');
+    const clearBtn = document.getElementById('settingsClearCsvBtn');
 
-  if (!statusEl) return;
+    if (!statusEl) return;
 
-  if (!status.hasStoredCsv) {
-    statusEl.textContent = 'No CSV uploaded. Upload in Settings and then load it from Historic Details.';
-    if (loadBtn) loadBtn.disabled = true;
-    if (clearBtn) clearBtn.disabled = true;
-    return;
-  }
+    if (!status.hasStoredCsv) {
+      statusEl.textContent = 'No CSV uploaded. Upload in Settings and then load it from Historic Details.';
+      if (loadBtn) loadBtn.disabled = true;
+      if (clearBtn) clearBtn.disabled = true;
+      return;
+    }
 
-  statusEl.textContent = `Stored CSV: ${status.fileName} · ${status.rowCount} rows · ${status.enrichmentColumns.length} extra column(s)`;
-  if (loadBtn) loadBtn.disabled = false;
-  if (clearBtn) clearBtn.disabled = false;
+    statusEl.textContent = `Stored CSV: ${status.fileName} · ${status.rowCount} rows · ${status.enrichmentColumns.length} extra column(s)`;
+    if (loadBtn) loadBtn.disabled = false;
+    if (clearBtn) clearBtn.disabled = false;
+  });
 }
 
 async function handleSettingsCsvUpload(file) {
@@ -66,9 +67,9 @@ async function handleSettingsCsvUpload(file) {
   }
 }
 
-function handleSettingsCsvClear(event) {
+async function handleSettingsCsvClear(event) {
   if (event) event.preventDefault();
-  clearCsvEnrichmentStorage();
+  await clearCsvEnrichmentStorage();
   updateSettingsCsvStatusUI();
   showSettingsMessage('Stored CSV cleared from Settings.', 'info');
 }
