@@ -1,4 +1,11 @@
 import { fetchInstantTempProbeData, fetchInstantRttProbeData, fetchAverageRttProbeData, fetchAverageRsrpProbeData, fetchInstantRsrpProbeData, fetchAverageSinrProbeData, fetchInstantSinrProbeData, fetchLiveProbeNameMap } from '../shared/api.js';
+import { initMap, preloadCustomIcon, updateMapMarkers, getMarkers, getMap, hideMapLoading } from './map.js';
+
+// Initialize the map when the page loads
+document.addEventListener('DOMContentLoaded', async () => {
+    await initMap();
+    preloadCustomIcon();
+});
 
 async function loadSerialsForFilter() {
     const serials = await fetchLiveProbeNameMap();
@@ -268,6 +275,10 @@ async function loadDashboard() {
             setTimeout(loadSinrData, 100);
             setTimeout(loadRttData, 100);
             setTimeout(loadTempData, 100);
+            setTimeout(() => {
+                initMap();
+                preloadCustomIcon();
+            }, 100);
         });
     }
 

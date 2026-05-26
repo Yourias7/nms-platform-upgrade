@@ -40,7 +40,6 @@ export function buildMarkerTooltipContent(row, serial) {
   const name = getFieldCaseInsensitive(row, ['name', 'NAME']);
   const earfcn = getFieldCaseInsensitive(row, ['earfcn', 'EARFCN']);
   const pci = getFieldCaseInsensitive(row, ['pci', 'PCI']);
-  const antennaUsed = getFieldCaseInsensitive(row, ['antenna used', 'ANTENNA USED']);
   const cid = getFieldCaseInsensitive(row, ['cid', 'CID']);
   const date = getFieldCaseInsensitive(row, ['datetime', 'DATETIME']);
 
@@ -59,7 +58,6 @@ export function buildMarkerTooltipContent(row, serial) {
     `<br>TEMP: ${tempVal}°C` +
     `<br>EARFCN: ${earfcn ?? ''}` +
     `<br>PCI: ${pci ?? ''}` +
-    `<br>Antenna Used: ${antennaUsed ?? ''}` +
     `<br>CID: ${cid ?? ''}` +
     `<br>Last Updated: ${timeDiffText}`
   );
@@ -77,7 +75,7 @@ export function tooltipHtmlToPlainText(html) {
  * @returns {L.Map} Leaflet map instance
  */
 export function initMap() {
-  map = L.map('map').setView(
+  map = L.map('dashboard-map').setView(
     [CONFIG.MAP.INITIAL_LAT, CONFIG.MAP.INITIAL_LON],
     CONFIG.MAP.INITIAL_ZOOM
   );
@@ -241,7 +239,6 @@ export async function updateMapMarkers(serialList, { fit = true } = {}) {
         const name = getFieldCaseInsensitive(row, ['name', 'NAME']);
         const earfcn = getFieldCaseInsensitive(row, ['earfcn', 'EARFCN']);
         const pci = getFieldCaseInsensitive(row, ['pci', 'PCI']);
-        const antenna_used = getFieldCaseInsensitive(row, ['antenna used', 'ANTENNA USED']);
         const cid = getFieldCaseInsensitive(row, ['cid', 'CID']);
         const date = getFieldCaseInsensitive(row, ['datetime', 'DATETIME']);
 
