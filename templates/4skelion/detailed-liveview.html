@@ -37,36 +37,6 @@
       padding: 0;
     }
 
-    .sidebar {
-      width: 300px;
-      background: white;
-      border-right: 1px solid #ddd;
-      box-shadow: 2px 0 5px rgba(0,0,0,0.1);
-      transform: translateX(-100%);
-      transition: transform 0.3s ease;
-      position: relative;
-      z-index: 100;
-      overflow-y: auto;
-      max-height: calc(100vh - 60px);
-    }
-
-    .sidebar.open {
-      transform: translateX(0);
-    }
-
-    .sidebar-header {
-      padding: 15px;
-      border-bottom: 1px solid #ddd;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: #f8f9fa;
-    }
-
-    .sidebar-content {
-      padding: 15px;
-    }
-
     .map-container {
       flex: 1;
       position: relative;
@@ -75,25 +45,6 @@
     #map {
       width: 100%;
       height: 100%;
-    }
-
-    .filter-area {
-      padding: 15px;
-      background: white;
-      border-bottom: 1px solid #ddd;
-      display: flex;
-      gap: 10px;
-      align-items: center;
-    }
-
-    .close-btn {
-      cursor: pointer;
-      font-size: 20px;
-      color: #999;
-    }
-
-    .close-btn:hover {
-      color: #333;
     }
   </style>
 </head>
@@ -110,8 +61,8 @@
         <img src="/static/img/New%20folder/Picture1.png" href="/" alt="logo" style="height:24px; width:24px; margin-right:8px;" />
         <span>NMS Platform</span>
         <div id="system-dropdown" class="dropdown" style="margin-left: 20px;">
-            <input id="serialInput" class="form-control" placeholder="Select or type a system name"/>
-            <div id="serialOptions" class="dropdown-menu" style="position: absolute; top: 100%; left: 0; right: 0; display: none; z-index: 11; max-height: 300px; overflow-y: auto; box-shadow: 0 2px 8px rgba(0,0,0,0.15); background: rgba(10, 14, 39, 0.95); border: 1px solid rgba(102, 126, 234, 0.3);"></div>
+            <input id="serialInput" class="form-control" style="position: relative; display: inline-block;" placeholder="Select or type a system name"/>
+            <div id="serialOptions" class="dropdown-menu" style="position: absolute; top: 100%; left: 0; right: 0; display: none; overflow-y: auto; max-height: 300px; z-index: 1000; box-shadow: 0 2px 8px rgba(0,0,0,0.15); background: rgba(10, 14, 39, 0.95); border: 1px solid rgba(102, 126, 234, 0.3);"></div>
         </div>
       </a>
       <ul class="nav nav-pills">
