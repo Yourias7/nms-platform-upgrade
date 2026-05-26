@@ -2,7 +2,7 @@
 // Detailed Liveview Map Dashboard
 
 import { CONFIG } from '../shared/config.js';
-import { fetchSerialsList, fetchSerialData } from '../shared/api.js';
+import { fetchSerialsList, fetchSerialData, fetchSerialNameMap } from '../shared/api.js';
 import { isInAlarm } from './settings.js';
 
 console.log('[Detailed Liveview] Initializing');
@@ -33,20 +33,29 @@ function initMap() {
 async function loadSystems() {
   try {
     const serials = await fetchSerialsList();
+    const serialNameMap = await fetchSerialNameMap();
     const dropdownMenu = document.getElementById('serialOptions');
     
     if (!dropdownMenu) return;
+
+    // Build array of {serial, displayName} pairs and sort by displayName
+    const serialsWithNames = serials.map(serial => ({
+      serial,
+      displayName: serialNameMap && serialNameMap[serial] ? serialNameMap[serial] : serial
+    }));
+    
+    serialsWithNames.sort((a, b) => a.displayName.localeCompare(b.displayName));
     
     // Clear existing options
     dropdownMenu.innerHTML = '';
     
     // Add systems to dropdown
-    serials.forEach(serial => {
+    serialsWithNames.forEach(({serial, displayName}) => {
       const item = document.createElement('a');
       item.className = 'dropdown-item';
       item.href = '#';
       item.dataset.serial = serial;
-      item.textContent = serial;
+      item.textContent = displayName;
       item.style.color = '#fff';
       item.style.padding = '10px 15px';
       item.style.display = 'block';
@@ -84,6 +93,12 @@ async function loadSystemData(serial) {
     const lat = parseFloat(latest.LATITUDE);
     const lon = parseFloat(latest.LONGITUDE);
     const name = latest.NAME || serial;
+    const earfcn = latest.EARFCN || 'N/A';
+    const rsrp = latest.RSRP !== undefined ? parseFloat(latest.RSRP) : null;
+    const rsrq = latest.RSRQ !== undefined ? parseFloat(latest.RSRQ) : null;
+    const sinr = latest.SINR !== undefined ? parseFloat(latest.SINR) : null;
+    const temp = latest.TEMP !== undefined ? parseFloat(latest.TEMP) : null;
+    const lastUpdated = latest.DATETIME || null;
     
     if (!isNaN(lat) && !isNaN(lon)) {
       // Store system data
@@ -92,11 +107,17 @@ async function loadSystemData(serial) {
         name,
         lat,
         lon,
+        earfcn,
+        rsrp,
+        rsrq,
+        sinr,
+        temp,
+        lastUpdated,
         data: latest
       });
       
       // Create marker
-      createMarker(serial, lat, lon, name);
+      createMarker(serial, lat, lon, name, earfcn, rsrp, rsrq, sinr, temp, lastUpdated);
     }
   } catch (err) {
     console.error(`[Detailed Liveview] Error loading data for ${serial}:`, err);
@@ -104,7 +125,7 @@ async function loadSystemData(serial) {
 }
 
 // Create marker on map
-function createMarker(serial, lat, lon, name) {
+function createMarker(serial, lat, lon, name, earfcn, rsrp, rsrq, sinr, temp, lastUpdated) {
   if (!mapInstance) return;
   
   // Remove existing marker
@@ -121,7 +142,16 @@ function createMarker(serial, lat, lon, name) {
     fillOpacity: 0.7
   }).addTo(mapInstance);
   
-  marker.bindPopup(`<strong>${name}</strong><br/>Serial: ${serial}`);
+  marker.bindPopup(
+    `<strong>${name}</strong><br/>
+    Serial: ${serial}<br/>
+    Serving EARFCN: ${earfcn}<br/>
+    RSRP: ${rsrp !== null ? `${rsrp} dBm` : 'N/A'}<br/>
+    RSRQ: ${rsrq !== null ? `${rsrq} dB` : 'N/A'}<br/>
+    SINR: ${sinr !== null ? `${sinr} dB` : 'N/A'}<br/>
+    Temperature: ${temp !== null ? `${temp} °C` : 'N/A'}<br/>
+    Last Updated: ${lastUpdated ? String(lastUpdated).replace('T', ' ') : 'N/A'}<br/>
+    `);
   marker.on('click', () => selectSystem(serial));
   
   markersMap.set(serial, marker);
