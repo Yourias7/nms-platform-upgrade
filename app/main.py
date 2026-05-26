@@ -235,6 +235,14 @@ def liveview_3skelion(request: Request):
     except Exception:
         return templates.TemplateResponse("coming_soon.html", {"request": request})
     
+@app.get("/3skelion/detailed-liveview")
+def detailed_liveview_3skelion(request: Request):
+    """Render the detailed live view UI."""
+    try:
+        return templates.TemplateResponse("3skelion/detailed-liveview.html", {"request": request})
+    except Exception:
+        return templates.TemplateResponse("coming_soon.html", {"request": request})
+    
 @app.get("/f-qual/liveview")
 def liveview_f_qual(request: Request):
     """Render the live view UI."""
