@@ -98,6 +98,7 @@ async function loadSystemData(serial) {
     const rsrq = latest.RSRQ !== undefined ? parseFloat(latest.RSRQ) : null;
     const sinr = latest.SINR !== undefined ? parseFloat(latest.SINR) : null;
     const temp = latest.TEMP !== undefined ? parseFloat(latest.TEMP) : null;
+    const a_used = latest['ANTENNA USED'] !== undefined ? parseInt(latest['ANTENNA USED']) : null;
     const lastUpdated = latest.DATETIME || null;
     
     if (!isNaN(lat) && !isNaN(lon)) {
@@ -112,6 +113,7 @@ async function loadSystemData(serial) {
         rsrq,
         sinr,
         temp,
+        a_used,
         lastUpdated,
         data: latest
       });
@@ -211,13 +213,24 @@ function showSystemDetails(serial, systemInfo) {
     <hr class="my-2" />
     
     <div class="mb-3">
-      <h6 class="text-muted">KPIs</h6>
+      <h6 class="text-muted">Donor Details</h6>
+      <p class="mb-1"><small><strong>Donor Sector:</strong> ${systemInfo.a_used ?? 'N/A'}</small></p>
+    </div>
+    <hr class="my-2" />
+    <div class="mb-3">
+      <h6 class="text-muted">Sector 1</h6>
   `;
   
   if (data.RSRP !== undefined && data.RSRP !== null) {
     const rsrpAlarm = isInAlarm('rsrp', data.RSRP);
     const rsrpClass = rsrpAlarm ? 'text-danger' : 'text-success';
     html += `<p class="mb-1"><small><strong class="${rsrpClass}">RSRP:</strong> ${data.RSRP} dBm</small></p>`;
+  }
+
+  if (data.RSRQ !== undefined && data.RSRQ !== null) {
+    const rsrqAlarm = isInAlarm('rsrq', data.RSRQ);
+    const rsrqClass = rsrqAlarm ? 'text-danger' : 'text-success';
+    html += `<p class="mb-1"><small><strong class="${rsrqClass}">RSRQ:</strong> ${data.RSRQ} dB</small></p>`;
   }
   
   if (data.SINR !== undefined && data.SINR !== null) {
