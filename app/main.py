@@ -219,6 +219,14 @@ def liveview_4skelion(request: Request):
     except Exception:
         return templates.TemplateResponse("coming_soon.html", {"request": request})
     
+@app.get("/4skelion/detailed-liveview")
+def detailed_liveview_4skelion(request: Request):
+    """Render the detailed live view UI."""
+    try:
+        return templates.TemplateResponse("4skelion/detailed-liveview.html", {"request": request})
+    except Exception:
+        return templates.TemplateResponse("coming_soon.html", {"request": request})
+    
 @app.get("/3skelion/liveview")
 def liveview_3skelion(request: Request):
     """Render the live view UI."""
@@ -232,6 +240,14 @@ def liveview_f_qual(request: Request):
     """Render the live view UI."""
     try:
         return templates.TemplateResponse("f-qual/liveview.html", {"request": request})
+    except Exception:
+        return templates.TemplateResponse("coming_soon.html", {"request": request})
+    
+@app.get("/f-qual/detailed-liveview")
+def detailed_liveview_f_qual(request: Request):
+    """Render the detailed live view UI."""
+    try:
+        return templates.TemplateResponse("f-qual/detailed-liveview.html", {"request": request})
     except Exception:
         return templates.TemplateResponse("coming_soon.html", {"request": request})
 
