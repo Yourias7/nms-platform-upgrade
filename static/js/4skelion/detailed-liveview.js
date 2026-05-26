@@ -19,10 +19,10 @@ function initMap() {
   const mapEl = document.getElementById('map');
   if (!mapEl) return;
   
-  mapInstance = L.map(mapEl).setView(CONFIG.MAP.DEFAULT_CENTER, CONFIG.MAP.DEFAULT_ZOOM);
+  mapInstance = L.map(mapEl).setView([CONFIG.MAP.INITIAL_LAT, CONFIG.MAP.INITIAL_LON], CONFIG.MAP.INITIAL_ZOOM);
   
-  L.tileLayer(CONFIG.MAP.TILE_LAYER, {
-    attribution: CONFIG.MAP.ATTRIBUTION,
+  L.tileLayer(CONFIG.MAP.TILE_URL, {
+    attribution: CONFIG.MAP.TILE_ATTRIBUTION,
     maxZoom: CONFIG.MAP.MAX_ZOOM
   }).addTo(mapInstance);
   
@@ -33,21 +33,38 @@ function initMap() {
 async function loadSystems() {
   try {
     const serials = await fetchSerialsList();
-    const filter = document.getElementById('systemFilter');
+    const dropdownMenu = document.getElementById('serialOptions');
     
-    if (!filter) return;
+    if (!dropdownMenu) return;
     
-    // Clear existing options (keep "All Systems")
-    while (filter.options.length > 1) {
-      filter.remove(1);
-    }
+    // Clear existing options
+    dropdownMenu.innerHTML = '';
     
     // Add systems to dropdown
     serials.forEach(serial => {
-      const option = document.createElement('option');
-      option.value = serial;
-      option.textContent = serial;
-      filter.appendChild(option);
+      const item = document.createElement('a');
+      item.className = 'dropdown-item';
+      item.href = '#';
+      item.dataset.serial = serial;
+      item.textContent = serial;
+      item.style.color = '#fff';
+      item.style.padding = '10px 15px';
+      item.style.display = 'block';
+      item.style.textDecoration = 'none';
+      item.addEventListener('click', (e) => {
+        e.preventDefault();
+        selectSystem(serial);
+        dropdownMenu.style.display = 'none';
+        const input = document.getElementById('serialInput');
+        if (input) input.value = serial;
+      });
+      item.addEventListener('mouseenter', () => {
+        item.style.background = 'rgba(13, 110, 253, 0.2)';
+      });
+      item.addEventListener('mouseleave', () => {
+        item.style.background = 'transparent';
+      });
+      dropdownMenu.appendChild(item);
       systemsData.set(serial, { serial });
     });
     
@@ -113,7 +130,7 @@ function createMarker(serial, lat, lon, name) {
 // Select system from dropdown
 function selectSystem(serial) {
   selectedSerial = serial;
-  const filter = document.getElementById('systemFilter');
+  const filter = document.getElementById('serialOptions');
   if (filter) filter.value = serial;
   
   const systemInfo = systemsData.get(serial);
@@ -224,12 +241,61 @@ function closeSidebar() {
   selectedSerial = null;
 }
 
+// Setup dropdown event listeners
+function setupDropdownListeners() {
+  const input = document.getElementById('serialInput');
+  const dropdownMenu = document.getElementById('serialOptions');
+  
+  if (!input || !dropdownMenu) return;
+  
+  // Show dropdown on input focus
+  input.addEventListener('focus', () => {
+    dropdownMenu.style.display = 'block';
+  });
+  
+  // Filter dropdown items as user types
+  input.addEventListener('input', (e) => {
+    const searchTerm = e.target.value.toLowerCase();
+    const items = dropdownMenu.querySelectorAll('a.dropdown-item');
+    
+    items.forEach(item => {
+      const itemText = item.textContent.toLowerCase();
+      if (itemText.includes(searchTerm)) {
+        item.style.display = 'block';
+      } else {
+        item.style.display = 'none';
+      }
+    });
+  });
+  
+  // Prevent form submission/navigation on input
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      // If there's a matching item, select it
+      const items = dropdownMenu.querySelectorAll('a.dropdown-item');
+      const firstVisible = Array.from(items).find(item => item.style.display !== 'none');
+      if (firstVisible) {
+        firstVisible.click();
+      }
+    }
+  });
+  
+  // Close dropdown when clicking outside
+  document.addEventListener('click', (e) => {
+    if (!input.contains(e.target) && !dropdownMenu.contains(e.target)) {
+      dropdownMenu.style.display = 'none';
+    }
+  });
+}
+
 // Initialize page
 async function init() {
   console.log('[Detailed Liveview] Starting initialization');
   
   initMap();
   await loadSystems();
+  setupDropdownListeners();
   
   // Load data for all systems
   const allSystems = Array.from(systemsData.keys());
@@ -237,12 +303,7 @@ async function init() {
     await loadSystemData(serial);
   }
   
-  // Setup event listeners
-  const filter = document.getElementById('systemFilter');
-  if (filter) {
-    filter.addEventListener('change', handleFilterChange);
-  }
-  
+  // Setup event listeners for sidebar
   const closeBtn = document.getElementById('closeSidebar');
   if (closeBtn) {
     closeBtn.addEventListener('click', closeSidebar);
