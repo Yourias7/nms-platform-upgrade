@@ -35,6 +35,7 @@
       display: flex;
       overflow: hidden;
       padding: 0;
+      margin: 0;
     }
 
     .map-container {
@@ -55,7 +56,7 @@
   <div class="glow-orb glow-orb-2"></div>
   <div class="glow-orb glow-orb-3"></div>
 
-  <nav class="navbar  mb-4">
+  <nav class="navbar">
     <div class="container-fluid">
       <a class="navbar-brand d-flex align-items-center">
         <img src="/static/img/New%20folder/Picture1.png" href="/" alt="logo" style="height:24px; width:24px; margin-right:8px;" />
@@ -84,6 +85,21 @@
       </ul>
     </div>
   </nav>
+
+  <!-- Status Panel for Cell Reference Data -->
+  <div class="bg-dark border-bottom border-secondary py-2 px-3" style="background: linear-gradient(180deg, rgba(15,20,45,0.95), rgba(10,14,39,0.85)); border-bottom: 1px solid rgba(102, 126, 234, 0.3);">
+    <div class="d-flex align-items-center gap-3">
+      <!-- Cell Reference Status -->
+      <div class="d-flex align-items-center gap-2">
+        <label class="mb-0" style="font-size: 0.875rem; color: #adb5bd;">Cell Reference:</label>
+        <span id="cellEnrichmentBadge" class="badge bg-success" style="display: none; font-size: 0.75rem;">0 cells</span>
+        <span id="cellRefNotLoaded" class="text-muted small" style="font-size: 0.75rem;">No CSV loaded (configure in Settings)</span>
+      </div>
+      
+      <!-- Status Message -->
+      <div id="statusMessage" class="text-muted small ms-auto" style="max-width: 400px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"></div>
+    </div>
+  </div>
 
   <main>
     <!-- Left Sidebar -->
