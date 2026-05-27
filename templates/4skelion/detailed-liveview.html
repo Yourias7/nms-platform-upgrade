@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Detailed Liveview - NMS Platform</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/style.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <!-- <script src="/static/js/shared/error-handler.js"></script> -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- favicon (ICO) -->
+  <link rel="icon" href="/static/img/favicon.ico" type="image/x-icon">
+
+  <!-- PNG favicons as fallback / modern browsers -->
+  <link rel="icon" type="image/png" sizes="32x32" href="/static/img/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/static/img/favicon-16x16.png">
+
+  <!-- Apple touch (mobile) -->
+  <link rel="apple-touch-icon" sizes="180x180" href="/static/img/apple-touch-icon.png">
+
+  <!-- optional: theme color for some browsers -->
+  <meta name="theme-color" content="#0d6efd">
+
+  <style>
+    body {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    main {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+      padding: 0;
+      margin: 0;
+    }
+
+    .map-container {
+      flex: 1;
+      position: relative;
+    }
+
+    #map {
+      width: 100%;
+      height: 100%;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Animated glowing orbs -->
+  <div class="glow-orb glow-orb-1"></div>
+  <div class="glow-orb glow-orb-2"></div>
+  <div class="glow-orb glow-orb-3"></div>
+
+  <nav class="navbar">
+    <div class="container-fluid">
+      <a class="navbar-brand d-flex align-items-center">
+        <img src="/static/img/New%20folder/Picture1.png" href="/" alt="logo" style="height:24px; width:24px; margin-right:8px;" />
+        <span>NMS Platform</span>
+        <div id="system-dropdown" class="dropdown" style="margin-left: 20px;">
+            <input id="serialInput" class="form-control" style="position: relative; display: inline-block; width: 300px;" placeholder="Select or type a system name"/>
+            <div id="serialOptions" class="dropdown-menu" style="position: absolute; top: 100%; left: 0; right: 0; display: none; overflow-y: auto; max-height: 300px; z-index: 1000; box-shadow: 0 2px 8px rgba(0,0,0,0.15); background: rgba(10, 14, 39, 0.95); border: 1px solid rgba(102, 126, 234, 0.3);"></div>
+        </div>
+      </a>
+      <ul class="nav nav-pills">
+        <li class="nav-item">
+          <a class="nav-link" href="/">Home</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="/4skelion/liveview">Live View</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="/4skelion/alarms">Alarms</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="/4skelion/playback">Playback</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="/4skelion/settings">Settings</a>
+        </li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- Status Panel for Cell Reference Data -->
+  <div class="bg-dark border-bottom border-secondary py-2 px-3" style="background: linear-gradient(180deg, rgba(15,20,45,0.95), rgba(10,14,39,0.85)); border-bottom: 1px solid rgba(102, 126, 234, 0.3);">
+    <div class="d-flex align-items-center gap-3">
+      <!-- Cell Reference Status -->
+      <div class="d-flex align-items-center gap-2">
+        <label class="mb-0" style="font-size: 0.875rem; color: #adb5bd;">Cell Reference:</label>
+        <span id="cellEnrichmentBadge" class="badge bg-success" style="display: none; font-size: 0.75rem;">0 cells</span>
+        <span id="cellRefNotLoaded" class="text-muted small" style="font-size: 0.75rem;">No CSV loaded (configure in Settings)</span>
+      </div>
+      
+      <!-- Status Message -->
+      <div id="statusMessage" class="text-muted small ms-auto" style="max-width: 400px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"></div>
+    </div>
+  </div>
+
+  <main>
+    <!-- Left Sidebar -->
+    <div id="sidebar" class="sidebar">
+      <div class="sidebar-header">
+        <h6 class="mb-0">System Details</h6>
+        <span class="close-btn" id="closeSidebar">&times;</span>
+      </div>
+      <div class="sidebar-content" id="sidebarContent">
+        <!-- System details will be populated here -->
+      </div>
+    </div>
+
+    <!-- Map Container -->
+    <div class="map-container">
+      <div id="map"></div>
+    </div>
+  </main>
+
+  <!-- Load alarm badge (runs on all pages) -->
+  <script type="module" src="/static/js/4skelion/alarm-badge.js"></script>
+
+  <!-- Load main app as ES6 module -->
+  <script type="module" src="/static/js/4skelion/detailed-liveview.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+
+</html>

@@ -836,7 +836,7 @@ function renderDropdownOptions(serials, nameMap = {}) {
 async function initializeSerialDropdown() {
   try {
     // Fetch serials and name map
-    allSerials = await fetchJSON(CONFIG.API.HISTORIC_SERIALS);
+    allSerials = await fetchJSON(CONFIG.API.PROBE_HISTORIC_SERIALS);
     serialNameMap = await fetchSerialNameMap();
     
     const serialInput = document.getElementById('serialInput');
@@ -1153,7 +1153,7 @@ function renderPerformanceAlarmsTable(alarms, total = null) {
     }
   }));
   window.dispatchEvent(new CustomEvent('alarms:table-rendered', { detail: { alarms } }));
-}
+
 
 /**
  * Load and display all performance alarms (no pagination)

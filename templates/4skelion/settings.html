@@ -108,6 +108,17 @@
                     <span>90°C</span>
                   </div>
                 </div>
+
+                <div class="mb-4 border rounded p-3 bg-light bg-opacity-10">
+                  <h6 class="mb-2">Historic CSV Enrichment</h6>
+                  <p class="text-muted small mb-3">Upload a CSV to use later in the Historic Details tab. The file is stored in your browser and can be loaded from Historic Details when needed.</p>
+                  <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+                    <button type="button" class="btn btn-outline-info btn-sm" id="settingsUploadCsvBtn">Upload CSV</button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="settingsClearCsvBtn">Clear Stored CSV</button>
+                    <input type="file" id="settingsCsvFileInput" accept=".csv" style="display:none;" />
+                  </div>
+                  <div id="settingsCsvStatus" class="text-muted small">No CSV uploaded. Upload in Settings and then load it from Historic Details.</div>
+                </div>
                 
                 <div class="d-flex gap-2">
                   <button type="submit" class="btn btn-primary">

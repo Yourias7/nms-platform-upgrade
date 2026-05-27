@@ -1,6 +1,7 @@
 # models.py
 from sqlalchemy import Column, Integer, Float, String, DateTime
-from .database import Base
+from .database import Base, engine_2
+from sqlalchemy.orm import declarative_base
 
 # Live Measurement Model
 class LiveMeasurement(Base):
@@ -16,12 +17,46 @@ class LiveMeasurement(Base):
     SINR = Column(Float, name="BESTS.SNR")
     TEMP = Column(Float, name="BESTS.TEMP.")
     EARFCN = Column(Integer, name="BESTS.EARFCN")
+    BAND = Column(Float, name="BESTS.BAND")
     PCI = Column(Integer, name="BESTS.PCI")
     A_USED= Column(Integer, name="BESTS.SECT#")
     CID= Column(Integer, name="BESTS.CID_dec")
     RSRQ= Column(Integer, name="BESTS.RSRQ")
-    NODE_ID= Column(Integer, name="BESTS_NODEB_dec")
+    NODE_ID= Column(Float, name="BESTS_NODEB_dec")
     SECTOR_ID= Column(Integer, name="SECTORID")
+    S0_EARFCN = Column(Float, name="S0.EARFCN")
+    S0_BAND = Column(Float, name="S0.BAND")
+    S0_CID = Column(Float, name="S0.CID_dec")
+    S0_PCI = Column(Float, name="S0.PCI")
+    S0_eCID = Column(Float, name="S0.NODEB_dec")
+    S0_RSRP = Column(Float, name="S0.RSRP")
+    S0_RSRQ = Column(Float, name="S0.RSRQ")
+    S0_SINR = Column(Float, name="SECT0.SNR")
+    S1_EARFCN = Column(Float, name="S1.EARFCN")
+    S1_BAND = Column(Float, name="S1.BAND")
+    S1_CID = Column(Float, name="S1.CID_dec")
+    S1_PCI = Column(Float, name="S1.PCI")
+    S1_eCID = Column(Float, name="S1.NODEB_dec")
+    S1_RSRP = Column(Float, name="S1.RSRP")
+    S1_RSRQ = Column(Float, name="S1.RSRQ")
+    S1_SINR = Column(Float, name="SECT1.SNR")
+    S2_EARFCN = Column(Float, name="S2.EARFCN")
+    S2_BAND = Column(Float, name="S2.BAND")
+    S2_CID = Column(Float, name="S2.CID_dec")
+    S2_PCI = Column(Float, name="S2.PCI")
+    S2_eCID = Column(Float, name="S2.NODEB_dec")
+    S2_RSRP = Column(Float, name="S2.RSRP")
+    S2_RSRQ = Column(Float, name="S2.RSRQ")
+    S2_SINR = Column(Float, name="SECT2.SNR")
+    S3_EARFCN = Column(Float, name="S3.EARFCN")
+    S3_BAND = Column(Float, name="S3.BAND")
+    S3_CID = Column(Float, name="S3.CID_dec")
+    S3_PCI = Column(Float, name="S3.PCI")
+    S3_eCID = Column(Float, name="S3.NODEB_dec")
+    S3_RSRP = Column(Float, name="S3.RSRP")
+    S3_RSRQ = Column(Float, name="S3.RSRQ")
+    S3_SINR = Column(Float, name="SECT3.SNR")
+
 
 
 ############################# SAMPLE OF ANOTHER MODEL #############################
@@ -87,9 +122,14 @@ class HistoricMeasurement(Base):
     S3PCI = Column(String(255), name="S3.PCI")
     S3RSRQ = Column(Float, name="S3.RSRQ")
 
-# Real-time Probes Measurement Model
-class RealTimeProbeMeasurement(Base):
-    __tablename__ = "ProbesLive$"
+# ==================== SECOND DATABASE SOURCE ====================
+
+# Declarative base for second database
+Base2 = declarative_base()
+
+# Real-time Probes Measurement Model (Second Database)
+class RealTimeProbeMeasurement(Base2):
+    __tablename__ = "LiveSheet$"
 
     SERIAL = Column(String(255), primary_key=True, index=True, name="SN")
     NAME = Column(String(255), name="Name")
@@ -102,29 +142,29 @@ class RealTimeProbeMeasurement(Base):
     HEADING = Column(Float, name="Heading")
     SPEED = Column(Float, name="Speed")
     TEMP = Column(Float, name="Temperature")
-    LINETYPE= Column(String(255), name="LineType")
+    LINETYPE = Column(String(255), name="LineType")
     BAND = Column(String(255), name="Band")
     NETEXIST = Column(Float, name="NetExist?")
     REGISTERED = Column(Float, name="Registered?")
     MCC = Column(Float)
     MNC = Column(Float)
     RSRP = Column(Float, name="RSRP dBm")
-    RSRQ= Column(Integer, name="RSRQ dB")
+    RSRQ = Column(Integer, name="RSRQ dB")
     SINR = Column(Float, name="SNIR dB")
     TEMP = Column(Float, name="Temperature")
     EARFCN = Column(String(255))
     PCI = Column(String(255))
-    CID= Column(String(255), name="CELL ID")
-    CID_DEC= Column(String(255), name="CELL ID DECIMAL")
+    CID = Column(String(255), name="CELL ID")
+    CID_DEC = Column(String(255), name="CELL ID DECIMAL")
     TAC = Column(String(255))
     HTTP_KBPS = Column(Float, name="HTTP kbps")
     PING_RTT = Column(Float, name="PING RTT ms")
     BW_DL = Column(Float, name="BW DL")
     BW_UL = Column(Float, name="BW UL")
 
-# Probes Historic Measurement Model
-class ProbesHistoricMeasurement(Base):
-    __tablename__ = "ProbesHistoric$"
+    # Probes Historic Measurement Model
+class ProbesHistoricMeasurement(Base2):
+    __tablename__ = "Historic"
 
     SERIAL = Column(String(255), primary_key=True, index=True, name="SN")
     NAME = Column(String(255), name="Name")
