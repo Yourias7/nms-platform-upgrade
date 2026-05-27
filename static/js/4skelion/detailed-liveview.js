@@ -88,22 +88,66 @@ async function loadSystemData(serial) {
   try {
     const data = await fetchSerialData(serial);
     if (!data || data.length === 0) return;
-    
+    // GENERAL INFORMATION FIELDS
     const latest = data[0]; // Assuming first is most recent
     const lat = parseFloat(latest.LATITUDE);
     const lon = parseFloat(latest.LONGITUDE);
     const name = latest.NAME || serial;
+    const lastUpdated = latest.DATETIME || null;
+    const a_used = latest['ANTENNA USED'] !== undefined ? parseInt(latest['ANTENNA USED']) : null;
+    const temp = latest.TEMP !== undefined ? parseFloat(latest.TEMP) : null;
+
+    // BEST SECTOR KPI FIELDS
     const earfcn = latest.EARFCN || 'N/A';
+    const band = latest.BAND !== undefined ? parseFloat(latest.BAND) : null;
     const rsrp = latest.RSRP !== undefined ? parseFloat(latest.RSRP) : null;
     const rsrq = latest.RSRQ !== undefined ? parseFloat(latest.RSRQ) : null;
     const sinr = latest.SINR !== undefined ? parseFloat(latest.SINR) : null;
-    const temp = latest.TEMP !== undefined ? parseFloat(latest.TEMP) : null;
-    const a_used = latest['ANTENNA USED'] !== undefined ? parseInt(latest['ANTENNA USED']) : null;
-    const lastUpdated = latest.DATETIME || null;
-    
+    const pci = latest.PCI !== undefined ? parseFloat(latest.PCI) : null;
+    const cid = latest.CID || null;
+    const nodeid = latest.NODE_ID !== undefined ? parseFloat(latest.NODE_ID) : null;
+    const sectorid = latest.SECTOR_ID !== undefined ? parseFloat(latest.SECTOR_ID) : null;
+    // SECTOR 0 FIELDS
+    const s0_earfcn = latest.S0_EARFCN || 'N/A';
+    const s0_band = latest.S0_BAND !== undefined ? parseFloat(latest.S0_BAND) : null;
+    const s0_rsrp = latest.S0_RSRP !== undefined ? parseFloat(latest.S0_RSRP) : null;
+    const s0_rsrq = latest.S0_RSRQ !== undefined ? parseFloat(latest.S0_RSRQ) : null;
+    const s0_sinr = latest.S0_SINR !== undefined ? parseFloat(latest.S0_SINR) : null;
+    const s0_pci = latest.S0_PCI !== undefined ? parseFloat(latest.S0_PCI) : null;
+    const s0_cid = latest.S0_CID || null;
+    const s0_ecid = latest.S0_eCID !== undefined ? parseFloat(latest.S0_eCID) : null;
+    // SECTOR 1 FIELDS
+    const s1_earfcn = latest.S1_EARFCN || 'N/A';
+    const s1_band = latest.S1_BAND !== undefined ? parseFloat(latest.S1_BAND) : null;
+    const s1_rsrp = latest.S1_RSRP !== undefined ? parseFloat(latest.S1_RSRP) : null;
+    const s1_rsrq = latest.S1_RSRQ !== undefined ? parseFloat(latest.S1_RSRQ) : null;
+    const s1_sinr = latest.S1_SINR !== undefined ? parseFloat(latest.S1_SINR) : null;
+    const s1_pci = latest.S1_PCI !== undefined ? parseFloat(latest.S1_PCI) : null;
+    const s1_cid = latest.S1_CID || null;
+    const s1_ecid = latest.S1_eCID !== undefined ? parseFloat(latest.S1_eCID) : null;
+    // SECTOR 2 FIELDS
+    const s2_earfcn = latest.S2_EARFCN || 'N/A';
+    const s2_band = latest.S2_BAND !== undefined ? parseFloat(latest.S2_BAND) : null;
+    const s2_rsrp = latest.S2_RSRP !== undefined ? parseFloat(latest.S2_RSRP) : null;
+    const s2_rsrq = latest.S2_RSRQ !== undefined ? parseFloat(latest.S2_RSRQ) : null;
+    const s2_sinr = latest.S2_SINR !== undefined ? parseFloat(latest.S2_SINR) : null;
+    const s2_pci = latest.S2_PCI !== undefined ? parseFloat(latest.S2_PCI) : null;
+    const s2_cid = latest.S2_CID || null;
+    const s2_ecid = latest.S2_eCID !== undefined ? parseFloat(latest.S2_eCID) : null;
+    // SECTOR 3 FIELDS
+    const s3_earfcn = latest.S3_EARFCN || 'N/A';
+    const s3_band = latest.S3_BAND !== undefined ? parseFloat(latest.S3_BAND) : null;
+    const s3_rsrp = latest.S3_RSRP !== undefined ? parseFloat(latest.S3_RSRP) : null;
+    const s3_rsrq = latest.S3_RSRQ !== undefined ? parseFloat(latest.S3_RSRQ) : null;
+    const s3_sinr = latest.S3_SINR !== undefined ? parseFloat(latest.S3_SINR) : null;
+    const s3_pci = latest.S3_PCI !== undefined ? parseFloat(latest.S3_PCI) : null;
+    const s3_cid = latest.S3_CID || null;
+    const s3_ecid = latest.S3_eCID !== undefined ? parseFloat(latest.S3_eCID) : null;
+
     if (!isNaN(lat) && !isNaN(lon)) {
       // Store system data
       systemsData.set(serial, {
+        // General info - Best Sector
         serial,
         name,
         lat,
@@ -115,6 +159,47 @@ async function loadSystemData(serial) {
         temp,
         a_used,
         lastUpdated,
+        pci,
+        cid,
+        nodeid,
+        sectorid,
+        band,
+        // Sector 0
+        s0_earfcn,
+        s0_band,
+        s0_rsrp,
+        s0_rsrq,
+        s0_sinr,
+        s0_pci,
+        s0_cid,
+        s0_ecid,
+        // Sector 1
+        s1_earfcn,
+        s1_band,
+        s1_rsrp,
+        s1_rsrq,
+        s1_sinr,
+        s1_pci,
+        s1_cid,
+        s1_ecid,
+        // Sector 2
+        s2_earfcn,
+        s2_band,
+        s2_rsrp,  
+        s2_rsrq,
+        s2_sinr,
+        s2_pci,
+        s2_cid,
+        s2_ecid,
+        // Sector 3
+        s3_earfcn,
+        s3_band,
+        s3_rsrp,
+        s3_rsrq,
+        s3_sinr,
+        s3_pci,
+        s3_cid,
+        s3_ecid,
         data: latest
       });
       
@@ -194,14 +279,33 @@ function showSystemDetails(serial, systemInfo) {
   if (!content) return;
   
   const data = systemInfo.data || {};
+
+  const cellname = "TBD"; // Placeholder for cell name if available in future
   
   let html = `
     <div class="mb-3">
       <h6 class="text-muted">Serial</h6>
       <p class="mb-2"><strong>${systemInfo.name || serial}</strong></p>
-      <small class="text-secondary">${serial}</small>
-    </div>
-    
+      <small class="text-secondary">${serial}</small>`;
+    // Show temperature with alarm status
+      if (data.TEMP !== undefined && data.TEMP !== null) {
+      const tempAlarm = isInAlarm('temp', data.TEMP);
+      const tempClass = tempAlarm ? 'text-danger' : 'text-success';
+      html += `<p class="mb-1"><small><strong class="${tempClass}">Temperature:</strong> ${data.TEMP} °C</small></p>`;
+    }
+    // Show last updated time
+    if (data.DATETIME) {
+      html += `
+      
+        <div>
+          <small class="text-muted">Last Updated</small><br/>
+          <small>${String(data.DATETIME).replace('T', ' ')}</small>
+        </div>
+        </div>
+      `;
+    }
+    // Show location and donor details
+    html +=`
     <hr class="my-2" />
     
     <div class="mb-3">
@@ -209,7 +313,6 @@ function showSystemDetails(serial, systemInfo) {
       <p class="mb-1"><small><strong>Latitude:</strong> ${systemInfo.lat ? systemInfo.lat.toFixed(6) : 'N/A'}</small></p>
       <p class="mb-2"><small><strong>Longitude:</strong> ${systemInfo.lon ? systemInfo.lon.toFixed(6) : 'N/A'}</small></p>
     </div>
-    
     <hr class="my-2" />
     
     <div class="mb-3">
@@ -218,45 +321,243 @@ function showSystemDetails(serial, systemInfo) {
     </div>
     <hr class="my-2" />
     <div class="mb-3">
-      <h6 class="text-muted">Sector 1</h6>
+      <h6 class="text-muted">Sector 0</h6>
   `;
-  
+  // Show SECTOR 0 Cell Info (EARFCN, BAND, PCI) with cell name if available
+
+  html += `<p`;
+  if (data.S0_eCID !== undefined && data.S0_eCID !== null) {
+    html += `class="mb-1"><small><strong>eCID:</strong> ${data.S0_eCID} </small>`;
+  }
+
+  if (data.S0_CID !== undefined && data.S0_CID !== null) {
+    html += `<small><strong>CID:</strong> ${data.S0_CID} </small>`;
+  }
+
+  if (cellname !== undefined && cellname !== null) {
+    html += `<small><strong>Cell Name:</strong> ${cellname} </small>`;
+  }
+
+  html += `</p>`;
+
+  html += `<p`;
+  if (data.S0_EARFCN !== undefined && data.S0_EARFCN !== null) {
+    html += `class="mb-1"><small><strong>EARFCN:</strong> ${data.S0_EARFCN} </small>`;
+  }
+
+  if (data.S0_BAND !== undefined && data.S0_BAND !== null) {
+    html += `<small><strong>BAND:</strong> ${data.S0_BAND} </small>`;
+  }
+
+  if (data.S0_PCI !== undefined && data.S0_PCI !== null) {
+    html += `<small><strong>PCI:</strong> ${data.S0_PCI}</small>`;
+  }
+
+  html += `</p>`;
+
+  // SECTOR 0 RSRP, RSRQ, SINR with alarm status
   if (data.RSRP !== undefined && data.RSRP !== null) {
     const rsrpAlarm = isInAlarm('rsrp', data.RSRP);
     const rsrpClass = rsrpAlarm ? 'text-danger' : 'text-success';
-    html += `<p class="mb-1"><small><strong class="${rsrpClass}">RSRP:</strong> ${data.RSRP} dBm</small></p>`;
+    html += `<p class="mb-1"><small><strong class="${rsrpClass}">RSRP:</strong> ${data.S0_RSRP} dBm</small></p>`;
   }
 
   if (data.RSRQ !== undefined && data.RSRQ !== null) {
     const rsrqAlarm = isInAlarm('rsrq', data.RSRQ);
     const rsrqClass = rsrqAlarm ? 'text-danger' : 'text-success';
-    html += `<p class="mb-1"><small><strong class="${rsrqClass}">RSRQ:</strong> ${data.RSRQ} dB</small></p>`;
+    html += `<p class="mb-1"><small><strong class="${rsrqClass}">RSRQ:</strong> ${data.S0_RSRQ} dB</small></p>`;
   }
   
   if (data.SINR !== undefined && data.SINR !== null) {
     const sinrAlarm = isInAlarm('sinr', data.SINR);
     const sinrClass = sinrAlarm ? 'text-danger' : 'text-success';
-    html += `<p class="mb-1"><small><strong class="${sinrClass}">SINR:</strong> ${data.SINR} dB</small></p>`;
+    html += `<p class="mb-1"><small><strong class="${sinrClass}">SINR:</strong> ${data.S0_SINR} dB</small></p>`;
   }
   
-  if (data.TEMP !== undefined && data.TEMP !== null) {
-    const tempAlarm = isInAlarm('temp', data.TEMP);
-    const tempClass = tempAlarm ? 'text-danger' : 'text-success';
-    html += `<p class="mb-1"><small><strong class="${tempClass}">Temperature:</strong> ${data.TEMP} °C</small></p>`;
+  
+  html += `</div>`;
+
+  html += `
+  </div>
+    <hr class="my-2" />
+    <div class="mb-3">
+      <h6 class="text-muted">Sector 1</h6>
+  `;
+  // Show SECTOR 1 Cell Info (EARFCN, BAND, PCI) with cell name if available
+
+  html += `<p`;
+  if (data.S1_eCID !== undefined && data.S1_eCID !== null) {
+    html += `class="mb-1"><small><strong>eCID:</strong> ${data.S1_eCID} </small>`;
   }
+
+  if (data.S1_CID !== undefined && data.S1_CID !== null) {
+    html += `<small><strong>CID:</strong> ${data.S1_CID} </small>`;
+  }
+
+  if (cellname !== undefined && cellname !== null) {
+    html += `<small><strong>Cell Name:</strong> ${cellname} </small>`;
+  }
+
+  html += `</p>`;
+
+  html += `<p`;
+  if (data.S1_EARFCN !== undefined && data.S1_EARFCN !== null) {
+    html += `class="mb-1"><small><strong>EARFCN:</strong> ${data.S1_EARFCN} </small>`;
+  }
+
+  if (data.S1_BAND !== undefined && data.S1_BAND !== null) {
+    html += `<small><strong>BAND:</strong> ${data.S1_BAND} </small>`;
+  }
+
+  if (data.S1_PCI !== undefined && data.S1_PCI !== null) {
+    html += `<small><strong>PCI:</strong> ${data.S1_PCI}</small>`;
+  }
+
+  html += `</p>`;
+
+  // SECTOR 1 RSRP, RSRQ, SINR with alarm status
+  if (data.RSRP !== undefined && data.RSRP !== null) {
+    const rsrpAlarm = isInAlarm('rsrp', data.RSRP);
+    const rsrpClass = rsrpAlarm ? 'text-danger' : 'text-success';
+    html += `<p class="mb-1"><small><strong class="${rsrpClass}">RSRP:</strong> ${data.S1_RSRP} dBm</small></p>`;
+  }
+
+  if (data.RSRQ !== undefined && data.RSRQ !== null) {
+    const rsrqAlarm = isInAlarm('rsrq', data.RSRQ);
+    const rsrqClass = rsrqAlarm ? 'text-danger' : 'text-success';
+    html += `<p class="mb-1"><small><strong class="${rsrqClass}">RSRQ:</strong> ${data.S1_RSRQ} dB</small></p>`;
+  }
+  
+  if (data.SINR !== undefined && data.SINR !== null) {
+    const sinrAlarm = isInAlarm('sinr', data.SINR);
+    const sinrClass = sinrAlarm ? 'text-danger' : 'text-success';
+    html += `<p class="mb-1"><small><strong class="${sinrClass}">SINR:</strong> ${data.S1_SINR} dB</small></p>`;
+  }
+  
+  
+  html += `</div>`;
+
+  html += `
+  </div>
+    <hr class="my-2" />
+    <div class="mb-3">
+      <h6 class="text-muted">Sector 2</h6>
+  `;
+  // Show SECTOR 2 Cell Info (EARFCN, BAND, PCI) with cell name if available
+
+  html += `<p`;
+  if (data.S2_eCID !== undefined && data.S2_eCID !== null) {
+    html += `class="mb-1"><small><strong>eCID:</strong> ${data.S2_eCID} </small>`;
+  }
+
+  if (data.S2_CID !== undefined && data.S2_CID !== null) {
+    html += `<small><strong>CID:</strong> ${data.S2_CID} </small>`;
+  }
+
+  if (cellname !== undefined && cellname !== null) {
+    html += `<small><strong>Cell Name:</strong> ${cellname} </small>`;
+  }
+
+  html += `</p>`;
+
+  html += `<p`;
+  if (data.S2_EARFCN !== undefined && data.S2_EARFCN !== null) {
+    html += `class="mb-1"><small><strong>EARFCN:</strong> ${data.S2_EARFCN} </small>`;
+  }
+
+  if (data.S2_BAND !== undefined && data.S2_BAND !== null) {
+    html += `<small><strong>BAND:</strong> ${data.S2_BAND} </small>`;
+  }
+
+  if (data.S2_PCI !== undefined && data.S2_PCI !== null) {
+    html += `<small><strong>PCI:</strong> ${data.S2_PCI}</small>`;
+  }
+
+  html += `</p>`;
+
+  // SECTOR 2 RSRP, RSRQ, SINR with alarm status
+  if (data.RSRP !== undefined && data.RSRP !== null) {
+    const rsrpAlarm = isInAlarm('rsrp', data.RSRP);
+    const rsrpClass = rsrpAlarm ? 'text-danger' : 'text-success';
+    html += `<p class="mb-1"><small><strong class="${rsrpClass}">RSRP:</strong> ${data.S2_RSRP} dBm</small></p>`;
+  }
+
+  if (data.RSRQ !== undefined && data.RSRQ !== null) {
+    const rsrqAlarm = isInAlarm('rsrq', data.RSRQ);
+    const rsrqClass = rsrqAlarm ? 'text-danger' : 'text-success';
+    html += `<p class="mb-1"><small><strong class="${rsrqClass}">RSRQ:</strong> ${data.S2_RSRQ} dB</small></p>`;
+  }
+  
+  if (data.SINR !== undefined && data.SINR !== null) {
+    const sinrAlarm = isInAlarm('sinr', data.SINR);
+    const sinrClass = sinrAlarm ? 'text-danger' : 'text-success';
+    html += `<p class="mb-1"><small><strong class="${sinrClass}">SINR:</strong> ${data.S2_SINR} dB</small></p>`;
+  }
+  
   
   html += `</div>`;
   
-  if (data.DATETIME) {
-    html += `
-      <hr class="my-2" />
-      <div>
-        <small class="text-muted">Last Updated</small><br/>
-        <small>${String(data.DATETIME).replace('T', ' ')}</small>
-      </div>
-    `;
+ html += `
+  </div>
+    <hr class="my-2" />
+    <div class="mb-3">
+      <h6 class="text-muted">Sector 2</h6>
+  `;
+  // Show SECTOR 3 Cell Info (EARFCN, BAND, PCI) with cell name if available
+
+  html += `<p`;
+  if (data.S3_eCID !== undefined && data.S3_eCID !== null) {
+    html += `class="mb-1"><small><strong>eCID:</strong> ${data.S3_eCID} </small>`;
+  }
+
+  if (data.S3_CID !== undefined && data.S3_CID !== null) {
+    html += `<small><strong>CID:</strong> ${data.S3_CID} </small>`;
+  }
+
+  if (cellname !== undefined && cellname !== null) {
+    html += `<small><strong>Cell Name:</strong> ${cellname} </small>`;
+  }
+
+  html += `</p>`;
+
+  html += `<p`;
+  if (data.S3_EARFCN !== undefined && data.S3_EARFCN !== null) {
+    html += `class="mb-1"><small><strong>EARFCN:</strong> ${data.S3_EARFCN} </small>`;
+  }
+
+  if (data.S3_BAND !== undefined && data.S3_BAND !== null) {
+    html += `<small><strong>BAND:</strong> ${data.S3_BAND} </small>`;
+  }
+
+  if (data.S3_PCI !== undefined && data.S3_PCI !== null) {
+    html += `<small><strong>PCI:</strong> ${data.S3_PCI}</small>`;
+  }
+
+  html += `</p>`;
+
+  // SECTOR 3 RSRP, RSRQ, SINR with alarm status
+  if (data.RSRP !== undefined && data.RSRP !== null) {
+    const rsrpAlarm = isInAlarm('rsrp', data.RSRP);
+    const rsrpClass = rsrpAlarm ? 'text-danger' : 'text-success';
+    html += `<p class="mb-1"><small><strong class="${rsrpClass}">RSRP:</strong> ${data.S3_RSRP} dBm</small></p>`;
+  }
+
+  if (data.RSRQ !== undefined && data.RSRQ !== null) {
+    const rsrqAlarm = isInAlarm('rsrq', data.RSRQ);
+    const rsrqClass = rsrqAlarm ? 'text-danger' : 'text-success';
+    html += `<p class="mb-1"><small><strong class="${rsrqClass}">RSRQ:</strong> ${data.S3_RSRQ} dB</small></p>`;
   }
   
+  if (data.SINR !== undefined && data.SINR !== null) {
+    const sinrAlarm = isInAlarm('sinr', data.SINR);
+    const sinrClass = sinrAlarm ? 'text-danger' : 'text-success';
+    html += `<p class="mb-1"><small><strong class="${sinrClass}">SINR:</strong> ${data.S3_SINR} dB</small></p>`;
+  }
+  
+  
+  html += `</div>`;
+  
+
   content.innerHTML = html;
   
   // Open sidebar

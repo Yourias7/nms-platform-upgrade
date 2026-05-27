@@ -22,7 +22,7 @@ class LiveMeasurement(Base):
     A_USED= Column(Integer, name="BESTS.SECT#")
     CID= Column(Integer, name="BESTS.CID_dec")
     RSRQ= Column(Integer, name="BESTS.RSRQ")
-    NODE_ID= Column(Integer, name="BESTS_NODEB_dec")
+    NODE_ID= Column(Float, name="BESTS_NODEB_dec")
     SECTOR_ID= Column(Integer, name="SECTORID")
     S0_EARFCN = Column(Float, name="S0.EARFCN")
     S0_BAND = Column(Float, name="S0.BAND")
