@@ -20,6 +20,7 @@ const CELL_DEFAULT_COLOR = '#fd7e14';
 const CELL_SELECTED_COLOR = '#28a745';
 
 let csvCellIndex = {};
+let csvEnbIndex = {};
 let csvCellDetails = new Map();
 
 // Initialize map
@@ -271,19 +272,25 @@ function escapeHtml(text) {
 
 function getCellCoordinatesFromEnrichment(enrichment) {
   if (!enrichment || typeof enrichment !== 'object') return null;
+  
   const values = {};
+  // Normalize all keys to lowercase for case-insensitive matching
   Object.entries(enrichment).forEach(([key, value]) => {
     if (!key) return;
     values[String(key).trim().toLowerCase()] = value;
   });
 
-  const lat = values.latitude ?? values.lat;
-  const lon = values.longitude ?? values.lon ?? values.long;
+  // Look for standard location keys AND the specific Latitude_Sector / Longitude_Sector keys
+  const lat = values.latitude ?? values.lat ?? values.latitude_sector;
+  const lon = values.longitude ?? values.lon ?? values.long ?? values.longitude_sector;
+  
   if (lat === undefined || lon === undefined || lat === '' || lon === '') return null;
 
   const parsedLat = parseFloat(lat);
   const parsedLon = parseFloat(lon);
+  
   if (!Number.isFinite(parsedLat) || !Number.isFinite(parsedLon)) return null;
+  
   return { lat: parsedLat, lon: parsedLon };
 }
 
@@ -370,7 +377,7 @@ function updateCellMarkerStyles(selectedSerial) {
 function buildCellMarkers() {
   clearCellMarkers();
 
-  if (!csvCellIndex || Object.keys(csvCellIndex).length === 0) {
+  if (!csvEnbIndex || Object.keys(csvEnbIndex).length === 0) {
     updateCsvCellStatusUI(0);
     return;
   }
@@ -379,39 +386,55 @@ function buildCellMarkers() {
 
   systemsData.forEach(system => {
     if (!system) return;
-    const ids = [system.nodeid, system.s0_ecid, system.s1_ecid, system.s2_ecid, system.s3_ecid];
-    ids.forEach(rawId => {
-      const cellid = normalizeCellId(rawId);
-      if (!cellid) return;
-      const enrichment = csvCellIndex[cellid];
-      if (!enrichment) return;
+    
+    // 1. Gather and deduplicate system fields dynamically (O(1) dedup)
+    const systemIdsToMatch = new Set([
+      // system.nodeid, 
+      system.s0_ecid, 
+      system.s1_ecid, 
+      system.s2_ecid, 
+      system.s3_ecid
+    ].map(normalizeCellId).filter(id => id !== ''));
 
-      const existing = cellMap.get(cellid);
-      const coords = getCellCoordinatesFromEnrichment(enrichment);
-      const lat = coords?.lat ?? (Number.isFinite(system.lat) ? system.lat : null);
-      const lon = coords?.lon ?? (Number.isFinite(system.lon) ? system.lon : null);
-      const locationSource = coords ? 'csv' : 'system';
+    // 2. Cross-reference deduplicated IDs directly against the ENBID index
+    systemIdsToMatch.forEach(idToMatch => {
+      // O(1) Instant Lookup - gets array of cells under this ENBID
+      const matchingCells = csvEnbIndex[idToMatch]; 
+      if (!matchingCells) return;
 
-      if (existing) {
-        existing.associatedSerials.add(system.serial);
-        if ((existing.lat === null || existing.lon === null) && lat !== null && lon !== null) {
-          existing.lat = lat;
-          existing.lon = lon;
-          existing.locationSource = locationSource;
+      // 3. Process matched cells
+      matchingCells.forEach(enrichment => {
+        const cellid = enrichment.ENBID;
+        const existing = cellMap.get(cellid);
+        
+        const coords = getCellCoordinatesFromEnrichment(enrichment);
+        const lat = coords?.lat ?? (Number.isFinite(system.lat) ? system.lat : null);
+        const lon = coords?.lon ?? (Number.isFinite(system.lon) ? system.lon : null);
+        const locationSource = coords ? 'csv' : 'system';
+
+        if (existing) {
+          // If cell is mapped by multiple systems (e.g. overlapping IDs), attach serial
+          existing.associatedSerials.add(system.serial);
+          if ((existing.lat === null || existing.lon === null) && lat !== null && lon !== null) {
+            existing.lat = lat;
+            existing.lon = lon;
+            existing.locationSource = locationSource;
+          }
+        } else {
+          cellMap.set(cellid, {
+            cellid,
+            enrichment,
+            associatedSerials: new Set([system.serial]),
+            lat,
+            lon,
+            locationSource
+          });
         }
-      } else {
-        cellMap.set(cellid, {
-          cellid,
-          enrichment,
-          associatedSerials: new Set([system.serial]),
-          lat,
-          lon,
-          locationSource
-        });
-      }
+      });
     });
   });
 
+  // Plot the deduplicated maps
   let displayedCount = 0;
   cellMap.forEach(cell => {
     if (cell.lat !== null && cell.lon !== null) {
@@ -427,19 +450,23 @@ function buildCellMarkers() {
   updateCellMarkerStyles(selectedSerial);
 }
 
+// Update the loader to grab the new ENBID index
 async function loadStoredCellReferenceCsv() {
   try {
     const stored = await loadCsvEnrichmentFromStorage();
-    if (!stored || !stored.index || Object.keys(stored.index).length === 0) {
+    if (!stored || !stored.indexByEnb || Object.keys(stored.indexByEnb).length === 0) {
       csvCellIndex = {};
+      csvEnbIndex = {};
       updateCsvCellStatusUI(0);
       return;
     }
-    csvCellIndex = stored.index;
+    csvCellIndex = stored.index || {};
+    csvEnbIndex = stored.indexByEnb || {}; // Assign the loaded ENBID index
     updateCsvCellStatusUI(0);
   } catch (error) {
     console.error('[Detailed Liveview] Failed to load stored CSV cell reference:', error);
     csvCellIndex = {};
+    csvEnbIndex = {};
     updateCsvCellStatusUI(0);
   }
 }
@@ -703,7 +730,7 @@ function showSystemDetails(serial, systemInfo) {
   </div>
     <hr class="my-2" />
     <div class="mb-3">
-      <h6 class="text-muted">Sector 2</h6>
+      <h6 class="text-muted">Sector 3</h6>
   `;
   // Show SECTOR 3 Cell Info (EARFCN, BAND, PCI) with cell name if available
 

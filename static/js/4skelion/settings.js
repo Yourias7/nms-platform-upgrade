@@ -47,7 +47,7 @@ async function handleSettingsCsvUpload(file) {
     const csvData = parseCSVContent(text);
     validateCsvHeaders(Object.keys(csvData[0] || {}));
 
-    const { index, extraColumns } = buildCsvIndex(csvData);
+    const { index, indexByEnb, extraColumns } = buildCsvIndex(csvData); // <-- Added indexByEnb here
     if (!Object.keys(index).length) {
       throw new Error('No valid records with join keys found in CSV');
     }
@@ -55,7 +55,8 @@ async function handleSettingsCsvUpload(file) {
     await saveCsvEnrichmentToStorage({
       fileName: file.name,
       rowCount: csvData.length,
-      index,
+      index: index,
+      indexByEnb: indexByEnb, // <-- THIS WAS MISSING
       enrichmentColumns: extraColumns
     });
 
