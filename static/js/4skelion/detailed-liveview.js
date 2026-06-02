@@ -42,6 +42,43 @@ function getDirectionalIcon(heading, color) {
   });
 }
 
+
+// Add to your global variables at the top
+let connectionLines = [];
+
+// Add this helper function anywhere in the file (e.g., above selectSystem)
+function clearConnectionLines() {
+  connectionLines.forEach(line => {
+    if (mapInstance) mapInstance.removeLayer(line);
+  });
+  connectionLines = [];
+}
+// Draw lines between a selected system and its matching cells
+function drawConnectionLines(serial) {
+  clearConnectionLines();
+  if (!mapInstance) return;
+
+  const systemInfo = systemsData.get(serial);
+  if (!systemInfo || !Number.isFinite(systemInfo.lat) || !Number.isFinite(systemInfo.lon)) return;
+
+  const sysLatLng = [systemInfo.lat, systemInfo.lon];
+
+  // csvCellDetails is a Map, so we iterate through it
+  csvCellDetails.forEach(cell => {
+    if (cell.associatedSerials.has(serial) && Number.isFinite(cell.lat) && Number.isFinite(cell.lon)) {
+      const line = L.polyline([sysLatLng, [cell.lat, cell.lon]], {
+        color: SYSTEM_SELECTED_COLOR, // Red to match the selected system
+        weight: 2,
+        opacity: 0.6,
+        // dashArray: '5, 8' // Creates a sleek dashed line look
+      }).addTo(mapInstance);
+      
+      connectionLines.push(line);
+    }
+  });
+}
+
+
 // Initialize map
 function initMap() {
   if (mapInstance) return;
@@ -521,6 +558,7 @@ function selectSystem(serial) {
   });
 
   updateCellMarkerStyles(serial);
+  drawConnectionLines(serial);
 }
 
 // Display system details in sidebar
@@ -682,6 +720,7 @@ function handleFilterChange(e) {
   } else {
     // Show all markers
     closeSidebar();
+    clearConnectionLines();
     markersMap.forEach((marker, key) => {
       const sysInfo = systemsData.get(key);
       const heading = sysInfo ? (sysInfo.heading || 0) : 0;
@@ -696,6 +735,7 @@ function closeSidebar() {
   const sidebar = document.getElementById('sidebar');
   sidebar.classList.remove('open');
   selectedSerial = null;
+  clearConnectionLines();
 }
 
 // Setup dropdown event listeners
