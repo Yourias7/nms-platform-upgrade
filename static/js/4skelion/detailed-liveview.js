@@ -2,6 +2,7 @@
 // Detailed Liveview Map Dashboard
 
 import { CONFIG } from '../shared/config.js';
+import { loadCsvEnrichmentFromStorage } from '../shared/csv-enrichment.js';
 import { fetchSerialsList, fetchSerialData, fetchSerialNameMap } from '../shared/api.js';
 import { isInAlarm } from './settings.js';
 
@@ -9,8 +10,17 @@ console.log('[Detailed Liveview] Initializing');
 
 let mapInstance = null;
 let markersMap = new Map();
+let cellMarkersMap = new Map();
 let systemsData = new Map();
 let selectedSerial = null;
+
+const SYSTEM_DEFAULT_COLOR = '#0d6efd';
+const SYSTEM_SELECTED_COLOR = '#dc3545';
+const CELL_DEFAULT_COLOR = '#fd7e14';
+const CELL_SELECTED_COLOR = '#28a745';
+
+let csvCellIndex = {};
+let csvCellDetails = new Map();
 
 // Initialize map
 function initMap() {
@@ -23,7 +33,8 @@ function initMap() {
   
   L.tileLayer(CONFIG.MAP.TILE_URL, {
     attribution: CONFIG.MAP.TILE_ATTRIBUTION,
-    maxZoom: CONFIG.MAP.MAX_ZOOM
+    // maxZoom: CONFIG.MAP.MAX_ZOOM
+    maxZoom: 20, // Allow deeper zoom for better cell marker visibility
   }).addTo(mapInstance);
   
   console.log('[Detailed Liveview] Map initialized');
@@ -244,6 +255,195 @@ function createMarker(serial, lat, lon, name, earfcn, rsrp, rsrq, sinr, temp, la
   markersMap.set(serial, marker);
 }
 
+function normalizeCellId(value) {
+  if (value === null || value === undefined) return '';
+  return String(value).trim();
+}
+
+function escapeHtml(text) {
+  const str = String(text ?? '');
+  return str.replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function getCellCoordinatesFromEnrichment(enrichment) {
+  if (!enrichment || typeof enrichment !== 'object') return null;
+  const values = {};
+  Object.entries(enrichment).forEach(([key, value]) => {
+    if (!key) return;
+    values[String(key).trim().toLowerCase()] = value;
+  });
+
+  const lat = values.latitude ?? values.lat;
+  const lon = values.longitude ?? values.lon ?? values.long;
+  if (lat === undefined || lon === undefined || lat === '' || lon === '') return null;
+
+  const parsedLat = parseFloat(lat);
+  const parsedLon = parseFloat(lon);
+  if (!Number.isFinite(parsedLat) || !Number.isFinite(parsedLon)) return null;
+  return { lat: parsedLat, lon: parsedLon };
+}
+
+function buildCellPopupHtml(cell) {
+  let html = `<div style="min-width:220px; font-size:0.9rem;"><strong>Cell ID:</strong> ${escapeHtml(cell.cellid)}<br/>`;
+  const associated = Array.from(cell.associatedSerials || []).map(escapeHtml).join(', ');
+  if (associated) {
+    html += `<strong>Associated Systems:</strong> ${associated}<br/>`;
+  }
+  if (cell.locationSource === 'system') {
+    html += `<small class="text-muted">Location taken from associated system</small><br/>`;
+  }
+
+  const entries = Object.entries(cell.enrichment || {}).filter(([key]) => String(key).trim().toUpperCase() !== 'BEST_CELLID');
+  entries.forEach(([key, value]) => {
+    html += `<strong>${escapeHtml(key)}:</strong> ${escapeHtml(value)}<br/>`;
+  });
+  html += '</div>';
+  return html;
+}
+
+function createCellMarker(cell, color = CELL_DEFAULT_COLOR) {
+  if (!mapInstance || !cell || cell.lat === null || cell.lon === null) return;
+
+  if (cellMarkersMap.has(cell.cellid)) {
+    mapInstance.removeLayer(cellMarkersMap.get(cell.cellid));
+  }
+
+  const marker = L.circleMarker([cell.lat, cell.lon], {
+    radius: 6,
+    fillColor: color,
+    color: color,
+    weight: 2,
+    opacity: 0.9,
+    fillOpacity: 0.85
+  }).addTo(mapInstance);
+
+  marker.bindPopup(buildCellPopupHtml(cell));
+  marker.on('click', () => marker.openPopup());
+
+  cellMarkersMap.set(cell.cellid, marker);
+}
+
+function clearCellMarkers() {
+  cellMarkersMap.forEach(marker => {
+    if (mapInstance) mapInstance.removeLayer(marker);
+  });
+  cellMarkersMap.clear();
+  csvCellDetails.clear();
+}
+
+function updateCsvCellStatusUI(count) {
+  const badge = document.getElementById('cellEnrichmentBadge');
+  const notLoaded = document.getElementById('cellRefNotLoaded');
+
+  if (count > 0) {
+    if (badge) {
+      badge.style.display = 'inline-block';
+      badge.textContent = `${count} cell${count === 1 ? '' : 's'}`;
+    }
+    if (notLoaded) {
+      notLoaded.style.display = 'none';
+    }
+  } else {
+    if (badge) {
+      badge.style.display = 'none';
+    }
+    if (notLoaded) {
+      notLoaded.style.display = 'inline';
+    }
+  }
+}
+
+function updateCellMarkerStyles(selectedSerial) {
+  cellMarkersMap.forEach((marker, cellid) => {
+    const cell = csvCellDetails.get(cellid);
+    if (!cell) return;
+    const isAssociated = selectedSerial && cell.associatedSerials.has(selectedSerial);
+    const color = isAssociated ? CELL_SELECTED_COLOR : CELL_DEFAULT_COLOR;
+    marker.setStyle({ fillColor: color, color: color });
+  });
+}
+
+function buildCellMarkers() {
+  clearCellMarkers();
+
+  if (!csvCellIndex || Object.keys(csvCellIndex).length === 0) {
+    updateCsvCellStatusUI(0);
+    return;
+  }
+
+  const cellMap = new Map();
+
+  systemsData.forEach(system => {
+    if (!system) return;
+    const ids = [system.nodeid, system.s0_ecid, system.s1_ecid, system.s2_ecid, system.s3_ecid];
+    ids.forEach(rawId => {
+      const cellid = normalizeCellId(rawId);
+      if (!cellid) return;
+      const enrichment = csvCellIndex[cellid];
+      if (!enrichment) return;
+
+      const existing = cellMap.get(cellid);
+      const coords = getCellCoordinatesFromEnrichment(enrichment);
+      const lat = coords?.lat ?? (Number.isFinite(system.lat) ? system.lat : null);
+      const lon = coords?.lon ?? (Number.isFinite(system.lon) ? system.lon : null);
+      const locationSource = coords ? 'csv' : 'system';
+
+      if (existing) {
+        existing.associatedSerials.add(system.serial);
+        if ((existing.lat === null || existing.lon === null) && lat !== null && lon !== null) {
+          existing.lat = lat;
+          existing.lon = lon;
+          existing.locationSource = locationSource;
+        }
+      } else {
+        cellMap.set(cellid, {
+          cellid,
+          enrichment,
+          associatedSerials: new Set([system.serial]),
+          lat,
+          lon,
+          locationSource
+        });
+      }
+    });
+  });
+
+  let displayedCount = 0;
+  cellMap.forEach(cell => {
+    if (cell.lat !== null && cell.lon !== null) {
+      createCellMarker(cell, CELL_DEFAULT_COLOR);
+      csvCellDetails.set(cell.cellid, cell);
+      displayedCount += 1;
+    } else {
+      console.warn(`[Detailed Liveview] Skipped CSV cell marker because coordinates were unavailable for ${cell.cellid}`);
+    }
+  });
+
+  updateCsvCellStatusUI(displayedCount);
+  updateCellMarkerStyles(selectedSerial);
+}
+
+async function loadStoredCellReferenceCsv() {
+  try {
+    const stored = await loadCsvEnrichmentFromStorage();
+    if (!stored || !stored.index || Object.keys(stored.index).length === 0) {
+      csvCellIndex = {};
+      updateCsvCellStatusUI(0);
+      return;
+    }
+    csvCellIndex = stored.index;
+    updateCsvCellStatusUI(0);
+  } catch (error) {
+    console.error('[Detailed Liveview] Failed to load stored CSV cell reference:', error);
+    csvCellIndex = {};
+    updateCsvCellStatusUI(0);
+  }
+}
+
 // Select system from dropdown
 function selectSystem(serial) {
   selectedSerial = serial;
@@ -264,11 +464,13 @@ function selectSystem(serial) {
   // Highlight marker
   markersMap.forEach((marker, key) => {
     if (key === serial) {
-      marker.setStyle({ fillColor: '#dc3545', color: '#dc3545' });
+      marker.setStyle({ fillColor: SYSTEM_SELECTED_COLOR, color: SYSTEM_SELECTED_COLOR });
     } else {
-      marker.setStyle({ fillColor: '#0d6efd', color: '#0d6efd' });
+      marker.setStyle({ fillColor: SYSTEM_DEFAULT_COLOR, color: SYSTEM_DEFAULT_COLOR });
     }
   });
+
+  updateCellMarkerStyles(serial);
 }
 
 // Display system details in sidebar
@@ -646,6 +848,9 @@ async function init() {
   for (const serial of allSystems) {
     await loadSystemData(serial);
   }
+
+  await loadStoredCellReferenceCsv();
+  buildCellMarkers();
   
   // Setup event listeners for sidebar
   const closeBtn = document.getElementById('closeSidebar');
