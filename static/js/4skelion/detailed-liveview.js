@@ -62,19 +62,92 @@ function drawConnectionLines(serial) {
   if (!systemInfo || !Number.isFinite(systemInfo.lat) || !Number.isFinite(systemInfo.lon)) return;
 
   const sysLatLng = [systemInfo.lat, systemInfo.lon];
+  
+  // 1. Get the Donor Sector index safely (handles "2", 2, or "Sector 2")
+  let donorIndex = systemInfo.a_used;
+  if (typeof donorIndex === 'string') {
+    donorIndex = parseInt(donorIndex.replace(/\D/g, ''), 10);
+  }
+  
+  // 2. Dynamically fetch the PCI, CID, and eCID for the donor sector
+  let donorEcid, donorCid, donorPci;
+  if (donorIndex !== null && donorIndex !== undefined && !isNaN(donorIndex)) {
+    donorEcid = systemInfo[`s${donorIndex}_ecid`];
+    donorCid = systemInfo[`s${donorIndex}_cid`];
+    donorPci = systemInfo[`s${donorIndex}_pci`];
+  }
 
-  // csvCellDetails is a Map, so we iterate through it
+  const normalLines = [];
+  const donorLines = [];
+
+  // Helper: Safely compare values (handles numbers vs strings and extra spaces)
+  const safeMatch = (val1, val2) => {
+    if (val1 === null || val1 === undefined || val1 === '' || 
+        val2 === null || val2 === undefined || val2 === '') return false;
+    
+    // If they can both be numbers, compare them as numbers (handles "100.0" vs 100)
+    if (!isNaN(Number(val1)) && !isNaN(Number(val2))) {
+      return Number(val1) === Number(val2);
+    }
+    // Otherwise, string comparison
+    return String(val1).trim().toUpperCase() === String(val2).trim().toUpperCase();
+  };
+
   csvCellDetails.forEach(cell => {
     if (cell.associatedSerials.has(serial) && Number.isFinite(cell.lat) && Number.isFinite(cell.lon)) {
-      const line = L.polyline([sysLatLng, [cell.lat, cell.lon]], {
-        color: SYSTEM_SELECTED_COLOR, // Red to match the selected system
-        weight: 2,
-        opacity: 0.6,
-        // dashArray: '5, 8' // Creates a sleek dashed line look
-      }).addTo(mapInstance);
       
-      connectionLines.push(line);
+      let isDonor = false;
+      if (donorIndex !== null && donorIndex !== undefined && !isNaN(donorIndex)) {
+        const cEnr = cell.enrichment;
+        
+        // Helper: Case-insensitively grab CSV values
+        const getCsvVal = (keyName) => {
+          const key = Object.keys(cEnr).find(k => String(k).trim().toUpperCase() === keyName.toUpperCase());
+          return key ? cEnr[key] : null;
+        };
+
+        const cBestPci = getCsvVal('BEST_PCI');
+        const cCellId = getCsvVal('BEST_CELLID');
+        const cEcid = getCsvVal('ENBID'); // In case it's specifically named eCID in CSV
+
+        // 3. Check for a match using our safe matcher
+        if (safeMatch(cBestPci, donorPci)) {
+          isDonor = true;
+        } else if (safeMatch(cCellId, donorCid)) {
+          isDonor = true;
+        } else if (safeMatch(cEcid, donorEcid)) {
+          isDonor = true;
+        }
+      }
+
+      // 4. Determine Styling
+      const lineColor = isDonor ? CELL_SELECTED_COLOR : SYSTEM_SELECTED_COLOR; // Green if donor, Red if normal
+      const lineWeight = isDonor ? 3 : 2;
+      const lineOpacity = isDonor ? 0.9 : 0.6;
+
+      const line = L.polyline([sysLatLng, [cell.lat, cell.lon]], {
+        color: lineColor,
+        weight: lineWeight,
+        opacity: lineOpacity
+      });
+      
+      if (isDonor) {
+        donorLines.push(line);
+      } else {
+        normalLines.push(line);
+      }
     }
+  });
+
+  // 5. Add to map (Normal red lines first, Green donor lines last to sit on top)
+  normalLines.forEach(line => {
+    line.addTo(mapInstance);
+    connectionLines.push(line);
+  });
+  
+  donorLines.forEach(line => {
+    line.addTo(mapInstance);
+    connectionLines.push(line);
   });
 }
 
