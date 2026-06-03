@@ -1,286 +1,253 @@
-import { fetchInstantTempProbeData, fetchInstantRttProbeData, fetchAverageRttProbeData, fetchAverageRsrpProbeData, fetchInstantRsrpProbeData, fetchAverageSinrProbeData, fetchInstantSinrProbeData, fetchLiveProbeNameMap } from '../shared/api.js';
-import { initMap, preloadCustomIcon, updateMapMarkers, getMarkers, getMap, hideMapLoading } from './map.js';
+import { 
+    fetchInstantTempProbeData, fetchInstantRttProbeData, fetchAverageRttProbeData, 
+    fetchAverageRsrpProbeData, fetchInstantRsrpProbeData, fetchAverageSinrProbeData, 
+    fetchInstantSinrProbeData, fetchLiveProbeNameMap, fetchProbeData 
+} from '../shared/api.js';
+import { CONFIG } from '../shared/config.js';
+import { getFieldCaseInsensitive, safeParseFloat } from '../shared/utils.js';
 
-// Initialize the map when the page loads
+// ==========================================
+// 1. MAP MANAGEMENT (Encapsulated State)
+// ==========================================
+class DashboardMap {
+    constructor(containerId) {
+        this.containerId = containerId;
+        this.map = null;
+        this.markers = [];
+        this.customIcon = null;
+        this.updateSeq = 0; // Prevents race conditions during rapid clicking
+    }
+
+    async init() {
+        // Initialize Leaflet map attached to this instance
+        this.map = L.map(this.containerId).setView(
+            [CONFIG.MAP.INITIAL_LAT, CONFIG.MAP.INITIAL_LON],
+            CONFIG.MAP.INITIAL_ZOOM
+        );
+
+        L.tileLayer(CONFIG.MAP.TILE_URL, {
+            maxZoom: CONFIG.MAP.MAX_ZOOM,
+            attribution: CONFIG.MAP.TILE_ATTRIBUTION
+        }).addTo(this.map);
+
+        await this._preloadIcon();
+    }
+
+    _preloadIcon() {
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.onload = () => {
+                this.customIcon = L.icon({
+                    iconUrl: CONFIG.MARKER.PNG_PATH,
+                    iconSize: CONFIG.MARKER.ICON_SIZE,
+                    iconAnchor: CONFIG.MARKER.ICON_ANCHOR,
+                    popupAnchor: CONFIG.MARKER.POPUP_ANCHOR
+                });
+                resolve();
+            };
+            img.onerror = () => {
+                console.warn(`[DashboardMap] Failed to load custom icon, falling back to default.`);
+                this.customIcon = new L.Icon.Default(); 
+                resolve();
+            };
+            img.src = CONFIG.MARKER.PNG_PATH;
+        });
+    }
+
+    _clearMarkers() {
+        this.markers.forEach(m => this.map.removeLayer(m));
+        this.markers = [];
+    }
+
+    _buildTooltip(row, serial) {
+        const lat = safeParseFloat(getFieldCaseInsensitive(row, ['latitude', 'lat']));
+        const lon = safeParseFloat(getFieldCaseInsensitive(row, ['longitude', 'lon']));
+        const rsrp = getFieldCaseInsensitive(row, ['rsrp', 'RSRP']);
+        const name = getFieldCaseInsensitive(row, ['name', 'NAME']);
+        
+        return `
+            <b>${name ?? 'Unknown System'}</b><br>
+            Serial: ${serial}<br>
+            Coordinates: ${lat}, ${lon}<br>
+            RSRP: ${rsrp !== null ? safeParseFloat(rsrp).toFixed(1) + ' dBm' : 'N/A'}
+        `;
+    }
+
+    async updateForSerial(serial) {
+        if (!this.map) return;
+        
+        const currentSeq = ++this.updateSeq;
+        this._clearMarkers();
+
+        try {
+            const data = await fetchProbeData(serial);
+            
+            // Abort if user clicked another serial while we were fetching
+            if (currentSeq !== this.updateSeq || !data || data.length === 0) return;
+
+            const bounds = [];
+
+            data.forEach(row => {
+                const lat = safeParseFloat(getFieldCaseInsensitive(row, ['latitude', 'lat']));
+                const lon = safeParseFloat(getFieldCaseInsensitive(row, ['longitude', 'lon']));
+
+                if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+
+                const marker = L.marker([lat, lon], { icon: this.customIcon })
+                    .addTo(this.map)
+                    .bindPopup(this._buildTooltip(row, serial));
+
+                this.markers.push(marker);
+                bounds.push([lat, lon]);
+            });
+
+            if (bounds.length > 0) {
+                this.map.fitBounds(bounds, { padding: [30, 30], maxZoom: CONFIG.MAP.MAX_ZOOM });
+            }
+
+        } catch (err) {
+            console.error(`[DashboardMap] Error fetching data for ${serial}:`, err);
+        }
+    }
+}
+
+// ==========================================
+// 2. METRICS CONFIGURATION
+// ==========================================
+const METRIC_CONFIG = {
+    rsrp: {
+        titleId: 'rsrp-title', descId: 'rsrp-desc', unit: 'dBm',
+        fetchInstant: fetchInstantRsrpProbeData, fetchAverage: fetchAverageRsrpProbeData,
+        valueKey: 'instant_rsrp', avgKey: 'average_rsrp', invertColors: false 
+    },
+    sinr: {
+        titleId: 'sinr-title', descId: 'sinr-desc', unit: 'dB',
+        fetchInstant: fetchInstantSinrProbeData, fetchAverage: fetchAverageSinrProbeData,
+        valueKey: 'instant_sinr', avgKey: 'average_sinr', invertColors: false 
+    },
+    rtt: {
+        titleId: 'rtt-title', descId: 'rtt-desc', unit: 'ms',
+        fetchInstant: fetchInstantRttProbeData, fetchAverage: fetchAverageRttProbeData,
+        valueKey: 'instant_rtt', avgKey: 'average_rtt', invertColors: true 
+    }
+};
+
+// ==========================================
+// 3. APPLICATION STATE & INITIALIZATION
+// ==========================================
+let dashboardMapInstance = null;
+
 document.addEventListener('DOMContentLoaded', async () => {
-    await initMap();
-    preloadCustomIcon();
+    // Instantiate map attached to specific DOM element
+    dashboardMapInstance = new DashboardMap('dashboard-map');
+    await dashboardMapInstance.init();
+    
+    await initDashboard();
 });
 
-async function loadSerialsForFilter() {
-    const serials = await fetchLiveProbeNameMap();
+async function initDashboard() {
+    const serials = await fetchLiveProbeNameMap().catch(() => ({}));
     const dropdownMenu = document.getElementById('dropdown-menu');
-    if (!dropdownMenu) return;
-
-    const dropdown = dropdownMenu.closest('.dropdown');
-    const dropdownButton = dropdown?.querySelector('.dropdown-toggle');
+    const dropdownButton = document.getElementById('dropdown-toggle');
+    
+    if (!dropdownMenu || !dropdownButton) return;
 
     dropdownMenu.innerHTML = '';
-
     Object.entries(serials).forEach(([serial, name]) => {
         const item = document.createElement('li');
-        const link = document.createElement('a');
-        link.className = 'dropdown-item';
-        link.href = '#';
-        link.dataset.serial = serial;
-        link.textContent = name || serial;
-        item.appendChild(link);
+        item.innerHTML = `<a class="dropdown-item" href="#" data-serial="${serial}">${name || serial}</a>`;
         dropdownMenu.appendChild(item);
     });
 
-    if (dropdownMenu && dropdownButton) {
-        dropdownMenu.addEventListener('click', (event) => {
-            const target = event.target;
-            if (!(target instanceof HTMLElement)) return;
-            const itemLink = target.closest('a.dropdown-item');
-            if (!itemLink) return;
+    dropdownMenu.addEventListener('click', (event) => {
+        const itemLink = event.target.closest('a.dropdown-item');
+        if (!itemLink) return;
+        event.preventDefault();
 
-            event.preventDefault();
-            dropdownButton.textContent = itemLink.textContent || 'Select system';
-            dropdownButton.dataset.selectedSerial = itemLink.dataset.serial || '';
-        });
+        const selectedSerial = itemLink.dataset.serial;
+        dropdownButton.textContent = itemLink.textContent;
+        dropdownButton.dataset.selectedSerial = selectedSerial;
 
-        // Auto-select first item
-        const firstLink = dropdownMenu.querySelector('a.dropdown-item');
-        if (firstLink) {
-            dropdownButton.textContent = firstLink.textContent || 'Select system';
-            dropdownButton.dataset.selectedSerial = firstLink.dataset.serial || '';
-        }
-    }
-}
-
-/**
- * Load RSRP data using current filter values and update the card
- */
-async function loadRsrpData() {
-    const dropdownButton = document.getElementById('dropdown-toggle');
-    const rsrpDescElement = document.getElementById('rsrp-desc');
-    const rsrpTitleElement = document.getElementById('rsrp-title');
-
-    const serial = dropdownButton?.dataset.selectedSerial;
-
-    if (!serial) {
-        rsrpDescElement.textContent = 'Please select a system';
-        return;
-    }
-
-    try {
-        rsrpDescElement.textContent = 'Loading...';
-        const datamain = await fetchInstantRsrpProbeData(serial);
-        const data = await fetchAverageRsrpProbeData(serial);
-        
-        if (datamain && typeof datamain === 'object') {
-            // Format and display the data
-            const diff = (datamain.instant_rsrp - data.average_rsrp) / data.average_rsrp * 100;
-            console.log(`Instant RSRP: ${datamain.instant_rsrp}, Average RSRP: ${data.average_rsrp}, Diff: ${diff}%`);
-            if (!data.average_rsrp) {
-                rsrpDescElement.textContent = `No historical data available for comparison`;
-                rsrpDescElement.style.color = 'white';
-            }
-            else if (diff < 0) {
-                rsrpDescElement.textContent = `↓ ${Math.abs(diff).toFixed(1)}% Lower than avg of last 30 days`;
-                rsrpDescElement.style.color = 'red';
-            } else if (diff > 0) {
-                rsrpDescElement.textContent = `↑ ${diff.toFixed(1)}% Higher than avg of last 30 days`;
-                rsrpDescElement.style.color = 'green';
-            }
-            else if (diff === 0) {
-                rsrpDescElement.textContent = `Same as avg of last 30 days`;
-                rsrpDescElement.style.color = 'white';
-            }
-            rsrpTitleElement.textContent = `${datamain.instant_rsrp.toFixed(2)} dBm`;
-        } else {
-            rsrpTitleElement.textContent = `N/A`;
-            rsrpDescElement.textContent = 'No data available';
-        }
-    } catch (err) {
-        console.error('Failed to load RSRP data:', err);
-        rsrpTitleElement.textContent = `N/A`;
-        rsrpDescElement.textContent = `Error loading data: ${err.message}`;
-    }
-}
-
-/**
- * Load SINR data using current filter values and update the card
- */
-async function loadSinrData() {
-    const dropdownButton = document.getElementById('dropdown-toggle');
-    const sinrDescElement = document.getElementById('sinr-desc');
-    const sinrTitleElement = document.getElementById('sinr-title');
-
-    const serial = dropdownButton?.dataset.selectedSerial;
-
-    if (!serial) {
-        sinrDescElement.textContent = 'Please select a system';
-        return;
-    }
-
-    try {
-        sinrDescElement.textContent = 'Loading...';
-        const datamain = await fetchInstantSinrProbeData(serial);
-        const data = await fetchAverageSinrProbeData(serial);
-        
-        if (datamain && typeof datamain === 'object') {
-            // Format and display the data
-            const diff = (datamain.instant_sinr - data.average_sinr) / data.average_sinr * 100;
-            console.log(`Instant SINR: ${datamain.instant_sinr}, Average SINR: ${data.average_sinr}, Diff: ${diff}%`);
-            if (!data.average_sinr) {
-                sinrDescElement.textContent = `No historical data available for comparison`;
-                sinrDescElement.style.color = 'white';
-            }
-            else if (diff < 0) {
-                sinrDescElement.textContent = `↓ ${Math.abs(diff).toFixed(1)}% Lower than avg of last 30 days`;
-                sinrDescElement.style.color = 'red';
-            } else if (diff > 0) {
-                sinrDescElement.textContent = `↑ ${diff.toFixed(1)}% Higher than avg of last 30 days`;
-                sinrDescElement.style.color = 'green';
-            }
-            else if (diff === 0) {
-                sinrDescElement.textContent = `Same as avg of last 30 days`;
-                sinrDescElement.style.color = 'white';
-            }
-            sinrTitleElement.textContent = `${datamain.instant_sinr.toFixed(2)} dB`;
-        } else {
-            sinrTitleElement.textContent = `N/A`;
-            sinrDescElement.textContent = 'No data available';
-        }
-    } catch (err) {
-        console.error('Failed to load SINR data:', err);
-        sinrTitleElement.textContent = `N/A`;
-        sinrDescElement.textContent = `Error loading data: ${err.message}`;
-    }
-}
-
-/**
- * Load RTT data using current filter values and update the card
- */
-async function loadRttData() {
-    const dropdownButton = document.getElementById('dropdown-toggle');
-    const rttDescElement = document.getElementById('rtt-desc');
-    const rttTitleElement = document.getElementById('rtt-title');
-
-    const serial = dropdownButton?.dataset.selectedSerial;
-
-    if (!serial) {
-        rttDescElement.textContent = 'Please select a system';
-        return;
-    }
-
-    try {
-        rttDescElement.textContent = 'Loading...';
-        const datamain = await fetchInstantRttProbeData(serial);
-        const data = await fetchAverageRttProbeData(serial);
-        
-        if (datamain && typeof datamain === 'object') {
-            // Format and display the data
-            const diff = (datamain.instant_rtt - data.average_rtt) / data.average_rtt * 100;
-            console.log(`Instant RTT: ${datamain.instant_rtt}, Average RTT: ${data.average_rtt}, Diff: ${diff}%`);
-            if (!data.average_rtt) {
-                rttDescElement.textContent = `No historical data available for comparison`;
-                rttDescElement.style.color = 'white';
-            }
-            else if (diff < 0) {
-                rttDescElement.textContent = `↓ ${Math.abs(diff).toFixed(1)}% Lower than avg of last 30 days`;
-                rttDescElement.style.color = 'green';
-            } else if (diff > 0) {
-                rttDescElement.textContent = `↑ ${diff.toFixed(1)}% Higher than avg of last 30 days`;
-                rttDescElement.style.color = 'red';
-            }
-            else if (diff === 0) {
-                rttDescElement.textContent = `Same as avg of last 30 days`;
-                rttDescElement.style.color = 'white';
-            }
-            rttTitleElement.textContent = `${datamain.instant_rtt.toFixed(2)} ms`;
-        } else {
-            rttTitleElement.textContent = `N/A`;
-            rttDescElement.textContent = 'No data available';
-        }
-    } catch (err) {
-        console.error('Failed to load RTT data:', err);
-        rttTitleElement.textContent = `N/A`;
-        rttDescElement.textContent = `Error loading data: ${err.message}`;
-    }
-}
-
-
-/**
- * Load temperature data using current filter values and update the card
- */
-async function loadTempData() {
-    const dropdownButton = document.getElementById('dropdown-toggle');
-    const tempDescElement = document.getElementById('temp-desc');
-    const tempTitleElement = document.getElementById('temp-title');
-
-    const serial = dropdownButton?.dataset.selectedSerial;
-
-    if (!serial) {
-        tempDescElement.textContent = 'Please select a system';
-        return;
-    }
-
-    try {
-        tempDescElement.textContent = 'Loading...';
-        const datamain = await fetchInstantTempProbeData(serial);
-        
-        if (datamain && typeof datamain === 'object') {
-            // Format and display the data
-            console.log(`Instant Temperature: ${datamain.instant_temp} °C`);
-            if (datamain.instant_temp >= 50) {
-                tempDescElement.textContent = `High temperature - potential overheating`;
-                tempDescElement.style.color = 'red';
-            } else if (datamain.instant_temp >= 0 && datamain.instant_temp < 50) {
-                tempDescElement.textContent = `Normal`;
-                tempDescElement.style.color = 'green';
-            }
-            tempTitleElement.textContent = `${datamain.instant_temp} °C`;
-        } else {
-            tempTitleElement.textContent = `N/A`;
-            tempDescElement.textContent = 'No data available';
-        }
-    } catch (err) {
-        console.error('Failed to load temperature data:', err);
-        tempTitleElement.textContent = `N/A`;
-        tempDescElement.textContent = `Error loading data: ${err.message}`;
-    }
-}
-
-
-
-async function loadDashboard() {
-
-    // Initial Load of probe name dropdown, then load all cards with the default serial
-    await loadSerialsForFilter().catch((err) => {
-        console.error('Failed to load probe name dropdown:', err);
+        triggerDataRefresh(selectedSerial);
     });
-    loadRsrpData();
-    loadSinrData();
-    loadRttData();
-    loadTempData();
 
-    const dropdownButton = document.getElementById('dropdown-toggle');
-    if (dropdownButton) {
-        dropdownButton.addEventListener('click', async () => {
-            await loadSerialsForFilter().catch((err) => {
-                console.error('Failed to reload probe name dropdown:', err);
-            });
-        });
+    // Auto-select first item
+    const firstLink = dropdownMenu.querySelector('a.dropdown-item');
+    if (firstLink) {
+        dropdownButton.textContent = firstLink.textContent;
+        dropdownButton.dataset.selectedSerial = firstLink.dataset.serial;
+        triggerDataRefresh(firstLink.dataset.serial);
     }
-
-    const dropdownMenu = document.getElementById('dropdown-menu');
-
-    if (dropdownMenu) {
-        dropdownMenu.addEventListener('click', () => {
-            // Delay to ensure dropdown is closed and data attribute is set
-            setTimeout(loadRsrpData, 100);
-            setTimeout(loadSinrData, 100);
-            setTimeout(loadRttData, 100);
-            setTimeout(loadTempData, 100);
-            setTimeout(() => {
-                initMap();
-                preloadCustomIcon();
-            }, 100);
-        });
-    }
-
 }
-loadDashboard();
+
+function triggerDataRefresh(serial) {
+    if (!serial) return;
+    loadGenericMetric(serial, METRIC_CONFIG.rsrp);
+    loadGenericMetric(serial, METRIC_CONFIG.sinr);
+    loadGenericMetric(serial, METRIC_CONFIG.rtt);
+    loadTempData(serial);
+    
+    // Use the class instance method instead of the generic map.js function
+    dashboardMapInstance.updateForSerial(serial);
+}
+
+// ==========================================
+// 4. DATA FETCHERS
+// ==========================================
+async function loadGenericMetric(serial, config) {
+    const descEl = document.getElementById(config.descId);
+    const titleEl = document.getElementById(config.titleId);
+    
+    descEl.textContent = 'Loading...';
+    
+    try {
+        const [instantData, avgData] = await Promise.all([
+            config.fetchInstant(serial),
+            config.fetchAverage(serial)
+        ]);
+
+        if (instantData && instantData[config.valueKey] !== undefined) {
+            const instantVal = instantData[config.valueKey];
+            titleEl.textContent = `${instantVal.toFixed(2)} ${config.unit}`;
+            const avgVal = avgData ? avgData[config.avgKey] : null;
+
+            if (!avgVal) {
+                descEl.textContent = `No historical data available`;
+                descEl.style.color = 'white';
+            } else {
+                const diff = ((instantVal - avgVal) / Math.abs(avgVal)) * 100;
+                const isLower = diff < 0;
+                const isBad = config.invertColors ? !isLower : isLower;
+                descEl.textContent = diff === 0 ? `Same as 30-day avg` : `${isLower ? '↓' : '↑'} ${Math.abs(diff).toFixed(1)}% vs 30-day avg`;
+                descEl.style.color = diff === 0 ? 'white' : (isBad ? 'red' : 'green');
+            }
+        } else {
+            titleEl.textContent = `N/A`;
+            descEl.textContent = 'No data available';
+        }
+    } catch (err) {
+        titleEl.textContent = `N/A`;
+        descEl.textContent = `Error loading data`;
+    }
+}
+
+async function loadTempData(serial) {
+    const descEl = document.getElementById('temp-desc');
+    const titleEl = document.getElementById('temp-title');
+    descEl.textContent = 'Loading...';
+
+    try {
+        const datamain = await fetchInstantTempProbeData(serial);
+        if (datamain && datamain.instant_temp !== undefined) {
+            const temp = datamain.instant_temp;
+            titleEl.textContent = `${temp} °C`;
+            descEl.textContent = temp >= 50 ? `High temperature - potential overheating` : `Normal`;
+            descEl.style.color = temp >= 50 ? 'red' : 'green';
+        } else {
+            throw new Error('No data');
+        }
+    } catch (err) {
+        titleEl.textContent = `N/A`;
+        descEl.textContent = 'Error loading data';
+    }
+}
