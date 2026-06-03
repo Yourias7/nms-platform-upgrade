@@ -58,17 +58,17 @@
 
   <nav class="navbar">
     <div class="container-fluid">
-      <a class="navbar-brand d-flex align-items-center">
-        <img src="/static/img/New%20folder/Picture1.png" href="/" alt="logo" style="height:24px; width:24px; margin-right:8px;" />
+      <a class="navbar-brand d-flex align-items-center" href="/">
+        <img src="/static/img/New%20folder/Picture1.png" alt="logo" style="height:24px; width:24px; margin-right:8px;" />
         <span>NMS Platform</span>
-        <div id="system-dropdown" class="dropdown" style="margin-left: 20px;">
-            <input id="serialInput" class="form-control" style="position: relative; display: inline-block; width: 300px;" placeholder="Select or type a system name"/>
-            <div id="serialOptions" class="dropdown-menu" style="position: absolute; top: 100%; left: 0; right: 0; display: none; overflow-y: auto; max-height: 300px; z-index: 1000; box-shadow: 0 2px 8px rgba(0,0,0,0.15); background: rgba(10, 14, 39, 0.95); border: 1px solid rgba(102, 126, 234, 0.3);"></div>
-            <button id="refreshMapBtn" class="btn btn-primary btn-sm ms-2">
-              <i class="fas fa-sync-alt"></i> Refresh Map
-            </button>
-        </div>
       </a>
+      <div id="system-dropdown" class="dropdown" style="margin-left: 20px;">
+          <input id="serialInput" class="form-control" style="position: relative; display: inline-block; width: 300px;" placeholder="Select or type a system name"/>
+          <div id="serialOptions" class="dropdown-menu" style="position: absolute; top: 100%; left: 0; right: 0; display: none; overflow-y: auto; max-height: 300px; z-index: 1000; box-shadow: 0 2px 8px rgba(0,0,0,0.15); background: rgba(10, 14, 39, 0.95); border: 1px solid rgba(102, 126, 234, 0.3);"></div>
+          <button id="refreshMapBtn" class="btn btn-primary btn-sm ms-2">
+            <i class="fas fa-sync-alt"></i> Refresh Map
+          </button>
+      </div>
       <ul class="nav nav-pills">
         <li class="nav-item">
           <a class="nav-link" href="/">Home</a>
