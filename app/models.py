@@ -83,6 +83,7 @@ class HistoricMeasurement(Base):
     LONGITUDE = Column(Float)
     DATETIME = Column(DateTime)
     HEADING = Column(Float)
+    SPEED = Column(Float)
     RSRP = Column(Float, name="BESTS.RSRP")
     SINR = Column(Float, name="BESTS.SNR")
     TEMP = Column(Float, name="BESTS.TEMP.")
