@@ -24,7 +24,7 @@ let currentTotal = null; // total records across all pages
 let sortColumn = 'datetime'; // Default sort column
 let sortDirection = 'asc'; // 'asc' or 'desc'
 let currentPerformanceExportAlarms = [];
-let selectedAlarmTypeFilters = new Set(); // Track selected alarm type filters
+//let selectedAlarmTypeFilters = new Set(); // Track selected alarm type filters
 
 function getPerformanceAlarmKey(alarm) {
   if (!alarm) return null;
@@ -83,6 +83,8 @@ function updateTypeFilterButtons() {
   setFilterBtnState(document.getElementById('filterRsrpBtn'), activeTypeFilters.has('RSRP'));
   setFilterBtnState(document.getElementById('filterSinrBtn'), activeTypeFilters.has('SINR'));
   setFilterBtnState(document.getElementById('filterGpsBtn'),  activeTypeFilters.has('GPS'));
+  setFilterBtnState(document.getElementById('filterAntennaBtn'),  activeTypeFilters.has('ANTENNA ISSUE'));
+
 }
 
 function toggleTypeFilter(key) {
@@ -99,17 +101,20 @@ function bindTypeFilterButtons() {
   const rsrpBtn = document.getElementById('filterRsrpBtn');
   const sinrBtn = document.getElementById('filterSinrBtn');
   const gpsBtn  = document.getElementById('filterGpsBtn');
+  const antennaBtn = document.getElementById('filterAntennaBtn');
 
-  if (!rsrpBtn || !sinrBtn || !gpsBtn) return;
+  if (!rsrpBtn || !sinrBtn || !gpsBtn || !antennaBtn) return;
   if (rsrpBtn.dataset.bound === '1') return;
 
   rsrpBtn.dataset.bound = '1';
   sinrBtn.dataset.bound = '1';
   gpsBtn.dataset.bound  = '1';
+  antennaBtn.dataset.bound = '1';
 
   rsrpBtn.addEventListener('click', () => toggleTypeFilter('RSRP'));
   sinrBtn.addEventListener('click', () => toggleTypeFilter('SINR'));
   gpsBtn.addEventListener('click',  () => toggleTypeFilter('GPS'));
+  antennaBtn.addEventListener('click', () => toggleTypeFilter('ANTENNA ISSUE'));
 
   updateTypeFilterButtons();
 }
@@ -420,7 +425,6 @@ async function fetchPerformanceAlarmsPage(startDate, endDate, serial = 'all', pa
     let result;
     
     // Fetch from appropriate endpoint based on serial selection
-    // print(serial+"\NHEEEEEEEEEEEEEEEEEREEEEEEEEEEEEEEEEEEEEEEEEEEEEE\N");
     if (serial === 'all') {
       // Fetch all systems' alarm data
       result = await fetchPagedAllAlarmData(
@@ -552,6 +556,10 @@ async function fetchAllPerformanceAlarms(startDate, endDate, serial = 'all') {
         let lat = null;
         let lon = null;
         let rsrp = null;
+        let s0rsrp = null;
+        let s1rsrp = null;
+        let s2rsrp = null;
+        let s3rsrp = null;
         let sinr = null;
         let temp = null;
         
@@ -572,6 +580,18 @@ async function fetchAllPerformanceAlarms(startDate, endDate, serial = 'all') {
           if (lower === 'rsrp') {
             rsrp = parseFloat(val);
           }
+          if (lower === 's0rsrp') {
+            s0rsrp = parseFloat(val);
+          }
+          if (lower === 's1rsrp') {
+            s1rsrp = parseFloat(val);
+          }
+          if (lower === 's2rsrp') {
+            s2rsrp = parseFloat(val);
+          }
+          if (lower === 's3rsrp') {
+            s3rsrp = parseFloat(val);
+          }
           if (lower === 'sinr') {
             sinr = parseFloat(val);
           }
@@ -581,7 +601,7 @@ async function fetchAllPerformanceAlarms(startDate, endDate, serial = 'all') {
         }
         
         // Check if this record is in alarm
-        const alarmType = getPerformanceAlarmType(rsrp, sinr, temp, lat, lon);
+        const alarmType = getPerformanceAlarmType(rsrp, s0rsrp, s1rsrp, s2rsrp, s3rsrp, sinr, temp, lat, lon);
         if (alarmType) {
           alarms.push({
             site,
@@ -589,6 +609,10 @@ async function fetchAllPerformanceAlarms(startDate, endDate, serial = 'all') {
             datetime: timestamp || 'Unknown',
             status: alarmType,
             rsrp,
+            s0rsrp,
+            s1rsrp,
+            s2rsrp,
+            s3rsrp,
             sinr,
             temp,
             latitude: lat,
@@ -642,6 +666,10 @@ async function fetchAllPerformanceAlarms(startDate, endDate, serial = 'all') {
             let lat = null;
             let lon = null;
             let rsrp = null;
+            let s0rsrp = null;
+            let s1rsrp = null;
+            let s2rsrp = null;
+            let s3rsrp = null;
             let sinr = null;
             let temp = null;
             
@@ -662,6 +690,18 @@ async function fetchAllPerformanceAlarms(startDate, endDate, serial = 'all') {
               if (lower === 'rsrp') {
                 rsrp = parseFloat(val);
               }
+              if (lower === 's0rsrp') {
+                s0rsrp = parseFloat(val);
+              }
+              if (lower === 's1rsrp') {
+                s1rsrp = parseFloat(val);
+              }
+              if (lower === 's2rsrp') {
+                s2rsrp = parseFloat(val);
+              }
+              if (lower === 's3rsrp') {
+                s3rsrp = parseFloat(val);
+              }
               if (lower === 'sinr') {
                 sinr = parseFloat(val);
               }
@@ -671,7 +711,7 @@ async function fetchAllPerformanceAlarms(startDate, endDate, serial = 'all') {
             }
             
             // Check if this record is in alarm
-            const alarmType = getPerformanceAlarmType(rsrp, sinr, temp, lat, lon);
+            const alarmType = getPerformanceAlarmType(rsrp, s0rsrp, s1rsrp, s2rsrp, s3rsrp, sinr, temp, lat, lon);
             if (alarmType) {
               alarms.push({
                 site,
@@ -679,6 +719,10 @@ async function fetchAllPerformanceAlarms(startDate, endDate, serial = 'all') {
                 datetime: timestamp || 'Unknown',
                 status: alarmType,
                 rsrp,
+                s0rsrp,
+                s1rsrp,
+                s2rsrp,
+                s3rsrp,
                 sinr,
                 temp,
                 latitude: lat,
@@ -712,20 +756,25 @@ async function fetchAllPerformanceAlarms(startDate, endDate, serial = 'all') {
 /**
  * Check if values indicate a performance alarm
  * @param {number} rsrp - RSRP value
+ * @param {number} s0rsrp - S0 RSRP value
+ * @param {number} s1rsrp - S1 RSRP value
+ * @param {number} s2rsrp - S2 RSRP value
+ * @param {number} s3rsrp - S3 RSRP value
  * @param {number} sinr - SINR value
  * @param {number} temp - Temperature value
  * @param {number} lat - Latitude value
  * @param {number} lon - Longitude value
  * @returns {string} Type of alarm or 'Functional'
  */
-function getPerformanceAlarmType(rsrp, sinr, temp, lat, lon) {
-    if (rsrp === null || sinr === null || temp === null || lat === null || lon === null) return null;
+function getPerformanceAlarmType(rsrp, s0rsrp, s1rsrp, s2rsrp, s3rsrp, sinr, temp, lat, lon) {
+    if (rsrp === null || s0rsrp === null || s1rsrp === null || s2rsrp === null || s3rsrp === null || sinr === null || temp === null || lat === null || lon === null) return null;
 
     const alarms = [];
     if (isInAlarm('rsrp', rsrp)) alarms.push('RSRP');
     if (isInAlarm('sinr', sinr)) alarms.push('SINR');
     if (isInAlarm('temp', temp)) alarms.push('Temperature');
     if (isInAlarm('lat', lat) || isInAlarm('lon',lon)) alarms.push('GPS');
+    if (rsrp - s0rsrp > 25 || rsrp - s1rsrp > 25 || rsrp - s2rsrp > 25 || rsrp - s3rsrp > 25) alarms.push('Antenna Issue');
 
     if (alarms.length === 0) return null;
     let alarmType = '';
@@ -738,130 +787,130 @@ function getPerformanceAlarmType(rsrp, sinr, temp, lat, lon) {
     return `${alarms[0]} Alarm`;
 }
 
-/**
- * Get all unique individual alarm types from a list of alarms
- * Parses combination types like "RSRP Alarm + SINR Alarm" into individual types
- * @param {Array} alarms - Array of alarm objects
- * @returns {Array} Array of unique individual alarm types sorted
- */
-function getUniqueAlarmTypes(alarms) {
-  const types = new Set();
-  if (alarms && Array.isArray(alarms)) {
-    alarms.forEach(alarm => {
-      if (alarm.status) {
-        // Parse combination types like "RSRP Alarm + SINR Alarm" into individual types
-        const parts = alarm.status.split('+').map(part => part.trim());
-        parts.forEach(part => {
-          if (part) types.add(part);
-        });
-      }
-    });
-  }
-  return Array.from(types).sort();
-}
+// /**
+//  * Get all unique individual alarm types from a list of alarms
+//  * Parses combination types like "RSRP Alarm + SINR Alarm" into individual types
+//  * @param {Array} alarms - Array of alarm objects
+//  * @returns {Array} Array of unique individual alarm types sorted
+//  */
+// function getUniqueAlarmTypes(alarms) {
+//   const types = new Set();
+//   if (alarms && Array.isArray(alarms)) {
+//     alarms.forEach(alarm => {
+//       if (alarm.status) {
+//         // Parse combination types like "RSRP Alarm + SINR Alarm" into individual types
+//         const parts = alarm.status.split('+').map(part => part.trim());
+//         parts.forEach(part => {
+//           if (part) types.add(part);
+//         });
+//       }
+//     });
+//   }
+//   return Array.from(types).sort();
+// }
 
-/**
- * Filter alarms by selected alarm types
- * Supports filtering by individual types even if alarm has combination status
- * @param {Array} alarms - Array of alarm objects
- * @param {Set} selectedTypes - Set of selected individual alarm type strings
- * @returns {Array} Filtered alarms
- */
-function filterAlarmsByType(alarms, selectedTypes) {
-  if (selectedTypes.size === 0) {
-    return alarms;
-  }
-  return alarms.filter(alarm => {
-    // Check if any of the selected types are contained in this alarm's status
-    const alarmTypeParts = alarm.status ? alarm.status.split('+').map(part => part.trim()) : [];
-    return Array.from(selectedTypes).some(selectedType => alarmTypeParts.includes(selectedType));
-  });
-}
+// /**
+//  * Filter alarms by selected alarm types
+//  * Supports filtering by individual types even if alarm has combination status
+//  * @param {Array} alarms - Array of alarm objects
+//  * @param {Set} selectedTypes - Set of selected individual alarm type strings
+//  * @returns {Array} Filtered alarms
+//  */
+// function filterAlarmsByType(alarms, selectedTypes) {
+//   if (selectedTypes.size === 0) {
+//     return alarms;
+//   }
+//   return alarms.filter(alarm => {
+//     // Check if any of the selected types are contained in this alarm's status
+//     const alarmTypeParts = alarm.status ? alarm.status.split('+').map(part => part.trim()) : [];
+//     return Array.from(selectedTypes).some(selectedType => alarmTypeParts.includes(selectedType));
+//   });
+// }
 
-/**
- * Toggle an alarm type filter
- * @param {string} alarmType - Alarm type to toggle
- */
-function toggleAlarmTypeFilter(alarmType) {
-  if (selectedAlarmTypeFilters.has(alarmType)) {
-    selectedAlarmTypeFilters.delete(alarmType);
-  } else {
-    selectedAlarmTypeFilters.add(alarmType);
-  }
-  // Re-render table with new filters applied (pass original unfiltered data)
-  renderPerformanceAlarmsTable(currentPerformanceAlarms, currentTotal);
-  renderAlarmTypeFilters(getUniqueAlarmTypes(currentPerformanceAlarms));
-}
+// /**
+//  * Toggle an alarm type filter
+//  * @param {string} alarmType - Alarm type to toggle
+//  */
+// function toggleAlarmTypeFilter(alarmType) {
+//   if (selectedAlarmTypeFilters.has(alarmType)) {
+//     selectedAlarmTypeFilters.delete(alarmType);
+//   } else {
+//     selectedAlarmTypeFilters.add(alarmType);
+//   }
+//   // Re-render table with new filters applied (pass original unfiltered data)
+//   renderPerformanceAlarmsTable(currentPerformanceAlarms, currentTotal);
+//   renderAlarmTypeFilters(getUniqueAlarmTypes(currentPerformanceAlarms));
+// }
 
-/**
- * Clear all alarm type filters
- */
-function clearAlarmTypeFilters() {
-  selectedAlarmTypeFilters.clear();
-  renderPerformanceAlarmsTable(currentPerformanceAlarms, currentTotal);
-  renderAlarmTypeFilters(getUniqueAlarmTypes(currentPerformanceAlarms));
-}
+// /**
+//  * Clear all alarm type filters
+//  */
+// function clearAlarmTypeFilters() {
+//   selectedAlarmTypeFilters.clear();
+//   renderPerformanceAlarmsTable(currentPerformanceAlarms, currentTotal);
+//   renderAlarmTypeFilters(getUniqueAlarmTypes(currentPerformanceAlarms));
+// }
 
-/**
- * Render alarm type filter buttons inline with the title
- * @param {Array} alarmTypes - Array of unique individual alarm types
- */
-function renderAlarmTypeFilters(alarmTypes) {
-  const filterContainer = document.getElementById('alarmTypeFiltersContainer');
-  if (!filterContainer) return;
+// /**
+//  * Render alarm type filter buttons inline with the title
+//  * @param {Array} alarmTypes - Array of unique individual alarm types
+//  */
+// function renderAlarmTypeFilters(alarmTypes) {
+//   const filterContainer = document.getElementById('alarmTypeFiltersContainer');
+//   if (!filterContainer) return;
 
-  if (!alarmTypes || alarmTypes.length === 0) {
-    filterContainer.innerHTML = '';
-    return;
-  }
+//   if (!alarmTypes || alarmTypes.length === 0) {
+//     filterContainer.innerHTML = '';
+//     return;
+//   }
 
-  filterContainer.innerHTML = '';
+//   filterContainer.innerHTML = '';
 
-  alarmTypes.forEach(alarmType => {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'btn btn-sm';
-    button.textContent = alarmType;
-    button.setAttribute('data-alarm-type', alarmType);
+//   alarmTypes.forEach(alarmType => {
+//     const button = document.createElement('button');
+//     button.type = 'button';
+//     button.className = 'btn btn-sm';
+//     button.textContent = alarmType;
+//     button.setAttribute('data-alarm-type', alarmType);
     
-    // Determine button color based on alarm type
-    if (alarmType.includes('Multiple')) {
-      button.classList.add('btn-outline-danger');
-    } else if (alarmType.includes('Temperature')) {
-      button.classList.add('btn-outline-danger');
-    } else {
-      button.classList.add('btn-outline-warning');
-    }
+//     // Determine button color based on alarm type
+//     if (alarmType.includes('Multiple')) {
+//       button.classList.add('btn-outline-danger');
+//     } else if (alarmType.includes('Temperature')) {
+//       button.classList.add('btn-outline-danger');
+//     } else {
+//       button.classList.add('btn-outline-warning');
+//     }
     
-    // Check if this filter is selected and apply active state
-    if (selectedAlarmTypeFilters.has(alarmType)) {
-      button.classList.remove('btn-outline-danger', 'btn-outline-warning');
-      if (alarmType.includes('Multiple') || alarmType.includes('Temperature')) {
-        button.classList.add('btn-danger');
-      } else {
-        button.classList.add('btn-warning');
-      }
-    }
+//     // Check if this filter is selected and apply active state
+//     if (selectedAlarmTypeFilters.has(alarmType)) {
+//       button.classList.remove('btn-outline-danger', 'btn-outline-warning');
+//       if (alarmType.includes('Multiple') || alarmType.includes('Temperature')) {
+//         button.classList.add('btn-danger');
+//       } else {
+//         button.classList.add('btn-warning');
+//       }
+//     }
     
-    button.addEventListener('click', () => {
-      toggleAlarmTypeFilter(alarmType);
-    });
+//     button.addEventListener('click', () => {
+//       toggleAlarmTypeFilter(alarmType);
+//     });
     
-    filterContainer.appendChild(button);
-  });
+//     filterContainer.appendChild(button);
+//   });
 
-  // Add "Clear Filters" button if filters are active
-  if (selectedAlarmTypeFilters.size > 0) {
-    const clearBtn = document.createElement('button');
-    clearBtn.type = 'button';
-    clearBtn.className = 'btn btn-sm btn-secondary';
-    clearBtn.textContent = 'Clear';
-    clearBtn.addEventListener('click', () => {
-      clearAlarmTypeFilters();
-    });
-    filterContainer.appendChild(clearBtn);
-  }
-}
+//   // Add "Clear Filters" button if filters are active
+//   if (selectedAlarmTypeFilters.size > 0) {
+//     const clearBtn = document.createElement('button');
+//     clearBtn.type = 'button';
+//     clearBtn.className = 'btn btn-sm btn-secondary';
+//     clearBtn.textContent = 'Clear';
+//     clearBtn.addEventListener('click', () => {
+//       clearAlarmTypeFilters();
+//     });
+//     filterContainer.appendChild(clearBtn);
+//   }
+// }
 
 /**
  * Show loading state
@@ -1106,13 +1155,13 @@ function renderPerformanceAlarmsTable(alarms, total = null) {
   }
 
   // Apply alarm type filters
-  const filteredAlarms = filterAlarmsByType(currentPerformanceAlarms, selectedAlarmTypeFilters);
-  
+  //const filteredAlarms = filterAlarmsByType(currentPerformanceAlarms, selectedAlarmTypeFilters);
+  const filteredAlarms = applyTypeFilters(currentPerformanceAlarms);
   // Get unique alarm types from original alarms for filter buttons
-  const uniqueAlarmTypes = getUniqueAlarmTypes(currentPerformanceAlarms);
+  //const uniqueAlarmTypes = getUniqueAlarmTypes(currentPerformanceAlarms);
   
   // Render filter buttons
-  renderAlarmTypeFilters(uniqueAlarmTypes);
+  //renderAlarmTypeFilters(uniqueAlarmTypes);
 
   const availableKeys = new Set((filteredAlarms || []).map(getPerformanceAlarmKey));
   selectedPerformanceAlarmKeys = new Set(
@@ -1126,7 +1175,7 @@ function renderPerformanceAlarmsTable(alarms, total = null) {
     selectedPerformanceAlarmKeys = new Set();
     updateClearAlarmFiltersButtonState();
     let message = 'No performance alarms found';
-    if (selectedAlarmTypeFilters.size > 0) {
+    if (activeTypeFilters.size > 0) {
       message += ' matching the selected alarm types';
     }
     message += ' for the selected period';
@@ -1143,8 +1192,8 @@ function renderPerformanceAlarmsTable(alarms, total = null) {
   // Update message
   if (alarmMessage) {
     let msgText = `Found ${filteredAlarms.length} alarm${filteredAlarms.length !== 1 ? 's' : ''}`;
-    if (selectedAlarmTypeFilters.size > 0) {
-      msgText += ` (${selectedAlarmTypeFilters.size} filter${selectedAlarmTypeFilters.size !== 1 ? 's' : ''} applied)`;
+    if (activeTypeFilters.size > 0) {
+      msgText += ` (${activeTypeFilters.size} filter${activeTypeFilters.size !== 1 ? 's' : ''} applied)`;
     }
     alarmMessage.textContent = msgText;
   }
@@ -1166,6 +1215,10 @@ function renderPerformanceAlarmsTable(alarms, total = null) {
     { key: 'status', label: 'Alarm Type' },
     { key: 'datetime', label: 'Date/Time' },
     { key: 'rsrp', label: 'RSRP' },
+    { key: 's0rsrp', label: 'S0 RSRP' },
+    { key: 's1rsrp', label: 'S1 RSRP' },
+    { key: 's2rsrp', label: 'S2 RSRP' },
+    { key: 's3rsrp', label: 'S3 RSRP' },
     { key: 'sinr', label: 'SINR' },
     { key: 'temp', label: 'Temp' }
   ];
@@ -1209,6 +1262,8 @@ function renderPerformanceAlarmsTable(alarms, total = null) {
       badge.classList.add('bg-danger');
     } else if (alarm.status && alarm.status.includes('RSRP')) {
       badge.classList.add('bg-warning');
+    } else if (alarm.status && alarm.status.includes('Antenna')) {
+      badge.classList.add('bg-warning');
     } else if (alarm.status && alarm.status.includes('SINR')) {
       badge.classList.add('bg-warning');
     } else if (alarm.status && alarm.status.includes('Temperature')) {
@@ -1243,6 +1298,42 @@ function renderPerformanceAlarmsTable(alarms, total = null) {
     }
     row.appendChild(rsrpCell);
     
+    // S0 RSRP
+    const s0rsrpCell = document.createElement('td');
+    if (alarm.s0rsrp !== null && alarm.s0rsrp !== undefined) {
+      s0rsrpCell.textContent = alarm.s0rsrp.toFixed(1);
+    } else {
+      s0rsrpCell.textContent = 'N/A';
+    }
+    row.appendChild(s0rsrpCell);
+
+    // S1 RSRP
+    const s1rsrpCell = document.createElement('td');
+    if (alarm.s1rsrp !== null && alarm.s1rsrp !== undefined) {
+      s1rsrpCell.textContent = alarm.s1rsrp.toFixed(1);
+    } else {
+      s1rsrpCell.textContent = 'N/A';
+    }
+    row.appendChild(s1rsrpCell);
+
+    // S2 RSRP
+    const s2rsrpCell = document.createElement('td');
+    if (alarm.s2rsrp !== null && alarm.s2rsrp !== undefined) {
+      s2rsrpCell.textContent = alarm.s2rsrp.toFixed(1);
+    } else {
+      s2rsrpCell.textContent = 'N/A';
+    }
+    row.appendChild(s2rsrpCell);
+
+    // S3 RSRP
+    const s3rsrpCell = document.createElement('td');
+    if (alarm.s3rsrp !== null && alarm.s3rsrp !== undefined) {
+      s3rsrpCell.textContent = alarm.s3rsrp.toFixed(1);
+    } else {
+      s3rsrpCell.textContent = 'N/A';
+    }
+    row.appendChild(s3rsrpCell);
+
     // SINR
     const sinrCell = document.createElement('td');
     if (alarm.sinr !== null && alarm.sinr !== undefined) {
@@ -1276,7 +1367,7 @@ function renderPerformanceAlarmsTable(alarms, total = null) {
         selectedPerformanceAlarmKeys.add(alarmKey);
       }
 
-      renderPerformanceAlarmsTable(currentPerformanceAlarms, currentTotal);
+      //renderPerformanceAlarmsTable(currentPerformanceAlarms, currentTotal);
       updateClearAlarmFiltersButtonState();
       dispatchPerformanceRowSelection();
     });

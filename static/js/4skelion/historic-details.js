@@ -1,5 +1,6 @@
 import { fetchJSON, fetchHistoricSerialsList , fetchSerialNameMap, fetchHistoricSerialData, fetchPagedHistoricAllData, getHistoricExportUrl } from '../shared/api.js';
 import { CONFIG } from '../shared/config.js';
+import { loadCsvEnrichmentFromStorage, clearCsvEnrichmentStorage, getCsvEnrichmentStatus } from '../shared/csv-enrichment.js';
 
 const MAX_DAYS_BACK = 15;
 const PAGE_SIZE = 500;
@@ -559,6 +560,54 @@ function updateEnrichmentUI() {
   } else {
     badge.style.display = 'none';
   }
+}
+
+function updateStoredCsvStatusUI() {
+  getCsvEnrichmentStatus().then(status => {
+    const statusEl = document.getElementById('storedCsvStatus');
+    const loadBtn = document.getElementById('loadStoredCsvBtn');
+    const clearBtn = document.getElementById('clearStoredCsvBtn');
+
+    if (!statusEl) return;
+
+    if (!status.hasStoredCsv) {
+      statusEl.textContent = 'No CSV uploaded in Settings yet.';
+      if (loadBtn) loadBtn.disabled = true;
+      if (clearBtn) clearBtn.disabled = true;
+      return;
+    }
+
+    statusEl.textContent = `Stored CSV: ${status.fileName} · ${status.rowCount} rows · ${status.enrichmentColumns.length} extra column(s)`;
+    if (loadBtn) loadBtn.disabled = false;
+    if (clearBtn) clearBtn.disabled = false;
+  });
+}
+
+async function loadStoredCsvFromSettings() {
+  const stored = await loadCsvEnrichmentFromStorage();
+  if (!stored) {
+    setPlaybackMessage('No stored CSV found in Settings.', 'warning');
+    return;
+  }
+
+  csvIndex = stored.index || {};
+  enrichmentColumns = stored.enrichmentColumns || [];
+  hasActiveEnrichment = true;
+  enrichmentMatchStats = { matched: 0, total: 0 };
+  updateEnrichmentUI();
+  updateStoredCsvStatusUI();
+
+  setPlaybackMessage(`Loaded CSV from Settings: ${stored.fileName}`, 'success');
+  if (currentHistoricData && currentHistoricData.length > 0) {
+    renderHistoricTable(currentHistoricData, currentActiveSerial, currentTotal);
+  }
+}
+
+function clearStoredCsvFromSettings(event) {
+  if (event) event.preventDefault();
+  clearCsvEnrichmentStorage();
+  updateStoredCsvStatusUI();
+  setPlaybackMessage('Cleared stored CSV from Settings.', 'info');
 }
 
 /**
@@ -1253,6 +1302,7 @@ async function init() {
   setPlaybackMessage('Loading serials...', 'muted');
   try {
     await initializeSerialDropdown();
+    updateStoredCsvStatusUI();
     setPlaybackMessage(allSerials && allSerials.length > 0 ? '' : 'No serials available.', 'muted');
     
     // Hide loading overlay after serials are loaded
@@ -1410,6 +1460,18 @@ async function init() {
         loadAndIndexCSV(file);
       }
     });
+  }
+
+  // Stored CSV load button listener
+  const loadStoredCsvBtn = document.getElementById('loadStoredCsvBtn');
+  if (loadStoredCsvBtn) {
+    loadStoredCsvBtn.addEventListener('click', loadStoredCsvFromSettings);
+  }
+
+  // Stored CSV clear button listener
+  const clearStoredCsvBtn = document.getElementById('clearStoredCsvBtn');
+  if (clearStoredCsvBtn) {
+    clearStoredCsvBtn.addEventListener('click', clearStoredCsvFromSettings);
   }
 
   // CSV Clear button listener

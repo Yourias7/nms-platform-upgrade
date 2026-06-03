@@ -1002,6 +1002,7 @@ def get_live_records_by_serial(serial: str):
                 "DATETIME": row.DATETIME.isoformat() if row.DATETIME else None,
                 "HEADING": row.HEADING,
                 "EARFCN": row.EARFCN,
+                "BAND": row.BAND,
                 "PCI": row.PCI, 
                 "ANTENNA USED": row.A_USED,
                 "RSRP": row.RSRP,
@@ -1010,8 +1011,40 @@ def get_live_records_by_serial(serial: str):
                 "CID": row.CID,
                 "RSRQ": row.RSRQ,
                 "NODE_ID": row.NODE_ID,
-                "SECTOR_ID": row.SECTOR_ID
-                
+                "SECTOR_ID": row.SECTOR_ID,
+                "BAND": row.BAND,
+                "S0_RSRP": row.S0_RSRP,
+                "S0_SINR": row.S0_SINR,
+                "S1_RSRP": row.S1_RSRP,
+                "S1_SINR": row.S1_SINR,
+                "S2_RSRP": row.S2_RSRP,
+                "S2_SINR": row.S2_SINR,
+                "S3_RSRP": row.S3_RSRP,
+                "S3_SINR": row.S3_SINR,
+                "S0_EARFCN": row.S0_EARFCN,
+                "S0_BAND": row.S0_BAND,
+                "S1_BAND": row.S1_BAND,
+                "S2_BAND": row.S2_BAND,
+                "S3_BAND": row.S3_BAND,
+                "S0_CID": row.S0_CID,
+                "S0_eCID": row.S0_eCID,
+                "S0_PCI": row.S0_PCI,
+                "S0_RSRQ": row.S0_RSRQ,
+                "S1_EARFCN": row.S1_EARFCN,
+                "S1_CID": row.S1_CID,
+                "S1_eCID": row.S1_eCID,
+                "S1_PCI": row.S1_PCI,
+                "S1_RSRQ": row.S1_RSRQ,
+                "S2_EARFCN": row.S2_EARFCN,
+                "S2_CID": row.S2_CID,
+                "S2_eCID": row.S2_eCID,
+                "S2_PCI": row.S2_PCI,
+                "S2_RSRQ": row.S2_RSRQ,
+                "S3_EARFCN": row.S3_EARFCN,
+                "S3_CID": row.S3_CID,
+                "S3_eCID": row.S3_eCID,
+                "S3_PCI": row.S3_PCI,
+                "S3_RSRQ": row.S3_RSRQ
             }
             result.append(rec)
         
@@ -1238,12 +1271,20 @@ def get_alarm_statistics(early: str = None, latest: str = None, rsrp_threshold: 
             (HistoricMeasurement.SINR <= sinr_threshold) | 
             (HistoricMeasurement.LONGITUDE == 0) | 
             (HistoricMeasurement.LATITUDE == 0) | 
-            (HistoricMeasurement.TEMP >= temp_threshold)
+            (HistoricMeasurement.TEMP >= temp_threshold) |
+            (((HistoricMeasurement.RSRP - HistoricMeasurement.S0RSRP >= 25) |
+            (HistoricMeasurement.RSRP - HistoricMeasurement.S1RSRP >= 25) |
+            (HistoricMeasurement.RSRP - HistoricMeasurement.S2RSRP >= 25) |
+            (HistoricMeasurement.RSRP - HistoricMeasurement.S3RSRP >= 25)) & (HistoricMeasurement.SPEED > 5))  # Only consider antenna issues when speed is high
         )
         rsrp_condition = (HistoricMeasurement.RSRP <= rsrp_threshold)
         sinr_condition = (HistoricMeasurement.SINR <= sinr_threshold)
         gps_condition = (HistoricMeasurement.LONGITUDE == 0) | (HistoricMeasurement.LATITUDE == 0)
         temp_condition = (HistoricMeasurement.TEMP >= temp_threshold)
+        rsrp_diff_condition = ((HistoricMeasurement.RSRP - HistoricMeasurement.S0RSRP >= 25) |
+                               (HistoricMeasurement.RSRP - HistoricMeasurement.S1RSRP >= 25) |
+                               (HistoricMeasurement.RSRP - HistoricMeasurement.S2RSRP >= 25) |
+                               (HistoricMeasurement.RSRP - HistoricMeasurement.S3RSRP >= 25)) & (HistoricMeasurement.SPEED > 5)  # Only consider antenna issues when speed is high
         
         # Single query with GROUP BY and conditional aggregation
         # Uses CASE WHEN in SQL to count alarms in a single pass
@@ -1256,7 +1297,8 @@ def get_alarm_statistics(early: str = None, latest: str = None, rsrp_threshold: 
                 func.sum(case((rsrp_condition, 1), else_=0)).label('rsrp_alarms'),
                 func.sum(case((sinr_condition, 1), else_=0)).label('sinr_alarms'),
                 func.sum(case((gps_condition, 1), else_=0)).label('gps_alarms'),
-                func.sum(case((temp_condition, 1), else_=0)).label('temp_alarms')
+                func.sum(case((temp_condition, 1), else_=0)).label('temp_alarms'),
+                func.sum(case((rsrp_diff_condition, 1), else_=0)).label('rsrp_diff_alarms')
 
             )
             .filter(HistoricMeasurement.DATETIME >= cutoff)
@@ -1278,7 +1320,7 @@ def get_alarm_statistics(early: str = None, latest: str = None, rsrp_threshold: 
         # Build statistics list from query results
         statistics = []
         for row in results:
-            serial, name, total_count, alarm_count, rsrp_alarms, sinr_alarms, gps_alarms, temp_alarms = row
+            serial, name, total_count, alarm_count, rsrp_alarms, sinr_alarms, gps_alarms, temp_alarms, antenna_issue_alarms = row
             percentage = (alarm_count / total_count * 100) if total_count > 0 else 0
             
             statistics.append({
@@ -1290,7 +1332,8 @@ def get_alarm_statistics(early: str = None, latest: str = None, rsrp_threshold: 
                 "rsrp_alarms": rsrp_alarms,
                 "sinr_alarms": sinr_alarms,
                 "gps_alarms": gps_alarms,
-                "temp_alarms": temp_alarms
+                "temp_alarms": temp_alarms,
+                "rsrp_diff_alarms": antenna_issue_alarms
             })
         
         # Sort by alarm percentage descending

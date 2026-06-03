@@ -1,3 +1,5 @@
+import { parseCSVContent, validateCsvHeaders, buildCsvIndex, saveCsvEnrichmentToStorage, clearCsvEnrichmentStorage, getCsvEnrichmentStatus } from '../shared/csv-enrichment.js';
+
 // static/js/settings.js
 // Settings management for alarm thresholds
 
@@ -15,6 +17,89 @@ const DEFAULT_THRESHOLDS = {
   // COMMUNICATION_ALARM_THRESHOLD_HOURS: 3
   // best temp
 };
+
+function updateSettingsCsvStatusUI() {
+  getCsvEnrichmentStatus().then(status => {
+    const statusEl = document.getElementById('settingsCsvStatus');
+    const loadBtn = document.getElementById('settingsLoadCsvBtn');
+    const clearBtn = document.getElementById('settingsClearCsvBtn');
+
+    if (!statusEl) return;
+
+    if (!status.hasStoredCsv) {
+      statusEl.textContent = 'No CSV uploaded. Upload in Settings and then load it from Historic Details.';
+      if (loadBtn) loadBtn.disabled = true;
+      if (clearBtn) clearBtn.disabled = true;
+      return;
+    }
+
+    statusEl.textContent = `Stored CSV: ${status.fileName} · ${status.rowCount} rows · ${status.enrichmentColumns.length} extra column(s)`;
+    if (loadBtn) loadBtn.disabled = false;
+    if (clearBtn) clearBtn.disabled = false;
+  });
+}
+
+async function handleSettingsCsvUpload(file) {
+  if (!file) return;
+
+  try {
+    const text = await file.text();
+    const csvData = parseCSVContent(text);
+    validateCsvHeaders(Object.keys(csvData[0] || {}));
+
+    const { index, indexByEnb, extraColumns } = buildCsvIndex(csvData); // <-- Added indexByEnb here
+    if (!Object.keys(index).length) {
+      throw new Error('No valid records with join keys found in CSV');
+    }
+
+    await saveCsvEnrichmentToStorage({
+      fileName: file.name,
+      rowCount: csvData.length,
+      index: index,
+      indexByEnb: indexByEnb, // <-- THIS WAS MISSING
+      enrichmentColumns: extraColumns
+    });
+
+    updateSettingsCsvStatusUI();
+    showSettingsMessage(`CSV uploaded and stored for Historic Details (${csvData.length} rows).`, 'success');
+  } catch (error) {
+    console.error('[Settings CSV] Upload failed', error);
+    showSettingsMessage(`CSV upload failed: ${error.message}`, 'danger');
+  }
+}
+
+async function handleSettingsCsvClear(event) {
+  if (event) event.preventDefault();
+  await clearCsvEnrichmentStorage();
+  updateSettingsCsvStatusUI();
+  showSettingsMessage('Stored CSV cleared from Settings.', 'info');
+}
+
+function initSettingsCsvSection() {
+  const uploadBtn = document.getElementById('settingsUploadCsvBtn');
+  const clearBtn = document.getElementById('settingsClearCsvBtn');
+  const fileInput = document.getElementById('settingsCsvFileInput');
+
+  if (uploadBtn && fileInput) {
+    uploadBtn.addEventListener('click', () => fileInput.click());
+  }
+
+  if (fileInput) {
+    fileInput.addEventListener('change', (event) => {
+      const file = event.target.files[0];
+      if (file) {
+        handleSettingsCsvUpload(file);
+      }
+      fileInput.value = '';
+    });
+  }
+
+  if (clearBtn) {
+    clearBtn.addEventListener('click', handleSettingsCsvClear);
+  }
+
+  updateSettingsCsvStatusUI();
+}
 
 /**
  * Get alarm thresholds from localStorage or defaults
@@ -259,6 +344,7 @@ function initPage() {
     resetBtn.addEventListener('click', handleSettingsReset);
   }
 
+  initSettingsCsvSection();
   bindRangeLabel('rsrp-threshold', 'rsrp-value');
   bindRangeLabel('sinr-threshold', 'sinr-value');
   bindRangeLabel('temp-threshold', 'temp-value');

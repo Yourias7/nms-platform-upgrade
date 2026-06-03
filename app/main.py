@@ -264,17 +264,33 @@ def error_page(request: Request):
 def liveview_4skelion(request: Request):
     """Render the live view UI."""
     try:
-        return templates.TemplateResponse(request, "4skelion/liveview.html", {"request": request})
+        return templates.TemplateResponse("4skelion/liveview.html", {"request": request})
     except Exception:
-        return templates.TemplateResponse(request, "coming_soon.html", {"request": request})
+        return templates.TemplateResponse("coming_soon.html", {"request": request})
+    
+@app.get("/4skelion/detailed-liveview")
+def detailed_liveview_4skelion(request: Request):
+    """Render the detailed live view UI."""
+    try:
+        return templates.TemplateResponse("4skelion/detailed-liveview.html", {"request": request})
+    except Exception:
+        return templates.TemplateResponse("coming_soon.html", {"request": request})
     
 @app.get("/3skelion/liveview")
 def liveview_3skelion(request: Request):
     """Render the live view UI."""
     try:
-        return templates.TemplateResponse(request, "3skelion/liveview.html", {"request": request})
+        return templates.TemplateResponse("3skelion/liveview.html", {"request": request})
     except Exception:
-        return templates.TemplateResponse(request, "coming_soon.html", {"request": request})
+        return templates.TemplateResponse("coming_soon.html", {"request": request})
+    
+@app.get("/3skelion/detailed-liveview")
+def detailed_liveview_3skelion(request: Request):
+    """Render the detailed live view UI."""
+    try:
+        return templates.TemplateResponse("3skelion/detailed-liveview.html", {"request": request})
+    except Exception:
+        return templates.TemplateResponse("coming_soon.html", {"request": request})
     
 @app.get("/f-qual/liveview")
 def liveview_f_qual(request: Request):
@@ -282,7 +298,15 @@ def liveview_f_qual(request: Request):
     try:
         return templates.TemplateResponse(request, "f-qual/liveview.html", {"request": request})
     except Exception:
-        return templates.TemplateResponse(request, "coming_soon.html", {"request": request})
+        return templates.TemplateResponse("coming_soon.html", {"request": request})
+    
+@app.get("/f-qual/detailed-liveview")
+def detailed_liveview_f_qual(request: Request):
+    """Render the detailed live view UI."""
+    try:
+        return templates.TemplateResponse("f-qual/detailed-liveview.html", {"request": request})
+    except Exception:
+        return templates.TemplateResponse("coming_soon.html", {"request": request})
 
 @app.get("/f-qual/dashboard")
 def dashboard_f_qual(request: Request):

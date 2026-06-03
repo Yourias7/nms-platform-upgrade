@@ -110,7 +110,18 @@
             </button>
             <input type="file" id="csvFileInput" accept=".csv" style="display:none;"/>
         </div>
+        <div class="col-12 col-md-3" style="width: auto;">
+            <button id="loadStoredCsvBtn" type="button" class="btn btn-sm btn-outline-success" style="width: auto; height: 38px;" title="Load CSV uploaded from Settings">
+                Load Stored CSV
+            </button>
+        </div>
+        <div class="col-12 col-md-3" style="width: auto;">
+            <button id="clearStoredCsvBtn" type="button" class="btn btn-sm btn-outline-danger" style="width: auto; height: 38px;" title="Clear stored CSV from Settings">
+                Clear Stored CSV
+            </button>
+        </div>
         <div class="col-12">
+            <div id="storedCsvStatus" class="text-muted small" style="margin-bottom: 4px;">No CSV uploaded in Settings yet.</div>
             <div id="playbackMessage" class="text-muted small" style="text-align: left;"></div>
             <span id="enrichmentBadge" class="badge bg-success ms-2" style="display:none;">
                 CSV Enriched
