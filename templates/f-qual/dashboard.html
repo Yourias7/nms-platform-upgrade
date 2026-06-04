@@ -59,7 +59,8 @@
         <li class="nav-item">
           <a class="nav-link" href="/f-qual/playback">Playback</a>
         </li>
-        <a class="nav-link" href="/f-qual/settings">Settings</a>
+        <li class="nav-item">
+          <a class="nav-link" href="/f-qual/settings">Settings</a>
         </li>
       </ul>
     </div>
@@ -137,6 +138,20 @@
                             <a class="nav-link" href="#" data-metric="temp">Temperature</a>
                         </li>
                     </ul>
+
+                    <div class="d-flex align-items-center gap-3">
+                        <ul class="nav nav-pills" id="chart-metric-toggles">
+                            </ul>
+                        
+                        <div class="dropdown">
+                            <button class="btn btn-outline-secondary dropdown-toggle btn-sm" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                                <i class="bi bi-funnel me-1"></i> Bands
+                            </button>
+                            <ul class="dropdown-menu p-2" id="chart-band-menu" style="max-height: 250px; overflow-y: auto; min-width: 150px;">
+                                <li><span class="dropdown-item-text text-muted small">Select a system first</span></li>
+                            </ul>
+                        </div>
+                    </div>
 
                     <div class="btn-group" role="group" id="chart-time-toggles">
                         <input type="radio" class="btn-check" name="timeradio" id="timeradio1" autocomplete="off" data-days="1" checked>
