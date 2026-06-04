@@ -16,6 +16,7 @@ class DashboardMap {
         this.markers = [];
         this.customIcon = null;
         this.updateSeq = 0; // Prevents race conditions during rapid clicking
+        this.infoControl = null;
     }
 
     async init() {
@@ -30,7 +31,62 @@ class DashboardMap {
             attribution: CONFIG.MAP.TILE_ATTRIBUTION
         }).addTo(this.map);
 
+        this._initInfoControl();
         await this._preloadIcon();
+    }
+
+    /**
+     * Initializes the Leaflet Custom Control for the floating info box
+     */
+    _initInfoControl() {
+        const self = this;
+        
+        // Define a custom Leaflet Control
+        const ProbeInfoControl = L.Control.extend({
+            options: { position: 'topright' },
+
+            onAdd: function () {
+                this._div = L.DomUtil.create('div', 'probe-info-control');
+                
+                // CRITICAL: Stop map from zooming/panning when interacting with the box
+                L.DomEvent.disableClickPropagation(this._div);
+                L.DomEvent.disableScrollPropagation(this._div);
+                
+                this.update();
+                return this._div;
+            },
+
+            update: function (props) {
+                if (!props) {
+                    this._div.classList.remove('active');
+                    return;
+                }
+
+                this._div.classList.add('active');
+                this._div.innerHTML = `
+                    <h6><i class="bi bi-broadcast me-2"></i>${props.name || 'Unknown Probe'}</h6>
+                    <div class="probe-info-row">
+                        <span class="probe-info-label">Serial</span>
+                        <span class="probe-info-value">${props.serial}</span>
+                    </div>
+                    <div class="probe-info-row">
+                        <span class="probe-info-label">Latitude</span>
+                        <span class="probe-info-value">${props.lat.toFixed(6)}°</span>
+                    </div>
+                    <div class="probe-info-row">
+                        <span class="probe-info-label">Longitude</span>
+                        <span class="probe-info-value">${props.lon.toFixed(6)}°</span>
+                    </div>
+                    <div class="probe-info-row">
+                        <span class="probe-info-label">Last Updated</span>
+                        <span class="probe-info-value">${props.lastUpdated}</span>
+                    </div>
+                `;
+            }
+        });
+
+        this.infoControl = new ProbeInfoControl();
+        this.infoControl.addTo(this.map);
     }
 
     _preloadIcon() {
@@ -58,26 +114,29 @@ class DashboardMap {
         this.markers.forEach(m => this.map.removeLayer(m));
         this.markers = [];
     }
-
-    _buildTooltip(row, serial) {
-        const lat = safeParseFloat(getFieldCaseInsensitive(row, ['latitude', 'lat']));
-        const lon = safeParseFloat(getFieldCaseInsensitive(row, ['longitude', 'lon']));
-        const rsrp = getFieldCaseInsensitive(row, ['rsrp', 'RSRP']);
-        const name = getFieldCaseInsensitive(row, ['name', 'NAME']);
+    // Note: Tooltip generation removed in favor of the floating info box, but can be re-added if needed in the future
+    // _buildTooltip(row, serial) {
+    //     const lat = safeParseFloat(getFieldCaseInsensitive(row, ['latitude', 'lat']));
+    //     const lon = safeParseFloat(getFieldCaseInsensitive(row, ['longitude', 'lon']));
+    //     const rsrp = getFieldCaseInsensitive(row, ['rsrp', 'RSRP']);
+    //     const name = getFieldCaseInsensitive(row, ['name', 'NAME']);
         
-        return `
-            <b>${name ?? 'Unknown System'}</b><br>
-            Serial: ${serial}<br>
-            Coordinates: ${lat}, ${lon}<br>
-            RSRP: ${rsrp !== null ? safeParseFloat(rsrp).toFixed(1) + ' dBm' : 'N/A'}
-        `;
-    }
+    //     return `
+    //         <b>${name ?? 'Unknown System'}</b><br>
+    //         Serial: ${serial}<br>
+    //         Coordinates: ${lat}, ${lon}<br>
+    //         RSRP: ${rsrp !== null ? safeParseFloat(rsrp).toFixed(1) + ' dBm' : 'N/A'}
+    //     `;
+    // }
 
     async updateForSerial(serial) {
         if (!this.map) return;
         
         const currentSeq = ++this.updateSeq;
         this._clearMarkers();
+
+        // Hide the control while loading or if switching
+        this.infoControl.update();
 
         try {
             const data = await fetchProbeData(serial);
@@ -86,6 +145,7 @@ class DashboardMap {
             if (currentSeq !== this.updateSeq || !data || data.length === 0) return;
 
             const bounds = [];
+            let latestRow = null;
 
             data.forEach(row => {
                 const lat = safeParseFloat(getFieldCaseInsensitive(row, ['latitude', 'lat']));
@@ -93,9 +153,12 @@ class DashboardMap {
 
                 if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
 
+                // Keep track of the latest row for the floating box (assuming data is sorted or the first/last is newest)
+                if (!latestRow) latestRow = row;
+
                 const marker = L.marker([lat, lon], { icon: this.customIcon })
                     .addTo(this.map)
-                    .bindPopup(this._buildTooltip(row, serial));
+                    // .bindPopup(this._buildTooltip(row, serial));         // Removed tooltip because we have the floating box now
 
                 this.markers.push(marker);
                 bounds.push([lat, lon]);
@@ -103,6 +166,17 @@ class DashboardMap {
 
             if (bounds.length > 0) {
                 this.map.fitBounds(bounds, { padding: [30, 30], maxZoom: CONFIG.MAP.MAX_ZOOM });
+            }
+
+            // Populate and show the floating box with the most relevant data point
+            if (latestRow) {
+                this.infoControl.update({
+                    name: getFieldCaseInsensitive(latestRow, ['name', 'NAME']),
+                    serial: serial,
+                    lat: safeParseFloat(getFieldCaseInsensitive(latestRow, ['latitude', 'lat'])),
+                    lon: safeParseFloat(getFieldCaseInsensitive(latestRow, ['longitude', 'lon'])),
+                    lastUpdated: new Date(getFieldCaseInsensitive(latestRow, ['datetime', 'DATETIME'])).toLocaleString() || 'N/A'
+                });
             }
 
         } catch (err) {
