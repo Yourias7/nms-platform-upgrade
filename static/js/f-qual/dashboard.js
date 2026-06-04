@@ -1,7 +1,7 @@
 import { 
     fetchInstantTempProbeData, fetchInstantRttProbeData, fetchAverageRttProbeData, 
     fetchAverageRsrpProbeData, fetchInstantRsrpProbeData, fetchAverageSinrProbeData, 
-    fetchInstantSinrProbeData, fetchLiveProbeNameMap, fetchProbeData 
+    fetchInstantSinrProbeData, fetchLiveProbeNameMap, fetchProbeData, fetchHistoricProbeData
 } from '../shared/api.js';
 import { CONFIG } from '../shared/config.js';
 import { getFieldCaseInsensitive, safeParseFloat } from '../shared/utils.js';
@@ -207,14 +207,183 @@ const METRIC_CONFIG = {
 };
 
 // ==========================================
-// 3. APPLICATION STATE & INITIALIZATION
+// 3. CHART MANAGEMENT (Encapsulated State)
+// ==========================================
+class DashboardChart {
+    constructor(canvasId) {
+        this.canvasId = canvasId;
+        this.chart = null;
+        this.currentSerial = null;
+        this.currentMetric = 'rsrp'; // Default
+        this.currentDays = 1;        // Default
+        this.updateSeq = 0;
+
+        // Metric configurations for dynamic rendering
+        this.metricConfig = {
+            rsrp: { label: 'RSRP', color: '#a78bfa', unit: 'dBm', keys: ['rsrp', 'RSRP'] }, // Purple matching your UI
+            sinr: { label: 'SINR', color: '#3b82f6', unit: 'dB', keys: ['sinr', 'SINR'] },
+            rtt:  { label: 'RTT', color: '#f59e0b', unit: 'ms', keys: ['rtt', 'RTT'] },
+            temp: { label: 'Temperature', color: '#ef4444', unit: '°C', keys: ['temp', 'TEMP', 'temperature'] }
+        };
+    }
+
+    init() {
+        const ctx = document.getElementById(this.canvasId).getContext('2d');
+        
+        // Initialize an empty Chart.js instance
+        this.chart = new Chart(ctx, {
+            type: 'line',
+            data: { datasets: [] },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                scales: {
+                    x: { 
+                        type: 'time', 
+                        time: { tooltipFormat: 'PPpp' },
+                        ticks: { color: '#94a3b8' },
+                        grid: { color: 'rgba(255,255,255,0.05)' }
+                    },
+                    y: { 
+                        ticks: { color: '#94a3b8' },
+                        grid: { color: 'rgba(255,255,255,0.05)' }
+                    }
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { enabled: true }
+                }
+            }
+        });
+
+        this._attachListeners();
+    }
+
+    _attachListeners() {
+        // Handle Metric Switch
+        document.getElementById('chart-metric-toggles').addEventListener('click', (e) => {
+            const link = e.target.closest('.nav-link');
+            if (!link) return;
+            e.preventDefault();
+            
+            document.querySelectorAll('#chart-metric-toggles .nav-link').forEach(el => el.classList.remove('active'));
+            link.classList.add('active');
+            
+            this.currentMetric = link.dataset.metric;
+            this.fetchAndRender(); // Re-render with new metric
+        });
+
+        // Handle Time Switch
+        document.getElementById('chart-time-toggles').addEventListener('change', (e) => {
+            if (e.target.classList.contains('btn-check')) {
+                this.currentDays = parseInt(e.target.dataset.days, 10);
+                this.fetchAndRender(); // Re-render with new timespan
+            }
+        });
+    }
+
+    updateForSerial(serial) {
+        this.currentSerial = serial;
+        this.fetchAndRender();
+    }
+
+    async fetchAndRender() {
+        if (!this.currentSerial) return;
+        const currentSeq = ++this.updateSeq;
+
+        // Calculate ISO date ranges
+        const latestDate = new Date();
+        const earlyDate = new Date();
+        earlyDate.setDate(earlyDate.getDate() - this.currentDays);
+
+        try {
+            const response = await fetchHistoricProbeData(
+                this.currentSerial, 
+                earlyDate.toISOString(), 
+                latestDate.toISOString(), 
+                1, 
+                1000 
+            );
+            
+            if (currentSeq !== this.updateSeq) return;
+
+            const dataList = response.data ? response.data : (Array.isArray(response) ? response : []);
+            
+            // DEBUG STEP 1: What did the API actually return?
+            console.log(`[Chart Debug] API Returned ${dataList.length} rows for the last ${this.currentDays} days.`);
+            if (dataList.length > 0) {
+                console.log("[Chart Debug] Sample Row from API:", dataList[0]);
+            }
+
+            const mConfig = this.metricConfig[this.currentMetric];
+            
+            const chartData = dataList.map(row => {
+                // DEBUG STEP 2: Let's see how our parser handles the raw data
+                const rawDate = getFieldCaseInsensitive(row, ['datetime', 'DATETIME', 'timestamp', 'time', 'date']);
+                const rawVal = getFieldCaseInsensitive(row, mConfig.keys);
+                
+                const parsedDate = new Date(rawDate);
+                const parsedVal = safeParseFloat(rawVal);
+                
+                return { x: parsedDate, y: parsedVal };
+            })
+            .filter(pt => {
+                const isValid = !isNaN(pt.x) && !isNaN(pt.y);
+                // DEBUG STEP 3: Warn us if valid data is being thrown away
+                if (!isValid && dataList.length > 0) {
+                     console.warn("[Chart Debug] Data point filtered out! Invalid date or value:", pt);
+                }
+                return isValid;
+            })
+            .sort((a, b) => a.x - b.x);
+
+            console.log(`[Chart Debug] ChartData after parsing and filtering:`, chartData);
+
+            // Update Chart.js datasets
+            this.chart.data = {
+                datasets: [{
+                    label: `${mConfig.label} (${mConfig.unit})`,
+                    data: chartData,
+                    borderColor: mConfig.color,
+                    backgroundColor: mConfig.color + '22', // Hex opacity trick
+                    borderWidth: 2,
+                    pointRadius: 0, // Hide points unless hovering for cleaner massive datasets
+                    pointHitRadius: 10,
+                    fill: true,
+                    tension: 0.3 // Smooth curves
+                }]
+            };
+            
+            // Update Y-Axis label to match metric
+            this.chart.options.scales.y.title = {
+                display: true,
+                text: `${mConfig.label} (${mConfig.unit})`,
+                color: '#e2e8f0'
+            };
+
+            this.chart.update();
+
+        } catch (err) {
+            console.error(`[DashboardChart] Failed to render chart for ${this.currentSerial}:`, err);
+        }
+    }
+}
+
+// ==========================================
+// 4. APPLICATION STATE & INITIALIZATION
 // ==========================================
 let dashboardMapInstance = null;
+let dashboardChartInstance = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
     // Instantiate map attached to specific DOM element
     dashboardMapInstance = new DashboardMap('dashboard-map');
     await dashboardMapInstance.init();
+
+    // Instantiate chart
+    dashboardChartInstance = new DashboardChart('evolution-chart');
+    dashboardChartInstance.init();
     
     await initDashboard();
 });
@@ -261,8 +430,9 @@ function triggerDataRefresh(serial) {
     loadGenericMetric(serial, METRIC_CONFIG.rtt);
     loadTempData(serial);
     
-    // Use the class instance method instead of the generic map.js function
+    // Trigger map and chart updates
     dashboardMapInstance.updateForSerial(serial);
+    dashboardChartInstance.updateForSerial(serial);
 }
 
 // ==========================================

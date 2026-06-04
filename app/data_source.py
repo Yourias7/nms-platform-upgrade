@@ -336,7 +336,7 @@ def get_historic_records_by_probe(serial: str, early: str = None, latest: str = 
         ser = str(serial).strip()
         sdate = datetime.fromisoformat(early) if early else None
         edate = datetime.fromisoformat(latest) if latest else None
-        cutoff = datetime.utcnow() - timedelta(days=15)
+        cutoff = datetime.utcnow() - timedelta(days=40)
         base_query = (
             db.query(
                 ProbesHistoricMeasurement.SERIAL.label("SERIAL"),
