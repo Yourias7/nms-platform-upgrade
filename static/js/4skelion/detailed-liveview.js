@@ -55,68 +55,121 @@ function clearConnectionLines() {
   connectionLines = [];
 }
 
-// Custom Leaflet Control for the Azimuth Compass
-L.Control.Compass = L.Control.extend({
+// Custom Leaflet Control for the HUD (Compass + Basic Info)
+let systemOverviewControl = null;
+
+L.Control.SystemOverview = L.Control.extend({
   options: {
-    position: 'topleft' // Places it right under the zoom controls
+    position: 'topleft' 
   },
   onAdd: function(map) {
     const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
-    // Styling to match the sleek UI but stand out on the map
-    container.style.backgroundColor = 'rgba(25, 30, 56, 0.9)';
-    container.style.border = '1px solid rgba(102, 126, 234, 0.3)';
-    container.style.padding = '10px';
+    
+    // Sleek HUD Styling
+    container.style.backgroundColor = 'rgba(15, 20, 45, 0.95)';
+    container.style.border = '1px solid rgba(102, 126, 234, 0.4)';
+    container.style.padding = '15px';
     container.style.borderRadius = '8px';
-    container.style.display = 'none'; // Hidden until a system is selected
-    container.style.textAlign = 'center';
-    container.style.width = '130px';
-    container.style.backdropFilter = 'blur(4px)';
+    container.style.display = 'none'; 
+    container.style.backdropFilter = 'blur(8px)';
+    container.style.boxShadow = '0 8px 32px rgba(0, 0, 0, 0.3)';
+
+    // --- DYNAMIC WIDTH SETTINGS ---
+    container.style.width = 'max-content'; // Snaps to the widest element inside
+    container.style.minWidth = '240px';    // Keeps a clean baseline for short names
+    container.style.maxWidth = '380px';    // Prevents map takeover on huge names
 
     container.innerHTML = `
-      <h6 style="margin: 0 0 8px 0; font-size: 0.75rem; color: #adb5bd; text-transform: uppercase; letter-spacing: 0.5px;">Donor Azimuth</h6>
-      <div style="width: 90px; height: 90px; margin: 0 auto;">
-        <svg viewBox="0 0 100 100" class="w-100 h-100">
-          <circle cx="50" cy="50" r="45" fill="rgba(10, 14, 39, 0.8)" stroke="#495057" stroke-width="2"/>
-          <line x1="50" y1="5" x2="50" y2="10" stroke="#adb5bd" stroke-width="2"/>
-          <line x1="50" y1="90" x2="50" y2="95" stroke="#adb5bd" stroke-width="2"/>
-          <line x1="5" y1="50" x2="10" y2="50" stroke="#adb5bd" stroke-width="2"/>
-          <line x1="90" y1="50" x2="95" y2="50" stroke="#adb5bd" stroke-width="2"/>
-          
-          <text x="50" y="18" text-anchor="middle" fill="#dc3545" font-weight="bold" font-size="10">N</text>
-          <text x="83" y="53.5" text-anchor="middle" fill="#6c757d" font-weight="bold" font-size="9">E</text>
-          <text x="50" y="88" text-anchor="middle" fill="#6c757d" font-weight="bold" font-size="9">S</text>
-          <text x="17" y="53.5" text-anchor="middle" fill="#6c757d" font-weight="bold" font-size="9">W</text>
-          
-          <g id="mapCompassNeedle" style="transform-origin: 50px 50px; transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);">
-            <polygon points="45,50 55,50 50,22" fill="#dc3545"/>
-            <polygon points="45,50 55,50 50,78" fill="#adb5bd"/>
-            <circle cx="50" cy="50" r="4" fill="#191e38" stroke="#adb5bd" stroke-width="1.5"/>
-          </g>
-        </svg>
+      <div style="text-align: center; margin-bottom: 15px;">
+        <h6 style="margin: 0 0 10px 0; font-size: 0.75rem; color: #adb5bd; text-transform: uppercase; letter-spacing: 1px;">Donor Azimuth</h6>
+        <div style="width: 80px; height: 80px; margin: 0 auto;">
+          <svg viewBox="0 0 100 100" class="w-100 h-100">
+            <circle cx="50" cy="50" r="45" fill="rgba(10, 14, 39, 0.8)" stroke="#495057" stroke-width="2"/>
+            <line x1="50" y1="5" x2="50" y2="10" stroke="#adb5bd" stroke-width="2"/>
+            <line x1="50" y1="90" x2="50" y2="95" stroke="#adb5bd" stroke-width="2"/>
+            <line x1="5" y1="50" x2="10" y2="50" stroke="#adb5bd" stroke-width="2"/>
+            <line x1="90" y1="50" x2="95" y2="50" stroke="#adb5bd" stroke-width="2"/>
+            
+            <text x="50" y="18" text-anchor="middle" fill="#dc3545" font-weight="bold" font-size="10">N</text>
+            <text x="83" y="53.5" text-anchor="middle" fill="#6c757d" font-weight="bold" font-size="9">E</text>
+            <text x="50" y="88" text-anchor="middle" fill="#6c757d" font-weight="bold" font-size="9">S</text>
+            <text x="17" y="53.5" text-anchor="middle" fill="#6c757d" font-weight="bold" font-size="9">W</text>
+            
+            <g id="hudCompassNeedle" style="transform-origin: 50px 50px; transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);">
+              <polygon points="45,50 55,50 50,22" fill="#dc3545"/>
+              <polygon points="45,50 55,50 50,78" fill="#adb5bd"/>
+              <circle cx="50" cy="50" r="4" fill="#191e38" stroke="#adb5bd" stroke-width="1.5"/>
+            </g>
+          </svg>
+        </div>
+        <div style="margin-top: 8px; font-weight: bold; color: #0d6efd; font-size: 1.2rem;" id="hudCompassValue">--°</div>
       </div>
-      <div style="margin-top: 8px; font-weight: bold; color: #0d6efd; font-size: 1.1rem;" id="mapCompassValue">--°</div>
+
+      <div style="border-top: 1px solid rgba(255, 255, 255, 0.1); padding-top: 12px;">
+        <h6 style="margin: 0 0 10px 0; font-size: 0.75rem; color: #adb5bd; text-transform: uppercase; letter-spacing: 1px; text-align: center;">System Basic Info</h6>
+        
+        <div style="color: #fff; font-size: 1rem; font-weight: 600; margin-bottom: 2px; text-align: center; word-break: break-word;" id="hudName">--</div>
+        <div class="text-secondary text-center" style="font-size: 0.8rem; margin-bottom: 12px;" id="hudSerial">--</div>
+        
+        <div style="font-size: 0.85rem; color: #e9ecef;">
+          <div class="d-flex justify-content-between mb-1"><span style="margin-right: 20px;">EARFCN</span> <strong id="hudEarfcn">--</strong></div>
+          <div class="d-flex justify-content-between mb-1"><span style="margin-right: 20px;">RSRP</span> <strong id="hudRsrp">--</strong></div>
+          <div class="d-flex justify-content-between mb-1"><span style="margin-right: 20px;">RSRQ</span> <strong id="hudRsrq">--</strong></div>
+          <div class="d-flex justify-content-between mb-1"><span style="margin-right: 20px;">SINR</span> <strong id="hudSinr">--</strong></div>
+          <div class="d-flex justify-content-between"><span style="margin-right: 20px;">Temp</span> <strong id="hudTemp">--</strong></div>
+        </div>
+        
+        <div id="hudDate" style="font-size: 0.7rem; color: #6c757d; margin-top: 12px; text-align: center;">--</div>
+      </div>
     `;
     
-    // Prevent map dragging/zooming when interacting with the compass
     L.DomEvent.disableClickPropagation(container);
     return container;
   },
   
-  updateAzimuth: function(azimuth) {
+  updateInfo: function(systemInfo) {
     const container = this.getContainer();
-    if (azimuth === null || azimuth === undefined || isNaN(azimuth)) {
-      container.style.display = 'none'; // Hide if no azimuth data
+    if (!systemInfo) {
+      container.style.display = 'none';
       return;
     }
     
-    container.style.display = 'block'; // Show it!
-    const needle = container.querySelector('#mapCompassNeedle');
-    const valueText = container.querySelector('#mapCompassValue');
+    container.style.display = 'block'; 
+    const data = systemInfo.data || {};
     
-    if (needle && valueText) {
+    // Update Compass
+    const azimuth = data.AZIMUTH;
+    const needle = container.querySelector('#hudCompassNeedle');
+    const valueText = container.querySelector('#hudCompassValue');
+    
+    if (azimuth !== null && azimuth !== undefined && !isNaN(azimuth)) {
       needle.style.transform = `rotate(${azimuth}deg)`;
       valueText.innerText = `${parseFloat(azimuth).toFixed(1)}°`;
+      needle.style.opacity = "1";
+    } else {
+      needle.style.transform = `rotate(0deg)`;
+      needle.style.opacity = "0.2";
+      valueText.innerText = "N/A";
     }
+
+    // Safely parse alarms for coloring
+    const rsrpClass = systemInfo.rsrp !== null && isInAlarm('rsrp', systemInfo.rsrp) ? 'text-danger' : 'text-success';
+    const rsrqClass = systemInfo.rsrq !== null && isInAlarm('rsrq', systemInfo.rsrq) ? 'text-danger' : 'text-success';
+    const sinrClass = systemInfo.sinr !== null && isInAlarm('sinr', systemInfo.sinr) ? 'text-danger' : 'text-success';
+    const tempClass = systemInfo.temp !== null && isInAlarm('temp', systemInfo.temp) ? 'text-danger' : 'text-success';
+
+    // Update Basic Info Grid
+    container.querySelector('#hudName').innerText = systemInfo.name || systemInfo.serial;
+    container.querySelector('#hudSerial').innerText = `SN: ${systemInfo.serial}`;
+    
+    container.querySelector('#hudEarfcn').innerText = systemInfo.earfcn ?? 'N/A';
+    container.querySelector('#hudRsrp').innerHTML = systemInfo.rsrp !== null ? `<span class="${rsrpClass}">${systemInfo.rsrp} dBm</span>` : 'N/A';
+    container.querySelector('#hudRsrq').innerHTML = systemInfo.rsrq !== null ? `<span class="${rsrqClass}">${systemInfo.rsrq} dB</span>` : 'N/A';
+    container.querySelector('#hudSinr').innerHTML = systemInfo.sinr !== null ? `<span class="${sinrClass}">${systemInfo.sinr} dB</span>` : 'N/A';
+    container.querySelector('#hudTemp').innerHTML = systemInfo.temp !== null ? `<span class="${tempClass}">${systemInfo.temp} °C</span>` : 'N/A';
+    
+    const dateStr = data.DATETIME ? String(data.DATETIME).replace('T', ' ') : 'N/A';
+    container.querySelector('#hudDate').innerText = `Last Updated: ${dateStr}`;
   },
   
   hide: function() {
@@ -237,8 +290,8 @@ function initMap() {
     maxZoom: 20, // Allow deeper zoom for better cell marker visibility
   }).addTo(mapInstance);
 
-  compassControl = new L.Control.Compass();
-  compassControl.addTo(mapInstance);
+  systemOverviewControl = new L.Control.SystemOverview();
+  systemOverviewControl.addTo(mapInstance);
   
   console.log('[Detailed Liveview] Map initialized');
 }
@@ -442,17 +495,7 @@ function createMarker(serial, lat, lon, name, earfcn, rsrp, rsrq, sinr, temp, la
     icon: icon,
     zIndexOffset: 100 // Keep systems visually above the cell markers
   }).addTo(mapInstance);
-  
-  marker.bindPopup(
-    `<strong>${name}</strong><br/>
-    Serial: ${serial}<br/>
-    Serving EARFCN: ${earfcn}<br/>
-    RSRP: ${rsrp !== null ? `${rsrp} dBm` : 'N/A'}<br/>
-    RSRQ: ${rsrq !== null ? `${rsrq} dB` : 'N/A'}<br/>
-    SINR: ${sinr !== null ? `${sinr} dB` : 'N/A'}<br/>
-    Temperature: ${temp !== null ? `${temp} °C` : 'N/A'}<br/>
-    Last Updated: ${lastUpdated ? String(lastUpdated).replace('T', ' ') : 'N/A'}<br/>
-    `);
+
   marker.on('click', () => selectSystem(serial));
   
   markersMap.set(serial, marker);
@@ -706,9 +749,8 @@ function selectSystem(serial) {
   updateCellMarkerStyles(serial);
   drawConnectionLines(serial);
 
-  if (compassControl) {
-    const azimuth = systemInfo.data ? systemInfo.data.AZIMUTH : null;
-    compassControl.updateAzimuth(azimuth);
+  if (systemOverviewControl) {
+    systemOverviewControl.updateInfo(systemInfo);
   }
 }
 
@@ -895,7 +937,7 @@ function closeSidebar() {
   sidebar.classList.remove('open');
   selectedSerial = null;
   clearConnectionLines();
-  if (compassControl) compassControl.hide();
+  if (systemOverviewControl) systemOverviewControl.hide();
 }
 
 // Setup dropdown event listeners
