@@ -23,6 +23,8 @@ let csvCellIndex = {};
 let csvEnbIndex = {};
 let csvCellDetails = new Map();
 
+let compassControl = null;
+
 // Generate a directional arrow icon based on heading and color
 function getDirectionalIcon(heading, color) {
   const html = `
@@ -42,39 +44,6 @@ function getDirectionalIcon(heading, color) {
   });
 }
 
-/**
- * Opens the Compass modal and smoothly animates the needle to the provided azimuth.
- * @param {number|string} azimuth - The direction in degrees (0-360)
- * @param {string} sectorName - Optional label (e.g., 'Sector 1 (eCID: 123)')
- */
-window.showAzimuthCompass = function(azimuth, sectorName = 'Serving Sector') {
-  // 1. Sanitize the input
-  const safeAzimuth = parseFloat(azimuth);
-  
-  if (isNaN(safeAzimuth)) {
-    console.warn('[Compass] Invalid azimuth provided:', azimuth);
-    return;
-  }
-
-  // 2. Grab DOM elements
-  const needle = document.getElementById('compassNeedle');
-  const valueText = document.getElementById('azimuthValueText');
-  const sectorText = document.getElementById('azimuthSectorName');
-
-  // 3. Apply the rotation. CSS handles the smooth transition.
-  needle.style.transform = `rotate(${safeAzimuth}deg)`;
-  
-  // 4. Update the text readouts
-  valueText.innerText = `${safeAzimuth.toFixed(1)}°`;
-  sectorText.innerText = sectorName;
-
-  // 5. Trigger the Bootstrap Modal
-  const compassModalEl = document.getElementById('compassModal');
-  const modalInstance = bootstrap.Modal.getOrCreateInstance(compassModalEl);
-  modalInstance.show();
-};
-
-
 // Add to your global variables at the top
 let connectionLines = [];
 
@@ -85,6 +54,75 @@ function clearConnectionLines() {
   });
   connectionLines = [];
 }
+
+// Custom Leaflet Control for the Azimuth Compass
+L.Control.Compass = L.Control.extend({
+  options: {
+    position: 'topleft' // Places it right under the zoom controls
+  },
+  onAdd: function(map) {
+    const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
+    // Styling to match the sleek UI but stand out on the map
+    container.style.backgroundColor = 'rgba(25, 30, 56, 0.9)';
+    container.style.border = '1px solid rgba(102, 126, 234, 0.3)';
+    container.style.padding = '10px';
+    container.style.borderRadius = '8px';
+    container.style.display = 'none'; // Hidden until a system is selected
+    container.style.textAlign = 'center';
+    container.style.width = '130px';
+    container.style.backdropFilter = 'blur(4px)';
+
+    container.innerHTML = `
+      <h6 style="margin: 0 0 8px 0; font-size: 0.75rem; color: #adb5bd; text-transform: uppercase; letter-spacing: 0.5px;">Donor Azimuth</h6>
+      <div style="width: 90px; height: 90px; margin: 0 auto;">
+        <svg viewBox="0 0 100 100" class="w-100 h-100">
+          <circle cx="50" cy="50" r="45" fill="rgba(10, 14, 39, 0.8)" stroke="#495057" stroke-width="2"/>
+          <line x1="50" y1="5" x2="50" y2="10" stroke="#adb5bd" stroke-width="2"/>
+          <line x1="50" y1="90" x2="50" y2="95" stroke="#adb5bd" stroke-width="2"/>
+          <line x1="5" y1="50" x2="10" y2="50" stroke="#adb5bd" stroke-width="2"/>
+          <line x1="90" y1="50" x2="95" y2="50" stroke="#adb5bd" stroke-width="2"/>
+          
+          <text x="50" y="18" text-anchor="middle" fill="#dc3545" font-weight="bold" font-size="10">N</text>
+          <text x="83" y="53.5" text-anchor="middle" fill="#6c757d" font-weight="bold" font-size="9">E</text>
+          <text x="50" y="88" text-anchor="middle" fill="#6c757d" font-weight="bold" font-size="9">S</text>
+          <text x="17" y="53.5" text-anchor="middle" fill="#6c757d" font-weight="bold" font-size="9">W</text>
+          
+          <g id="mapCompassNeedle" style="transform-origin: 50px 50px; transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);">
+            <polygon points="45,50 55,50 50,22" fill="#dc3545"/>
+            <polygon points="45,50 55,50 50,78" fill="#adb5bd"/>
+            <circle cx="50" cy="50" r="4" fill="#191e38" stroke="#adb5bd" stroke-width="1.5"/>
+          </g>
+        </svg>
+      </div>
+      <div style="margin-top: 8px; font-weight: bold; color: #0d6efd; font-size: 1.1rem;" id="mapCompassValue">--°</div>
+    `;
+    
+    // Prevent map dragging/zooming when interacting with the compass
+    L.DomEvent.disableClickPropagation(container);
+    return container;
+  },
+  
+  updateAzimuth: function(azimuth) {
+    const container = this.getContainer();
+    if (azimuth === null || azimuth === undefined || isNaN(azimuth)) {
+      container.style.display = 'none'; // Hide if no azimuth data
+      return;
+    }
+    
+    container.style.display = 'block'; // Show it!
+    const needle = container.querySelector('#mapCompassNeedle');
+    const valueText = container.querySelector('#mapCompassValue');
+    
+    if (needle && valueText) {
+      needle.style.transform = `rotate(${azimuth}deg)`;
+      valueText.innerText = `${parseFloat(azimuth).toFixed(1)}°`;
+    }
+  },
+  
+  hide: function() {
+    this.getContainer().style.display = 'none';
+  }
+});
 // Draw lines between a selected system and its matching cells
 function drawConnectionLines(serial) {
   clearConnectionLines();
@@ -198,6 +236,9 @@ function initMap() {
     // maxZoom: CONFIG.MAP.MAX_ZOOM
     maxZoom: 20, // Allow deeper zoom for better cell marker visibility
   }).addTo(mapInstance);
+
+  compassControl = new L.Control.Compass();
+  compassControl.addTo(mapInstance);
   
   console.log('[Detailed Liveview] Map initialized');
 }
@@ -664,6 +705,11 @@ function selectSystem(serial) {
 
   updateCellMarkerStyles(serial);
   drawConnectionLines(serial);
+
+  if (compassControl) {
+    const azimuth = systemInfo.data ? systemInfo.data.AZIMUTH : null;
+    compassControl.updateAzimuth(azimuth);
+  }
 }
 
 // Display system details in sidebar
@@ -702,18 +748,11 @@ function showSystemDetails(serial, systemInfo) {
 
   // 3. Location & Donor details combined to save space
   // Build the Donor Sector line dynamically to include the Compass Button if Azimuth exists
+  // 3. Location & Donor details combined to save space
   let donorHtml = `<div><strong>Donor Sector:</strong> ${systemInfo.a_used ?? 'N/A'}`;
-
+  
   if (data.AZIMUTH !== undefined && data.AZIMUTH !== null) {
-    donorHtml += ` | <strong>Azimuth:</strong> ${data.AZIMUTH}° 
-      <button class="btn btn-sm btn-link p-0 ms-1 text-secondary" 
-              onclick="showAzimuthCompass(${data.AZIMUTH}, 'Donor Sector: ${systemInfo.a_used ?? 'N/A'}')" 
-              title="View on Compass" style="text-decoration: none;">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-top: -3px;">
-          <circle cx="12" cy="12" r="10"></circle>
-          <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon>
-        </svg>
-      </button>`;
+    donorHtml += ` | <strong>Azimuth:</strong> ${data.AZIMUTH}°`;
   }
   donorHtml += `</div>`;
 
@@ -856,6 +895,7 @@ function closeSidebar() {
   sidebar.classList.remove('open');
   selectedSerial = null;
   clearConnectionLines();
+  if (compassControl) compassControl.hide();
 }
 
 // Setup dropdown event listeners
