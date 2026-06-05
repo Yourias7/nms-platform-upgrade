@@ -123,6 +123,17 @@ class HistoricMeasurement(Base):
     S3PCI = Column(String(255), name="S3.PCI")
     S3RSRQ = Column(Float, name="S3.RSRQ")
 
+class VesselSetup(Base):
+    __tablename__ = "VesselSetup$"
+
+    FSKELION_SERIAL = Column(String(255), primary_key=True, name= "4SKELION_SERIAL",index=True)
+    VESSEL = Column(String(255))
+    PROBE_OUT = Column(String(255))
+    PROBE_IN_1 = Column(String(255))
+    PROBE_OUT_2 = Column(String(255))
+    PROBE_IN_2 = Column(String(255))
+    
+
 # ==================== SECOND DATABASE SOURCE ====================
 
 # Declarative base for second database

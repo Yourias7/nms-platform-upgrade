@@ -430,6 +430,14 @@ def playback_f_qual(request: Request):
     except Exception:
         return templates.TemplateResponse(request, "coming_soon.html", {"request": request})
 
+@app.get("/f-qual/setup")
+def setup_f_qual(request: Request):
+    """Render the setup UI."""
+    try:
+        return templates.TemplateResponse(request, "f-qual/setup.html", {"request": request})
+    except Exception:
+        return templates.TemplateResponse(request, "coming_soon.html", {"request": request})
+
 @app.get("/4skelion/settings")
 def settings_4skelion(request: Request):
     """Render the settings UI."""
