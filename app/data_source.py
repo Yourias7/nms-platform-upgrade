@@ -1005,6 +1005,7 @@ def get_live_records_by_serial(serial: str):
                 "BAND": row.BAND,
                 "PCI": row.PCI, 
                 "ANTENNA USED": row.A_USED,
+                "AZIMUTH": row.AZIMUTH,
                 "RSRP": row.RSRP,
                 "SINR": row.SINR,
                 "TEMP": row.TEMP,

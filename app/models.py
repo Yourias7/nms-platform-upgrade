@@ -20,6 +20,7 @@ class LiveMeasurement(Base):
     BAND = Column(Float, name="BESTS.BAND")
     PCI = Column(Integer, name="BESTS.PCI")
     A_USED= Column(Integer, name="BESTS.SECT#")
+    AZIMUTH = Column(Float, name="DNR1.AZIMUTH")
     CID= Column(Integer, name="BESTS.CID_dec")
     RSRQ= Column(Integer, name="BESTS.RSRQ")
     NODE_ID= Column(Float, name="BESTS_NODEB_dec")

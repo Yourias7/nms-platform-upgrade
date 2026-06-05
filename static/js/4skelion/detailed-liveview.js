@@ -42,6 +42,38 @@ function getDirectionalIcon(heading, color) {
   });
 }
 
+/**
+ * Opens the Compass modal and smoothly animates the needle to the provided azimuth.
+ * @param {number|string} azimuth - The direction in degrees (0-360)
+ * @param {string} sectorName - Optional label (e.g., 'Sector 1 (eCID: 123)')
+ */
+window.showAzimuthCompass = function(azimuth, sectorName = 'Serving Sector') {
+  // 1. Sanitize the input
+  const safeAzimuth = parseFloat(azimuth);
+  
+  if (isNaN(safeAzimuth)) {
+    console.warn('[Compass] Invalid azimuth provided:', azimuth);
+    return;
+  }
+
+  // 2. Grab DOM elements
+  const needle = document.getElementById('compassNeedle');
+  const valueText = document.getElementById('azimuthValueText');
+  const sectorText = document.getElementById('azimuthSectorName');
+
+  // 3. Apply the rotation. CSS handles the smooth transition.
+  needle.style.transform = `rotate(${safeAzimuth}deg)`;
+  
+  // 4. Update the text readouts
+  valueText.innerText = `${safeAzimuth.toFixed(1)}°`;
+  sectorText.innerText = sectorName;
+
+  // 5. Trigger the Bootstrap Modal
+  const compassModalEl = document.getElementById('compassModal');
+  const modalInstance = bootstrap.Modal.getOrCreateInstance(compassModalEl);
+  modalInstance.show();
+};
+
 
 // Add to your global variables at the top
 let connectionLines = [];
@@ -669,15 +701,30 @@ function showSystemDetails(serial, systemInfo) {
   html += `</div>`; // Close Header
 
   // 3. Location & Donor details combined to save space
+  // Build the Donor Sector line dynamically to include the Compass Button if Azimuth exists
+  let donorHtml = `<div><strong>Donor Sector:</strong> ${systemInfo.a_used ?? 'N/A'}`;
+
+  if (data.AZIMUTH !== undefined && data.AZIMUTH !== null) {
+    donorHtml += ` | <strong>Azimuth:</strong> ${data.AZIMUTH}° 
+      <button class="btn btn-sm btn-link p-0 ms-1 text-secondary" 
+              onclick="showAzimuthCompass(${data.AZIMUTH}, 'Donor Sector: ${systemInfo.a_used ?? 'N/A'}')" 
+              title="View on Compass" style="text-decoration: none;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-top: -3px;">
+          <circle cx="12" cy="12" r="10"></circle>
+          <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon>
+        </svg>
+      </button>`;
+  }
+  donorHtml += `</div>`;
+
   html += `
     <hr class="my-1" />
     <div class="mb-2">
       <h6 class="text-muted mb-1" style="font-size: 0.95rem;">Location & Donor</h6>
       <div><strong>Lat:</strong> ${systemInfo.lat ? systemInfo.lat.toFixed(6) : 'N/A'} | <strong>Lon:</strong> ${systemInfo.lon ? systemInfo.lon.toFixed(6) : 'N/A'}</div>
-      <div><strong>Donor Sector:</strong> ${systemInfo.a_used ?? 'N/A'}</div>
+      ${donorHtml}
     </div>
   `;
-
   // 4. DRY Helper function to cleanly generate Sectors
   const renderSector = (title, ecid, cid, earfcn, band, pci, rsrp, rsrq, sinr) => {
     // Skip rendering if no data exists for this sector
