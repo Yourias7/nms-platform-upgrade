@@ -684,7 +684,7 @@ function selectSystem(serial) {
   
   // Zoom to marker
   if (systemInfo.lat && systemInfo.lon) {
-    mapInstance.setView([systemInfo.lat, systemInfo.lon], 15);
+    mapInstance.setView([systemInfo.lat, systemInfo.lon], 11);
   }
   
   // Show sidebar with details
