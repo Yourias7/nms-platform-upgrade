@@ -30,7 +30,7 @@ document.addEventListener('DOMContentLoaded', function () {
           destination = '/4skelion/liveview';
           break;
         case 'f-steering':
-          destination = '/coming_soon';
+          destination = '/f-steering/liveview';
           break;
         case '3skelion':
           destination = '/3skelion/liveview';

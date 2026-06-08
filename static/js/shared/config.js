@@ -5,8 +5,11 @@
 // Default behavior stays EXACTLY the same for 4skelion pages.
 const PLATFORM = globalThis.NMS_PLATFORM || '4skelion';
 
-// If 3skelion page: prefix all API calls with /3skelion
-const API_PREFIX = (PLATFORM === '3skelion') ? '/3skelion' : '';
+// Prefix API calls for platform-specific backend namespaces.
+const API_PREFIX = {
+  '3skelion': '/3skelion',
+  'f-steering': '/f-steering'
+}[PLATFORM] || '';
 
 export const CONFIG = {
   // API Endpoints

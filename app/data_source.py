@@ -18,6 +18,77 @@ _historic_serials_lock = threading.Lock()
 _HISTORIC_SERIALS_CACHE_TTL_SEC = 300
 
 
+# F-Steering systems are stored in the same live/historic source as 4skelion,
+# but their serials follow the rotating donor convention:
+# 4G + operator letter (C/V/N) + R + numeric id, e.g. 4GCR..., 4GVR..., 4GNR...
+F_STEERING_PREFIXES = ("4GCR", "4GVR", "4GNR")
+
+
+def is_f_steering_serial(serial) -> bool:
+    """Return True when a serial belongs to the F-Steering rotating donor group."""
+    if serial is None:
+        return False
+    return str(serial).strip().upper().startswith(F_STEERING_PREFIXES)
+
+
+def f_steering_operator_from_serial(serial):
+    """Infer operator from F-Steering serial prefix."""
+    if serial is None:
+        return None
+    value = str(serial).strip().upper()
+    if value.startswith("4GC"):
+        return "Cosmote"
+    if value.startswith("4GV"):
+        return "Vodafone"
+    if value.startswith("4GN"):
+        return "Nova"
+    return None
+
+
+def _to_float_or_none(value):
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _is_geolocked(lat, lon) -> bool:
+    lat_value = _to_float_or_none(lat)
+    lon_value = _to_float_or_none(lon)
+    if lat_value is None or lon_value is None:
+        return False
+    return not (lat_value == 0 and lon_value == 0)
+
+
+def _serial_from_mapping(row):
+    if not isinstance(row, dict):
+        return None
+    return row.get("SERIAL") or row.get("serial")
+
+
+def _with_f_steering_live_aliases(record: dict) -> dict:
+    """Add F-Steering-friendly fields without removing the original 4skelion fields."""
+    if not isinstance(record, dict):
+        return record
+
+    enriched = dict(record)
+    lat = enriched.get("LATITUDE", enriched.get("latitude", enriched.get("LAT")))
+    lon = enriched.get("LONGITUDE", enriched.get("longitude", enriched.get("LON")))
+    enriched["LAT"] = lat
+    enriched["LON"] = lon
+    enriched["GEOLOCK"] = "LOCKED" if _is_geolocked(lat, lon) else "UNLOCKED"
+    enriched["OPERATOR"] = f_steering_operator_from_serial(enriched.get("SERIAL"))
+    return enriched
+
+
+def _filter_f_steering_serials(serials, include: bool):
+    return [s for s in serials if is_f_steering_serial(s) is include]
+
+
+def _filter_f_steering_pairs(pairs, include: bool):
+    return [p for p in pairs if is_f_steering_serial(_serial_from_mapping(p)) is include]
+
+
 def get_db():
     """Get database session."""
     db = SessionLocal()
@@ -62,6 +133,27 @@ def list_live_serial_name_pairs():
         return pairs
     finally:
         db.close()
+
+
+
+def list_4skelion_live_serials():
+    """Return live serials for standard 4skelion pages, excluding F-Steering serials."""
+    return _filter_f_steering_serials(list_live_serials(), include=False)
+
+
+def list_f_steering_serials():
+    """Return live serials that belong to the F-Steering rotating donor group."""
+    return _filter_f_steering_serials(list_live_serials(), include=True)
+
+
+def list_4skelion_serial_name_pairs():
+    """Return serial/name pairs for standard 4skelion pages, excluding F-Steering serials."""
+    return _filter_f_steering_pairs(list_live_serial_name_pairs(), include=False)
+
+
+def list_f_steering_serial_name_pairs():
+    """Return serial/name pairs for F-Steering systems only."""
+    return _filter_f_steering_pairs(list_live_serial_name_pairs(), include=True)
 
 def list_live_probes_serial_name_pairs():
     db = SessionLocal_2()
@@ -1053,6 +1145,37 @@ def get_live_records_by_serial(serial: str):
     finally:
         db.close()
 
+
+
+def get_4skelion_live_records_by_serial(serial: str):
+    """Return standard 4skelion live records; F-Steering serials are intentionally excluded."""
+    if is_f_steering_serial(serial):
+        return []
+    return get_live_records_by_serial(serial)
+
+
+def get_f_steering_live_records_by_serial(serial: str):
+    """Return live records for one F-Steering serial with F-Steering-friendly aliases."""
+    if not is_f_steering_serial(serial):
+        return []
+    return [_with_f_steering_live_aliases(row) for row in get_live_records_by_serial(serial)]
+
+
+def live_4skelion_serials_with_locations():
+    """Return standard 4skelion map locations, excluding F-Steering serials."""
+    return _filter_f_steering_pairs(live_serials_with_locations(), include=False)
+
+
+def live_f_steering_serials_with_locations():
+    """Return F-Steering map locations only."""
+    return _filter_f_steering_pairs(live_serials_with_locations(), include=True)
+
+
+def export_f_steering_live_csv(serial: str) -> str:
+    """Export live CSV only for F-Steering serials."""
+    if not is_f_steering_serial(serial):
+        return ""
+    return export_live_csv(serial)
 
 def live_serials_with_locations():
     """Return list of dicts {serial, latitude, longitude} for rows with valid coordinates from database."""

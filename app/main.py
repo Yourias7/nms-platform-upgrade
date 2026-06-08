@@ -5,6 +5,18 @@ get_historic_records_by_serial, get_all_historic_records, get_live_records_by_pr
 export_live_csv, export_historic_csv, live_serials_with_locations, historic_serials_with_locations,list_3skelion_serials,list_3skelion_serial_name_pairs,
 get_3skelion_live_records_by_serial, live_3skelion_serials_with_locations,list_3skelion_playback_serials,get_3skelion_historic_records_by_serial,
 get_3skelion_alarm_records_by_serial,get_3skelion_alarm_statistics,export_3skelion_live_csv, get_all_3skelion_historic_records, export_3skelion_historic_csv)
+
+from app.data_source import (
+    get_4skelion_live_records_by_serial,
+    get_f_steering_live_records_by_serial,
+    list_4skelion_live_serials,
+    list_4skelion_serial_name_pairs,
+    list_f_steering_serials,
+    list_f_steering_serial_name_pairs,
+    live_4skelion_serials_with_locations,
+    live_f_steering_serials_with_locations,
+    export_f_steering_live_csv,
+)
 from fastapi.responses import StreamingResponse, FileResponse, RedirectResponse # type: ignore
 import io
 import mimetypes
@@ -45,7 +57,7 @@ async def disable_cache_for_dev(request: Request, call_next):
 
 @app.get("/Systems/Live/{serial}")
 def get_system(serial: str):
-    data = get_live_records_by_serial(serial)
+    data = get_4skelion_live_records_by_serial(serial)
     logger.info(f"Retrieved {len(data)} records for SERIAL: {serial}")
     return data
 
@@ -153,8 +165,8 @@ def get_latest_datetime(serial: str, latest: str):
 @app.get("/systems/Live/serials")
 def list_live_serials_endpoint():
     """Return a list of all distinct SERIAL values."""
-    serials = list_live_serials()
-    logger.info(f"Returning {len(serials)} distinct serials")
+    serials = list_4skelion_live_serials()
+    logger.info(f"Returning {len(serials)} distinct 4skelion serials")
     return serials
 
 @app.get("/probes/Live/serials")
@@ -167,7 +179,7 @@ def list_live_probes_endpoint():
 @app.get("/systems/Live/names")
 def list_live_names_endpoint():
     """Return a list of all distinct NAME values."""
-    pairs = list_live_serial_name_pairs()
+    pairs = list_4skelion_serial_name_pairs()
     return pairs
 
 @app.get("/probes/Live/names")
@@ -259,6 +271,22 @@ def detailed_liveview_f_qual(request: Request):
     except Exception:
         return templates.TemplateResponse(request=request, name="coming_soon.html")
 
+@app.get("/f-steering/liveview")
+def liveview_f_steering(request: Request):
+    """Render the F-Steering live view UI."""
+    try:
+        return templates.TemplateResponse(request=request, name="f-steering/liveview.html")
+    except Exception:
+        return templates.TemplateResponse(request=request, name="coming_soon.html")
+
+@app.get("/f-steering/detailed-liveview")
+def detailed_liveview_f_steering(request: Request):
+    """Render the F-Steering detailed live view UI."""
+    try:
+        return templates.TemplateResponse(request=request, name="f-steering/detailed-liveview.html")
+    except Exception:
+        return templates.TemplateResponse(request=request, name="coming_soon.html")
+
 @app.get("/f-qual/dashboard")
 def dashboard_f_qual(request: Request):
     """Render the dashboard UI."""
@@ -293,6 +321,11 @@ def alarms_f_qual(request: Request):
         return RedirectResponse(url="/f-qual/alarms/summary")
     except Exception:
         return templates.TemplateResponse(request=request, name="coming_soon.html", context={"request": request})
+
+@app.get("/f-steering/alarms")
+def alarms_f_steering(request: Request):
+    """F-Steering alarms page will be implemented in the next step."""
+    return templates.TemplateResponse(request=request, name="coming_soon.html", context={"request": request})
 
 @app.get("/4skelion/alarms/communication")
 def communication_alarms_4skelion(request: Request):
@@ -381,6 +414,11 @@ def playback_f_qual(request: Request):
     except Exception:
         return templates.TemplateResponse(request=request, name="coming_soon.html", context={"request": request})
 
+@app.get("/f-steering/playback")
+def playback_f_steering(request: Request):
+    """F-Steering playback page will be implemented in the next step."""
+    return templates.TemplateResponse(request=request, name="coming_soon.html", context={"request": request})
+
 @app.get("/4skelion/settings")
 def settings_4skelion(request: Request):
     """Render the settings UI."""
@@ -448,12 +486,56 @@ def export_historic_serial(serial: str):
 @app.get("/systems/Live/locations")
 def systems_locations():
     """Return list of {serial, latitude, longitude} for serials with coordinates."""
-    return live_serials_with_locations()
+    return live_4skelion_serials_with_locations()
 
 @app.get("/playback/Historic/locations")
 def playback_historic_locations():
     """Return list of {serial, latitude, longitude} for serials with coordinates."""
     return historic_serials_with_locations()
+
+# =========================
+# F-STEERING API (filtered from 4skelion LiveSheet$)
+# =========================
+
+@app.get("/f-steering/systems/Live/serials")
+def list_f_steering_serials_endpoint():
+    """Return F-Steering serials from the 4skelion live source."""
+    serials = list_f_steering_serials()
+    logger.info(f"Returning {len(serials)} distinct F-Steering serials")
+    return serials
+
+
+@app.get("/f-steering/systems/Live/names")
+def list_f_steering_names_endpoint():
+    """Return F-Steering serial/name pairs from the 4skelion live source."""
+    return list_f_steering_serial_name_pairs()
+
+
+@app.get("/f-steering/Systems/Live/{serial}")
+def get_f_steering_system(serial: str):
+    """Return latest F-Steering records for SERIAL from the 4skelion live source."""
+    data = get_f_steering_live_records_by_serial(serial)
+    logger.info(f"Retrieved {len(data)} F-Steering records for SERIAL: {serial}")
+    return data
+
+
+@app.get("/f-steering/systems/Live/locations")
+def systems_locations_f_steering():
+    """Return latest locations for F-Steering map markers."""
+    return live_f_steering_serials_with_locations()
+
+
+@app.get("/f-steering/export/Live/{serial}")
+def export_f_steering_serial(serial: str):
+    """Export F-Steering live records for a serial as CSV."""
+    filename = f"{serial}.csv"
+    csv_text = export_f_steering_live_csv(serial)
+    return Response(
+        content=csv_text,
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename=\"{filename}\""}
+    )
+
 
 # =========================
 # 3SKELION API (NewSheet_Last15Days$)
