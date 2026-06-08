@@ -29,6 +29,7 @@ export const CONFIG = {
     PROBE_SYSTEMS: `${API_PREFIX}/Probes/Live`,
     PROBE_NAME_MAP: `${API_PREFIX}/probes/Live/names`,
     PROBE_HISTORIC_NAME_MAP: `${API_PREFIX}/probes/playback/Historic/names`,
+    PROBE_LIVE_NAME_MAP: `${API_PREFIX}/probes/Live/names`,
     PROBE_HISTORIC_SERIALS: `${API_PREFIX}/probes/playback/Historic/serials`,
     PROBE_HISTORIC_SYSTEMS: `${API_PREFIX}/Probes/playback/Historic`,
   },

@@ -382,6 +382,28 @@ export async function fetchHistoricProbeNameMap() {
 }
 
 /**
+* @returns {Promise<Object>} map like { "123": "BOAT_A", ... }
+ */
+export async function fetchLiveProbeNameMap() {
+  const res = await fetch(CONFIG.API.PROBE_LIVE_NAME_MAP);
+  const payload = await res.json();
+
+  // If backend already returns an object map
+  if (payload && !Array.isArray(payload) && typeof payload === 'object') {
+    return payload;
+  }
+
+  // If backend returns array of objects
+  const map = {};
+  (payload || []).forEach((x) => {
+    const serial = x?.SERIAL ?? x?.serial ?? x?.Serial ?? x?.id;
+    const name = x?.NAME ?? x?.name ?? x?.Name ?? x?.label;
+    if (serial) map[String(serial)] = name ?? String(serial);
+  });
+  return map;
+}
+
+/**
  * Get export URL for a serial
  * @param {string} serial - Serial number to export
  * @returns {string} Export URL
@@ -397,4 +419,82 @@ export function getExportUrl(serial) {
  */
 export function getHistoricExportUrl(serial) {
   return `${CONFIG.API.HISTORIC_EXPORT}/${encodeURIComponent(serial)}`;
+}
+
+/**
+ * Fetch instant RSRP probe data for a date range
+ * @param {string} serial - Serial number to fetch
+ * @returns {Promise<Object>} RSRP data
+ */
+export async function fetchInstantRsrpProbeData(serial) {
+  const url = `/probes/rsrp/live/${encodeURIComponent(serial)}`;
+  const res = await fetch(url);
+  return await res.json();
+}
+
+/**
+ * Fetch average RSRP probe data for a date range
+ * @param {string} serial - Serial number to fetch
+ * @returns {Promise<Object>} RSRP data
+ */
+export async function fetchAverageRsrpProbeData(serial) {
+  const url = `/probes/rsrp/${encodeURIComponent(serial)}`;
+  const res = await fetch(url);
+  return await res.json();
+}
+
+/**
+ * Fetch instant SINR probe data for a date range
+ * @param {string} serial - Serial number to fetch
+ * @returns {Promise<Object>} SINR data
+ */
+export async function fetchInstantSinrProbeData(serial) {
+  const url = `/probes/sinr/live/${encodeURIComponent(serial)}`;
+  const res = await fetch(url);
+  return await res.json();
+}
+
+/**
+ * Fetch average SINR probe data for a date range
+ * @param {string} serial - Serial number to fetch
+ * @returns {Promise<Object>} SINR data
+ */
+export async function fetchAverageSinrProbeData(serial) {
+  const url = `/probes/sinr/${encodeURIComponent(serial)}`;
+  const res = await fetch(url);
+  return await res.json();
+}
+
+/**
+ * Fetch average RTT probe data for a date range
+ * @param {string} serial - Serial number to fetch
+ * @returns {Promise<Object>} RTT data
+ */
+export async function fetchInstantRttProbeData(serial) {
+  const url = `/probes/rtt/live/${encodeURIComponent(serial)}`;
+  const res = await fetch(url);
+  return await res.json();
+}
+
+
+/**
+ * Fetch average RTT probe data for a date range
+ * @param {string} serial - Serial number to fetch
+ * @returns {Promise<Object>} RTT data
+ */
+export async function fetchAverageRttProbeData(serial) {
+  const url = `/probes/rtt/${encodeURIComponent(serial)}`;
+  const res = await fetch(url);
+  return await res.json();
+}
+
+/**
+ * Fetch average RTT probe data for a date range
+ * @param {string} serial - Serial number to fetch
+ * @returns {Promise<Object>} RTT data
+ */
+export async function fetchInstantTempProbeData(serial) {
+  const url = `/probes/temp/live/${encodeURIComponent(serial)}`;
+  const res = await fetch(url);
+  return await res.json();
 }

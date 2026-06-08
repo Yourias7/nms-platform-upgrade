@@ -2,18 +2,37 @@
 // Map initialization and marker management
 
 import { CONFIG } from '../shared/config.js';
-import { fetchProbeData } from '../shared/api.js';
+import { fetchSerialData } from '../shared/api.js';
 import { getFieldCaseInsensitive, safeParseFloat } from '../shared/utils.js';
 
 // Module state
 let map = null;
 let markers = [];
-let customIcon = null;
-let useCustomIcon = false;
-let customIconUrl = null;
+
+// Define your default system color here
+const SYSTEM_DEFAULT_COLOR = '#0d6efd'; 
 
 // Used to cancel outdated async updates (prevents “snap back” after click)
 let updateSeq = 0;
+
+// Generate a directional arrow icon based on heading and color
+export function getDirectionalIcon(heading, color) {
+  const html = `
+    <div style="transform: rotate(${heading}deg); transform-origin: center; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; filter: drop-shadow(0px 2px 3px rgba(0,0,0,0.4));">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="${color}" stroke="#ffffff" stroke-width="1.5" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 2L22 22L12 18L2 22L12 2Z" />
+      </svg>
+    </div>
+  `;
+  
+  return L.divIcon({
+    html: html,
+    className: 'system-directional-marker', // Avoids default white leaflet background
+    iconSize: [28, 28],
+    iconAnchor: [14, 14], // Centers the icon over the coordinate
+    popupAnchor: [0, -14]
+  });
+}
 
 function getLastUpdatedText(dateValue) {
   const lastUpdate = dateValue ? new Date(dateValue) : null;
@@ -99,76 +118,11 @@ export function getMap() {
 }
 
 /**
- * Preload custom marker icon with PNG -> SVG -> embedded fallback
+ * Safely stubbed to prevent breaking legacy calls. 
+ * Old PNG/SVG loading logic removed in favor of inline SVG.
  */
 export function preloadCustomIcon() {
-  console.log('[map] preloadCustomIcon: attempting PNG');
-  const png = new Image();
-
-  png.onload = () => {
-    try {
-      customIcon = L.icon({
-        iconUrl: CONFIG.MARKER.PNG_PATH,
-        iconSize: CONFIG.MARKER.ICON_SIZE,
-        iconAnchor: CONFIG.MARKER.ICON_ANCHOR,
-        popupAnchor: CONFIG.MARKER.POPUP_ANCHOR
-      });
-      customIconUrl = CONFIG.MARKER.PNG_PATH;
-      useCustomIcon = true;
-      console.log('[map] using PNG as marker icon');
-    } catch (e) {
-      console.warn('[map] failed to create icon from PNG', e);
-      useCustomIcon = false;
-    }
-  };
-
-  png.onerror = () => {
-    console.log('[map] PNG not found, attempting SVG');
-    const svgImg = new Image();
-
-    svgImg.onload = () => {
-      try {
-        customIcon = L.icon({
-          iconUrl: CONFIG.MARKER.SVG_PATH,
-          iconSize: CONFIG.MARKER.ICON_SIZE,
-          iconAnchor: CONFIG.MARKER.ICON_ANCHOR,
-          popupAnchor: CONFIG.MARKER.POPUP_ANCHOR
-        });
-        customIconUrl = CONFIG.MARKER.SVG_PATH;
-        useCustomIcon = true;
-        console.log('[map] using SVG as marker icon');
-      } catch (e) {
-        console.warn('[map] failed to create icon from SVG', e);
-        useCustomIcon = false;
-      }
-    };
-
-    svgImg.onerror = () => {
-      console.log('[map] SVG not found, using embedded fallback');
-      const dataUrl = 'data:image/svg+xml;utf8,' + encodeURIComponent(CONFIG.MARKER.FALLBACK_SVG);
-
-      try {
-        customIcon = L.icon({
-          iconUrl: dataUrl,
-          iconSize: CONFIG.MARKER.ICON_SIZE,
-          iconAnchor: CONFIG.MARKER.ICON_ANCHOR,
-          popupAnchor: CONFIG.MARKER.POPUP_ANCHOR
-        });
-        customIconUrl = dataUrl;
-        useCustomIcon = true;
-        console.log('[map] using embedded SVG as marker icon');
-      } catch (e) {
-        console.warn('[map] failed to create embedded icon', e);
-        useCustomIcon = false;
-        customIcon = null;
-        customIconUrl = null;
-      }
-    };
-
-    svgImg.src = CONFIG.MARKER.SVG_PATH;
-  };
-
-  png.src = CONFIG.MARKER.PNG_PATH;
+  console.log('[map] preloadCustomIcon bypassed: Using inline SVG getDirectionalIcon instead.');
 }
 
 /**
@@ -224,7 +178,7 @@ export async function updateMapMarkers(serialList, { fit = true } = {}) {
 
   for (const serial of serialList) {
     try {
-      const data = await fetchProbeData(serial);
+      const data = await fetchSerialData(serial);
 
       // If a newer update started, stop immediately
       if (seq !== updateSeq) return;
@@ -234,15 +188,7 @@ export async function updateMapMarkers(serialList, { fit = true } = {}) {
       data.forEach(row => {
         const lat = getFieldCaseInsensitive(row, ['latitude', 'lat']);
         const lon = getFieldCaseInsensitive(row, ['longitude', 'lon']);
-        const heading = getFieldCaseInsensitive(row, ['heading', 'he', 'heading']);
-        const rsrp = getFieldCaseInsensitive(row, ['rsrp', 'RSRP']);
-        const sinr = getFieldCaseInsensitive(row, ['sinr', 'SINR']);
-        const temp = getFieldCaseInsensitive(row, ['temp', 'TEMP', 'temperature']);
-        const name = getFieldCaseInsensitive(row, ['name', 'NAME']);
-        const earfcn = getFieldCaseInsensitive(row, ['earfcn', 'EARFCN']);
-        const pci = getFieldCaseInsensitive(row, ['pci', 'PCI']);
-        const antenna_used = getFieldCaseInsensitive(row, ['antenna used', 'ANTENNA USED']);
-        const cid = getFieldCaseInsensitive(row, ['cid', 'CID']);
+        const heading = getFieldCaseInsensitive(row, ['heading', 'he']);
         const date = getFieldCaseInsensitive(row, ['datetime', 'DATETIME']);
 
         const latf = safeParseFloat(lat);
@@ -252,30 +198,16 @@ export async function updateMapMarkers(serialList, { fit = true } = {}) {
         if (!Number.isFinite(latf) || !Number.isFinite(lonf)) return;
         if (latf === 0 && lonf === 0) return;
 
+        // Parse heading safely
         const headingDeg = safeParseFloat(heading, 0);
-        const rsrpVal = rsrp !== null ? safeParseFloat(rsrp).toFixed(1) : 'N/A';
-        const sinrVal = sinr !== null ? safeParseFloat(sinr).toFixed(1) : 'N/A';
-        const tempVal = temp !== null ? safeParseFloat(temp).toFixed(1) : 'N/A';
 
-        let marker;
-        if (useCustomIcon && customIconUrl) {
-          if (headingDeg && headingDeg !== 0) {
-            // Rotated marker using DivIcon
-            const html = `<img src="${customIconUrl}" style="width:40px;height:40px;transform:rotate(${headingDeg}deg);transform-origin:20px 20px;"/>`;
-            const divIcon = L.divIcon({
-              html,
-              className: '',
-              iconSize: CONFIG.MARKER.ICON_SIZE,
-              iconAnchor: CONFIG.MARKER.ICON_ANCHOR,
-              popupAnchor: CONFIG.MARKER.POPUP_ANCHOR
-            });
-            marker = L.marker([latf, lonf], { icon: divIcon }).addTo(map);
-          } else {
-            marker = L.marker([latf, lonf], { icon: customIcon }).addTo(map);
-          }
-        } else {
-          marker = L.marker([latf, lonf]).addTo(map);
-        }
+        // Render the new directional SVG Icon
+        const icon = getDirectionalIcon(headingDeg, SYSTEM_DEFAULT_COLOR);
+        
+        const marker = L.marker([latf, lonf], { 
+          icon: icon,
+          zIndexOffset: 100
+        }).addTo(map);
 
         const tooltipContent = buildMarkerTooltipContent(row, serial);
 
@@ -285,7 +217,7 @@ export async function updateMapMarkers(serialList, { fit = true } = {}) {
         // Bind tooltip for hover interaction
         marker.bindTooltip(tooltipContent, {
           direction: 'top',
-          offset: [0, -45]
+          offset: [0, -15] // Adjusted slightly closer to fit the SVG sizing
         });
 
         markers.push(marker);

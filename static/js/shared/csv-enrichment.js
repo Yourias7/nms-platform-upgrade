@@ -81,7 +81,7 @@ export function parseCSVContent(csvText) {
 }
 
 export function validateCsvHeaders(headers) {
-  const required = ['BEST_CELLID'];
+  const required = ['BEST_CELLID', 'ENBID']; // Added ENBID as a required column
   const headerSet = new Set(headers.map(h => String(h).trim().toUpperCase()));
 
   for (const col of required) {
@@ -95,41 +95,53 @@ export function validateCsvHeaders(headers) {
 
 export function buildCsvIndex(csvData) {
   const index = {};
+  const indexByEnb = {}; // New O(1) lookup table for ENBID -> Array of Cells
   const extraColumns = new Set();
-  const requiredCols = ['BEST_CELLID'];
+  const requiredCols = ['BEST_CELLID', 'ENBID'];
 
   csvData.forEach(row => {
     const cellid = String(row.BEST_CELLID || '').trim();
-    if (!cellid) return;
+    const enbid = String(row.ENBID || '').trim();
+    
+    if (!cellid && !enbid) return;
 
-    if (index[cellid]) {
-      return;
-    }
-
-    const enrichment = {};
+    const enrichment = { BEST_CELLID: cellid, ENBID: enbid };
+    
     Object.entries(row).forEach(([colName, value]) => {
-      if (!requiredCols.includes(colName)) {
+      if (!requiredCols.includes(colName.toUpperCase())) {
         enrichment[colName] = value;
         extraColumns.add(colName);
       }
     });
 
-    index[cellid] = enrichment;
+    // 1. Map by BEST_CELLID (1-to-1)
+    if (cellid && !index[cellid]) {
+      index[cellid] = enrichment;
+    }
+
+    // 2. Map by ENBID (1-to-Many grouping)
+    if (enbid) {
+      if (!indexByEnb[enbid]) indexByEnb[enbid] = [];
+      indexByEnb[enbid].push(enrichment);
+    }
   });
 
   return {
     index,
+    indexByEnb, // Export the new index
     extraColumns: Array.from(extraColumns)
   };
 }
 
-export async function saveCsvEnrichmentToStorage({ fileName, rowCount, index, enrichmentColumns }) {
+// Update the payload in saveCsvEnrichmentToStorage
+export async function saveCsvEnrichmentToStorage({ fileName, rowCount, index, indexByEnb, enrichmentColumns }) {
   const payload = {
     fileName: String(fileName || 'uploaded.csv'),
     uploadedAt: new Date().toISOString(),
     rowCount: Number(rowCount || 0),
     enrichmentColumns: Array.isArray(enrichmentColumns) ? enrichmentColumns : [],
-    index: index || {}
+    index: index || {},
+    indexByEnb: indexByEnb || {} // Save the new index
   };
 
   const serialized = JSON.stringify(payload);
@@ -171,7 +183,6 @@ export async function saveCsvEnrichmentToStorage({ fileName, rowCount, index, en
 
 export async function loadCsvEnrichmentFromStorage() {
   try {
-    // Try IndexedDB first
     const db = await initDB();
     return new Promise((resolve, reject) => {
       const transaction = db.transaction([STORE_NAME], 'readonly');
@@ -179,63 +190,41 @@ export async function loadCsvEnrichmentFromStorage() {
       const request = store.get(CSV_ENRICHMENT_STORAGE_KEY);
       
       request.onerror = () => {
-        console.warn('[CSV Storage] IndexedDB read failed, falling back to localStorage');
-        // Fallback to localStorage
         const raw = localStorage.getItem(CSV_ENRICHMENT_STORAGE_KEY);
-        if (!raw) {
-          resolve(null);
-          return;
-        }
-        try {
-          const data = JSON.parse(raw);
-          resolve({
-            fileName: data.fileName || 'uploaded.csv',
-            uploadedAt: data.uploadedAt || null,
-            rowCount: Number(data.rowCount || 0),
-            enrichmentColumns: Array.isArray(data.enrichmentColumns) ? data.enrichmentColumns : [],
-            index: data.index || {}
-          });
-        } catch (error) {
-          console.error('[CSV Storage] Failed to parse localStorage data', error);
-          resolve(null);
-        }
+        if (!raw) { resolve(null); return; }
+        const data = JSON.parse(raw);
+        resolve({
+          fileName: data.fileName || 'uploaded.csv',
+          rowCount: Number(data.rowCount || 0),
+          enrichmentColumns: data.enrichmentColumns || [],
+          index: data.index || {},
+          indexByEnb: data.indexByEnb || {} // <-- Added
+        });
       };
       
       request.onsuccess = () => {
         const data = request.result;
-        if (!data) {
-          resolve(null);
-          return;
-        }
+        if (!data) { resolve(null); return; }
         resolve({
           fileName: data.fileName || 'uploaded.csv',
-          uploadedAt: data.uploadedAt || null,
           rowCount: Number(data.rowCount || 0),
-          enrichmentColumns: Array.isArray(data.enrichmentColumns) ? data.enrichmentColumns : [],
-          index: data.index || {}
+          enrichmentColumns: data.enrichmentColumns || [],
+          index: data.index || {},
+          indexByEnb: data.indexByEnb || {} // <-- Added
         });
       };
     });
   } catch (error) {
-    console.error('[CSV Storage] Failed to initialize IndexedDB', error);
-    // Fallback to localStorage
     const raw = localStorage.getItem(CSV_ENRICHMENT_STORAGE_KEY);
     if (!raw) return null;
-
-    try {
-      const data = JSON.parse(raw);
-      if (!data || typeof data !== 'object') return null;
-      return {
-        fileName: data.fileName || 'uploaded.csv',
-        uploadedAt: data.uploadedAt || null,
-        rowCount: Number(data.rowCount || 0),
-        enrichmentColumns: Array.isArray(data.enrichmentColumns) ? data.enrichmentColumns : [],
-        index: data.index || {}
-      };
-    } catch (parseError) {
-      console.error('[CSV Storage] Failed to parse stored CSV enrichment data', parseError);
-      return null;
-    }
+    const data = JSON.parse(raw);
+    return {
+      fileName: data.fileName || 'uploaded.csv',
+      rowCount: Number(data.rowCount || 0),
+      enrichmentColumns: data.enrichmentColumns || [],
+      index: data.index || {},
+      indexByEnb: data.indexByEnb || {} // <-- Added
+    };
   }
 }
 

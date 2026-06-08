@@ -7,11 +7,14 @@
   <title>Live View - NMS Platform</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="/static/css/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <!-- <script src="/static/js/shared/error-handler.js"></script> -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
   <!-- favicon (ICO) -->
   <link rel="icon" href="/static/img/favicon.ico" type="image/x-icon">
 
@@ -39,10 +42,10 @@
         <img src="/static/img/New%20folder/Picture1.png" alt="logo" style="height:24px; width:24px; margin-right:8px;" />
         <span>NMS Platform</span>
         <div class="dropdown" style="margin-left: 20px;">
-            <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                Select system
-            </button>
-            <ul id="dropdown-menu" class="dropdown-menu"></ul>
+          <button id="dropdown-toggle" class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+              Select system
+          </button>
+          <ul id="dropdown-menu" class="dropdown-menu"></ul>
         </div>
       </a>
       <ul class="nav nav-pills">
@@ -50,12 +53,11 @@
           <a class="nav-link" href="/">Home</a>
         </li>
         <li class="nav-item">
-          <a class="nav-link active" href="/f-qual/liveview">Live View</a>
+          <a class="nav-link active" href="/f-qual/dashboard">Dashboard</a>
         </li>
         <li class="nav-item">
           <a class="nav-link" id="tab-alarms" href="/f-qual/alarms">Alarms</a>
         </li>
-        <li class="nav-item">
         <li class="nav-item">
           <a class="nav-link" href="/f-qual/playback">Playback</a>
         </li>
@@ -68,9 +70,95 @@
   <main class="container">
     <!-- Dashboard Content -->
     <div class="row">
-        <h5 class="card-title mb-0">System Information</h5>
-        <div id="systems-container" class="d-flex flex-wrap gap-3 mt-3">
-            <!-- System cards will be dynamically inserted here --> 
+        <h5 class="card-title mb-0"><i class="bi bi-cpu me-2" style="color: #a78bfa;"></i>System Information</h5>
+        <div id="systems-container" class="d-flex flex-wrap gap-3 mt-3" align-content="center">
+            <!-- System cards will be dynamically inserted here -->
+            <div id="system-card" class="card">
+                <div class="card-title d-flex justify-content-between align-items-center" style="padding: 0.5rem 1rem; font-size: 1.25rem; font-weight: 500;">
+                    RSRP / Signal Strength
+                    <i class="bi bi-reception-4" style="font-size: 1.5rem; color: #764ba2; padding: 0.25rem;"></i>
+                </div>
+                <div class="card-body">
+                    <h1 id="rsrp-title" class="card-title">N/A</h5>
+                    <p id="rsrp-desc" class="card-text">Please select a system</p>
+                </div>
+            </div>
+            <div id="system-card" class="card">
+                <div class="card-title d-flex justify-content-between align-items-center" style="padding: 0.5rem 1rem; font-size: 1.25rem; font-weight: 500; width: 318px;">
+                    SINR / Signal-to-Noise Ratio
+                    <i class="bi bi-activity" style="font-size: 1.5rem; color: #764ba2; padding: 0.25rem;"></i>
+                </div>
+                <div class="card-body">
+                    <h1 id="sinr-title" class="card-title">N/A</h5>
+                    <p id="sinr-desc" class="card-text">Please select a system</p>
+                </div>
+            </div>
+            <div id="system-card" class="card">
+                <div class="card-title d-flex justify-content-between align-items-center" style="padding: 0.5rem 1rem; font-size: 1.25rem; font-weight: 500;">
+                    RTT / Round-Trip Time
+                    <i class="bi bi-stopwatch" style="font-size: 1.5rem; color: #764ba2; padding: 0.25rem;"></i>
+                </div>
+                <div class="card-body">
+                    <h1 id="rtt-title" class="card-title">N/A</h5>
+                    <p id="rtt-desc" class="card-text">Please select a system</p>
+                </div>
+            </div>
+            <div id="system-card" class="card">
+                <div class="card-title d-flex justify-content-between align-items-center" style="padding: 0.5rem 1rem; font-size: 1.25rem; font-weight: 500;">
+                    Temperature
+                    <i class="bi bi-thermometer-half" style="font-size: 1.5rem; color: #764ba2; padding: 0.25rem;"></i>
+                </div>
+                <div class="card-body">
+                    <h1 id="temp-title" class="card-title">N/A</h5>
+                    <p id="temp-desc" class="card-text">Please select a system</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="row">
+        <h5 class="card-title mb-0" style="margin-top: 1rem;"><i class="bi bi-geo-alt me-2" style="color: #a78bfa;"></i>Geolocation</h5>
+        <div id="dashboard-map" style="height: 400px; width: 100%; margin-top: 1rem; border-radius: 0.375rem;"></div>
+    </div>
+    <div class="row mt-4 mb-5">
+        <h5 class="card-title mb-0" style="margin-top: 1rem;"><i class="bi bi-clock-history me-2" style="color: #a78bfa;"></i>Historical Timeline</h5>
+        <div class="col-12" style="margin-top: 1rem;">
+            <div class="card" style="background: rgba(22, 27, 43, 0.95); border: 1px solid rgba(255, 255, 255, 0.1);">
+                <div class="card-header d-flex justify-content-between align-items-center" style="border-bottom: 1px solid rgba(255, 255, 255, 0.1);">
+                    
+                    <ul class="nav nav-pills" id="chart-metric-toggles">
+                        <li class="nav-item">
+                            <a class="nav-link active" href="#" data-metric="rsrp">RSRP</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#" data-metric="sinr">SINR</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#" data-metric="rtt">RTT</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#" data-metric="temp">Temperature</a>
+                        </li>
+                    </ul>
+
+                    <div class="btn-group" role="group" id="chart-time-toggles">
+                        <input type="radio" class="btn-check" name="timeradio" id="timeradio1" autocomplete="off" data-days="1" checked>
+                        <label class="btn btn-outline-primary" for="timeradio1">24h</label>
+
+                        <input type="radio" class="btn-check" name="timeradio" id="timeradio2" autocomplete="off" data-days="7">
+                        <label class="btn btn-outline-primary" for="timeradio2">7d</label>
+
+                        <input type="radio" class="btn-check" name="timeradio" id="timeradio3" autocomplete="off" data-days="30">
+                        <label class="btn btn-outline-primary" for="timeradio3">30d</label>
+                    </div>
+
+                </div>
+                <div class="card-body">
+                    <div style="position: relative; height: 350px; width: 100%;">
+                        <canvas id="evolution-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
   </main>
 

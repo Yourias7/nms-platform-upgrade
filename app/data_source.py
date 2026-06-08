@@ -428,7 +428,7 @@ def get_historic_records_by_probe(serial: str, early: str = None, latest: str = 
         ser = str(serial).strip()
         sdate = datetime.fromisoformat(early) if early else None
         edate = datetime.fromisoformat(latest) if latest else None
-        cutoff = datetime.utcnow() - timedelta(days=15)
+        cutoff = datetime.utcnow() - timedelta(days=40)
         base_query = (
             db.query(
                 ProbesHistoricMeasurement.SERIAL.label("SERIAL"),
@@ -1097,6 +1097,7 @@ def get_live_records_by_serial(serial: str):
                 "BAND": row.BAND,
                 "PCI": row.PCI, 
                 "ANTENNA USED": row.A_USED,
+                "AZIMUTH": row.AZIMUTH,
                 "RSRP": row.RSRP,
                 "SINR": row.SINR,
                 "TEMP": row.TEMP,
@@ -1394,12 +1395,20 @@ def get_alarm_statistics(early: str = None, latest: str = None, rsrp_threshold: 
             (HistoricMeasurement.SINR <= sinr_threshold) | 
             (HistoricMeasurement.LONGITUDE == 0) | 
             (HistoricMeasurement.LATITUDE == 0) | 
-            (HistoricMeasurement.TEMP >= temp_threshold)
+            (HistoricMeasurement.TEMP >= temp_threshold) |
+            (((HistoricMeasurement.RSRP - HistoricMeasurement.S0RSRP >= 25) |
+            (HistoricMeasurement.RSRP - HistoricMeasurement.S1RSRP >= 25) |
+            (HistoricMeasurement.RSRP - HistoricMeasurement.S2RSRP >= 25) |
+            (HistoricMeasurement.RSRP - HistoricMeasurement.S3RSRP >= 25)) & (HistoricMeasurement.SPEED > 5))  # Only consider antenna issues when speed is high
         )
         rsrp_condition = (HistoricMeasurement.RSRP <= rsrp_threshold)
         sinr_condition = (HistoricMeasurement.SINR <= sinr_threshold)
         gps_condition = (HistoricMeasurement.LONGITUDE == 0) | (HistoricMeasurement.LATITUDE == 0)
         temp_condition = (HistoricMeasurement.TEMP >= temp_threshold)
+        rsrp_diff_condition = ((HistoricMeasurement.RSRP - HistoricMeasurement.S0RSRP >= 25) |
+                               (HistoricMeasurement.RSRP - HistoricMeasurement.S1RSRP >= 25) |
+                               (HistoricMeasurement.RSRP - HistoricMeasurement.S2RSRP >= 25) |
+                               (HistoricMeasurement.RSRP - HistoricMeasurement.S3RSRP >= 25)) & (HistoricMeasurement.SPEED > 5)  # Only consider antenna issues when speed is high
         
         # Single query with GROUP BY and conditional aggregation
         # Uses CASE WHEN in SQL to count alarms in a single pass
@@ -1412,7 +1421,8 @@ def get_alarm_statistics(early: str = None, latest: str = None, rsrp_threshold: 
                 func.sum(case((rsrp_condition, 1), else_=0)).label('rsrp_alarms'),
                 func.sum(case((sinr_condition, 1), else_=0)).label('sinr_alarms'),
                 func.sum(case((gps_condition, 1), else_=0)).label('gps_alarms'),
-                func.sum(case((temp_condition, 1), else_=0)).label('temp_alarms')
+                func.sum(case((temp_condition, 1), else_=0)).label('temp_alarms'),
+                func.sum(case((rsrp_diff_condition, 1), else_=0)).label('rsrp_diff_alarms')
 
             )
             .filter(HistoricMeasurement.DATETIME >= cutoff)
@@ -1434,7 +1444,7 @@ def get_alarm_statistics(early: str = None, latest: str = None, rsrp_threshold: 
         # Build statistics list from query results
         statistics = []
         for row in results:
-            serial, name, total_count, alarm_count, rsrp_alarms, sinr_alarms, gps_alarms, temp_alarms = row
+            serial, name, total_count, alarm_count, rsrp_alarms, sinr_alarms, gps_alarms, temp_alarms, antenna_issue_alarms = row
             percentage = (alarm_count / total_count * 100) if total_count > 0 else 0
             
             statistics.append({
@@ -1446,7 +1456,8 @@ def get_alarm_statistics(early: str = None, latest: str = None, rsrp_threshold: 
                 "rsrp_alarms": rsrp_alarms,
                 "sinr_alarms": sinr_alarms,
                 "gps_alarms": gps_alarms,
-                "temp_alarms": temp_alarms
+                "temp_alarms": temp_alarms,
+                "rsrp_diff_alarms": antenna_issue_alarms
             })
         
         # Sort by alarm percentage descending
@@ -2373,19 +2384,102 @@ def export_3skelion_historic_csv(serial: str, start_date: Optional[str] = None, 
         db.close()
 
 
-def get_probe_rsrp(serial: str, early: str, latest: str):
-    """Return RSRP values for a probe in a date range."""
+def get_probe_rsrp(serial: str):
+    """Return average RSRP for a probe over a date range."""
     db = SessionLocal_2()
     try:
-        sdate = datetime.fromisoformat(early)
-        edate = datetime.fromisoformat(latest)
+        sdate = datetime.now() - timedelta(days=30)  # default to last 30 days if no date provided
+        edate = datetime.now()
 
-        rows = db.query(ProbesHistoricMeasurement.RSRP).filter(
+
+        avg = db.query(
+            func.avg(ProbesHistoricMeasurement.RSRP)
+        ).filter(
             ProbesHistoricMeasurement.SERIAL == serial,
             ProbesHistoricMeasurement.DATETIME >= sdate,
             ProbesHistoricMeasurement.DATETIME <= edate
-        ).all()
+        ).scalar()
 
-        return [r[0] for r in rows if r[0] is not None]
+        return {"average_rsrp": float(avg) if avg is not None else None}
+    finally:
+        db.close()
+        
+def get_instant_probe_rsrp_data(serial: str):
+    """Return instant RSRP for a given probe SERIAL."""
+    db = SessionLocal_2()
+    try:
+        # This is a simplified example - you might want to get the most recent measurement
+        latest_measurement = db.query(RealTimeProbeMeasurement).filter(RealTimeProbeMeasurement.SERIAL == serial).order_by(RealTimeProbeMeasurement.DATETIME.desc()).first()
+        return {"instant_rsrp": float(latest_measurement.RSRP) if latest_measurement else None}
+    finally:
+        db.close()
+        
+def get_probe_sinr(serial: str):
+    """Return average SINR for a probe over a date range."""
+    db = SessionLocal_2()
+    try:
+        sdate = datetime.now() - timedelta(days=30)  # default to last 30 days if no date provided
+        edate = datetime.now()
+
+
+        avg = db.query(
+            func.avg(ProbesHistoricMeasurement.SINR)
+        ).filter(
+            ProbesHistoricMeasurement.SERIAL == serial,
+            ProbesHistoricMeasurement.DATETIME >= sdate,
+            ProbesHistoricMeasurement.DATETIME <= edate
+        ).scalar()
+
+        return {"average_sinr": float(avg) if avg is not None else None}
+    finally:
+        db.close()
+        
+def get_instant_probe_sinr_data(serial: str):
+    """Return instant SINR for a given probe SERIAL."""
+    db = SessionLocal_2()
+    try:
+        # This is a simplified example - you might want to get the most recent measurement
+        latest_measurement = db.query(RealTimeProbeMeasurement).filter(RealTimeProbeMeasurement.SERIAL == serial).order_by(RealTimeProbeMeasurement.DATETIME.desc()).first()
+        return {"instant_sinr": float(latest_measurement.SINR) if latest_measurement else None}
+    finally:
+        db.close()
+        
+def get_probe_rtt(serial: str):
+    """Return average RTT for a probe over a date range."""
+    db = SessionLocal_2()
+    try:
+        sdate = datetime.now() - timedelta(days=30)  # default to last 30 days if no date provided
+        edate = datetime.now()
+
+
+        avg = db.query(
+            func.avg(ProbesHistoricMeasurement.PING_RTT)
+        ).filter(
+            ProbesHistoricMeasurement.SERIAL == serial,
+            ProbesHistoricMeasurement.DATETIME >= sdate,
+            ProbesHistoricMeasurement.DATETIME <= edate
+        ).scalar()
+
+        return {"average_rtt": float(avg) if avg is not None else None}
+    finally:
+        db.close()
+        
+def get_instant_probe_rtt_data(serial: str):
+    """Return instant RTT for a given probe SERIAL."""
+    db = SessionLocal_2()
+    try:
+        # This is a simplified example - you might want to get the most recent measurement
+        latest_measurement = db.query(RealTimeProbeMeasurement).filter(RealTimeProbeMeasurement.SERIAL == serial).order_by(RealTimeProbeMeasurement.DATETIME.desc()).first()
+        return {"instant_rtt": float(latest_measurement.PING_RTT) if latest_measurement else None}
+    finally:
+        db.close()
+        
+def get_instant_probe_temp_data(serial: str):
+    """Return instant temperature for a given probe SERIAL."""
+    db = SessionLocal_2()
+    try:
+        # This is a simplified example - you might want to get the most recent measurement
+        latest_measurement = db.query(RealTimeProbeMeasurement).filter(RealTimeProbeMeasurement.SERIAL == serial).order_by(RealTimeProbeMeasurement.DATETIME.desc()).first()
+        return {"instant_temp": float(latest_measurement.TEMP) if latest_measurement else None}
     finally:
         db.close()

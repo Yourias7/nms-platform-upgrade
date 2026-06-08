@@ -20,7 +20,260 @@ const CELL_DEFAULT_COLOR = '#fd7e14';
 const CELL_SELECTED_COLOR = '#28a745';
 
 let csvCellIndex = {};
+let csvEnbIndex = {};
 let csvCellDetails = new Map();
+
+let compassControl = null;
+
+// Generate a directional arrow icon based on heading and color
+function getDirectionalIcon(heading, color) {
+  const html = `
+    <div style="transform: rotate(${heading}deg); transform-origin: center; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; filter: drop-shadow(0px 2px 3px rgba(0,0,0,0.4));">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="${color}" stroke="#ffffff" stroke-width="1.5" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 2L22 22L12 18L2 22L12 2Z" />
+      </svg>
+    </div>
+  `;
+  
+  return L.divIcon({
+    html: html,
+    className: 'system-directional-marker', // Avoids default white leaflet background
+    iconSize: [28, 28],
+    iconAnchor: [14, 14], // Centers the icon over the coordinate
+    popupAnchor: [0, -14]
+  });
+}
+
+// Add to your global variables at the top
+let connectionLines = [];
+
+// Add this helper function anywhere in the file (e.g., above selectSystem)
+function clearConnectionLines() {
+  connectionLines.forEach(line => {
+    if (mapInstance) mapInstance.removeLayer(line);
+  });
+  connectionLines = [];
+}
+
+// Custom Leaflet Control for the HUD (Compass + Basic Info)
+let systemOverviewControl = null;
+
+L.Control.SystemOverview = L.Control.extend({
+  options: {
+    position: 'topleft' 
+  },
+  onAdd: function(map) {
+    const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
+    
+    // Sleek HUD Styling
+    container.style.backgroundColor = 'rgba(15, 20, 45, 0.95)';
+    container.style.border = '1px solid rgba(102, 126, 234, 0.4)';
+    container.style.padding = '15px';
+    container.style.borderRadius = '8px';
+    container.style.display = 'none'; 
+    container.style.backdropFilter = 'blur(8px)';
+    container.style.boxShadow = '0 8px 32px rgba(0, 0, 0, 0.3)';
+
+    // --- DYNAMIC WIDTH SETTINGS ---
+    container.style.width = 'max-content'; // Snaps to the widest element inside
+    container.style.minWidth = '240px';    // Keeps a clean baseline for short names
+    container.style.maxWidth = '380px';    // Prevents map takeover on huge names
+
+    container.innerHTML = `
+      <div style="text-align: center; margin-bottom: 15px;">
+        <h6 style="margin: 0 0 10px 0; font-size: 0.75rem; color: #adb5bd; text-transform: uppercase; letter-spacing: 1px;">Donor Azimuth</h6>
+        <div style="width: 80px; height: 80px; margin: 0 auto;">
+          <svg viewBox="0 0 100 100" class="w-100 h-100">
+            <circle cx="50" cy="50" r="45" fill="rgba(10, 14, 39, 0.8)" stroke="#495057" stroke-width="2"/>
+            <line x1="50" y1="5" x2="50" y2="10" stroke="#adb5bd" stroke-width="2"/>
+            <line x1="50" y1="90" x2="50" y2="95" stroke="#adb5bd" stroke-width="2"/>
+            <line x1="5" y1="50" x2="10" y2="50" stroke="#adb5bd" stroke-width="2"/>
+            <line x1="90" y1="50" x2="95" y2="50" stroke="#adb5bd" stroke-width="2"/>
+            
+            <text x="50" y="18" text-anchor="middle" fill="#dc3545" font-weight="bold" font-size="10">N</text>
+            <text x="83" y="53.5" text-anchor="middle" fill="#6c757d" font-weight="bold" font-size="9">E</text>
+            <text x="50" y="88" text-anchor="middle" fill="#6c757d" font-weight="bold" font-size="9">S</text>
+            <text x="17" y="53.5" text-anchor="middle" fill="#6c757d" font-weight="bold" font-size="9">W</text>
+            
+            <g id="hudCompassNeedle" style="transform-origin: 50px 50px; transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);">
+              <polygon points="45,50 55,50 50,22" fill="#dc3545"/>
+              <polygon points="45,50 55,50 50,78" fill="#adb5bd"/>
+              <circle cx="50" cy="50" r="4" fill="#191e38" stroke="#adb5bd" stroke-width="1.5"/>
+            </g>
+          </svg>
+        </div>
+        <div style="margin-top: 8px; font-weight: bold; color: #0d6efd; font-size: 1.2rem;" id="hudCompassValue">--°</div>
+      </div>
+
+      <div style="border-top: 1px solid rgba(255, 255, 255, 0.1); padding-top: 12px;">
+        <h6 style="margin: 0 0 10px 0; font-size: 0.75rem; color: #adb5bd; text-transform: uppercase; letter-spacing: 1px; text-align: center;">System Basic Info</h6>
+        
+        <div style="color: #fff; font-size: 1rem; font-weight: 600; margin-bottom: 2px; text-align: center; word-break: break-word;" id="hudName">--</div>
+        <div class="text-secondary text-center" style="font-size: 0.8rem; margin-bottom: 12px;" id="hudSerial">--</div>
+        
+        <div style="font-size: 0.85rem; color: #e9ecef;">
+          <div class="d-flex justify-content-between mb-1"><span style="margin-right: 20px;">EARFCN</span> <strong id="hudEarfcn">--</strong></div>
+          <div class="d-flex justify-content-between mb-1"><span style="margin-right: 20px;">RSRP</span> <strong id="hudRsrp">--</strong></div>
+          <div class="d-flex justify-content-between mb-1"><span style="margin-right: 20px;">RSRQ</span> <strong id="hudRsrq">--</strong></div>
+          <div class="d-flex justify-content-between mb-1"><span style="margin-right: 20px;">SINR</span> <strong id="hudSinr">--</strong></div>
+          <div class="d-flex justify-content-between"><span style="margin-right: 20px;">Temp</span> <strong id="hudTemp">--</strong></div>
+        </div>
+        
+        <div id="hudDate" style="font-size: 0.7rem; color: #6c757d; margin-top: 12px; text-align: center;">--</div>
+      </div>
+    `;
+    
+    L.DomEvent.disableClickPropagation(container);
+    return container;
+  },
+  
+  updateInfo: function(systemInfo) {
+    const container = this.getContainer();
+    if (!systemInfo) {
+      container.style.display = 'none';
+      return;
+    }
+    
+    container.style.display = 'block'; 
+    const data = systemInfo.data || {};
+    
+    // Update Compass
+    const azimuth = data.AZIMUTH;
+    const needle = container.querySelector('#hudCompassNeedle');
+    const valueText = container.querySelector('#hudCompassValue');
+    
+    if (azimuth !== null && azimuth !== undefined && !isNaN(azimuth)) {
+      needle.style.transform = `rotate(${azimuth}deg)`;
+      valueText.innerText = `${parseFloat(azimuth).toFixed(1)}°`;
+      needle.style.opacity = "1";
+    } else {
+      needle.style.transform = `rotate(0deg)`;
+      needle.style.opacity = "0.2";
+      valueText.innerText = "N/A";
+    }
+
+    // Safely parse alarms for coloring
+    const rsrpClass = systemInfo.rsrp !== null && isInAlarm('rsrp', systemInfo.rsrp) ? 'text-danger' : 'text-success';
+    const rsrqClass = systemInfo.rsrq !== null && isInAlarm('rsrq', systemInfo.rsrq) ? 'text-danger' : 'text-success';
+    const sinrClass = systemInfo.sinr !== null && isInAlarm('sinr', systemInfo.sinr) ? 'text-danger' : 'text-success';
+    const tempClass = systemInfo.temp !== null && isInAlarm('temp', systemInfo.temp) ? 'text-danger' : 'text-success';
+
+    // Update Basic Info Grid
+    container.querySelector('#hudName').innerText = systemInfo.name || systemInfo.serial;
+    container.querySelector('#hudSerial').innerText = `SN: ${systemInfo.serial}`;
+    
+    container.querySelector('#hudEarfcn').innerText = systemInfo.earfcn ?? 'N/A';
+    container.querySelector('#hudRsrp').innerHTML = systemInfo.rsrp !== null ? `<span class="${rsrpClass}">${systemInfo.rsrp} dBm</span>` : 'N/A';
+    container.querySelector('#hudRsrq').innerHTML = systemInfo.rsrq !== null ? `<span class="${rsrqClass}">${systemInfo.rsrq} dB</span>` : 'N/A';
+    container.querySelector('#hudSinr').innerHTML = systemInfo.sinr !== null ? `<span class="${sinrClass}">${systemInfo.sinr} dB</span>` : 'N/A';
+    container.querySelector('#hudTemp').innerHTML = systemInfo.temp !== null ? `<span class="${tempClass}">${systemInfo.temp} °C</span>` : 'N/A';
+    
+    const dateStr = data.DATETIME ? String(data.DATETIME).replace('T', ' ') : 'N/A';
+    container.querySelector('#hudDate').innerText = `Last Updated: ${dateStr}`;
+  },
+  
+  hide: function() {
+    this.getContainer().style.display = 'none';
+  }
+});
+// Draw lines between a selected system and its matching cells
+function drawConnectionLines(serial) {
+  clearConnectionLines();
+  if (!mapInstance) return;
+
+  const systemInfo = systemsData.get(serial);
+  if (!systemInfo || !Number.isFinite(systemInfo.lat) || !Number.isFinite(systemInfo.lon)) return;
+
+  const sysLatLng = [systemInfo.lat, systemInfo.lon];
+  
+  // 1. Get the Donor Sector index safely (handles "2", 2, or "Sector 2")
+  let donorIndex = systemInfo.a_used;
+  if (typeof donorIndex === 'string') {
+    donorIndex = parseInt(donorIndex.replace(/\D/g, ''), 10);
+  }
+  
+  // 2. Dynamically fetch the PCI, CID, and eCID for the donor sector
+  let donorEcid, donorCid, donorPci;
+  if (donorIndex !== null && donorIndex !== undefined && !isNaN(donorIndex)) {
+    donorEcid = systemInfo[`s${donorIndex}_ecid`];
+    donorCid = systemInfo[`s${donorIndex}_cid`];
+    donorPci = systemInfo[`s${donorIndex}_pci`];
+  }
+
+  const normalLines = [];
+  const donorLines = [];
+
+  // Helper: Safely compare values (handles numbers vs strings and extra spaces)
+  const safeMatch = (val1, val2) => {
+    if (val1 === null || val1 === undefined || val1 === '' || 
+        val2 === null || val2 === undefined || val2 === '') return false;
+    
+    // If they can both be numbers, compare them as numbers (handles "100.0" vs 100)
+    if (!isNaN(Number(val1)) && !isNaN(Number(val2))) {
+      return Number(val1) === Number(val2);
+    }
+    // Otherwise, string comparison
+    return String(val1).trim().toUpperCase() === String(val2).trim().toUpperCase();
+  };
+
+  csvCellDetails.forEach(cell => {
+    if (cell.associatedSerials.has(serial) && Number.isFinite(cell.lat) && Number.isFinite(cell.lon)) {
+      
+      let isDonor = false;
+      if (donorIndex !== null && donorIndex !== undefined && !isNaN(donorIndex)) {
+        const cEnr = cell.enrichment;
+        
+        // Helper: Case-insensitively grab CSV values
+        const getCsvVal = (keyName) => {
+          const key = Object.keys(cEnr).find(k => String(k).trim().toUpperCase() === keyName.toUpperCase());
+          return key ? cEnr[key] : null;
+        };
+
+        const cBestPci = getCsvVal('BEST_PCI');
+        const cCellId = getCsvVal('BEST_CELLID');
+        const cEcid = getCsvVal('ENBID'); // In case it's specifically named eCID in CSV
+
+        // 3. Check for a match using our safe matcher
+        if (safeMatch(cBestPci, donorPci)) {
+          isDonor = true;
+        } else if (safeMatch(cCellId, donorCid)) {
+          isDonor = true;
+        } else if (safeMatch(cEcid, donorEcid)) {
+          isDonor = true;
+        }
+      }
+
+      // 4. Determine Styling
+      const lineColor = isDonor ? CELL_SELECTED_COLOR : SYSTEM_SELECTED_COLOR; // Green if donor, Red if normal
+      const lineWeight = isDonor ? 3 : 2;
+      const lineOpacity = isDonor ? 0.9 : 0.6;
+
+      const line = L.polyline([sysLatLng, [cell.lat, cell.lon]], {
+        color: lineColor,
+        weight: lineWeight,
+        opacity: lineOpacity
+      });
+      
+      if (isDonor) {
+        donorLines.push(line);
+      } else {
+        normalLines.push(line);
+      }
+    }
+  });
+
+  // 5. Add to map (Normal red lines first, Green donor lines last to sit on top)
+  normalLines.forEach(line => {
+    line.addTo(mapInstance);
+    connectionLines.push(line);
+  });
+  
+  donorLines.forEach(line => {
+    line.addTo(mapInstance);
+    connectionLines.push(line);
+  });
+}
+
 
 // Initialize map
 function initMap() {
@@ -36,6 +289,9 @@ function initMap() {
     // maxZoom: CONFIG.MAP.MAX_ZOOM
     maxZoom: 20, // Allow deeper zoom for better cell marker visibility
   }).addTo(mapInstance);
+
+  systemOverviewControl = new L.Control.SystemOverview();
+  systemOverviewControl.addTo(mapInstance);
   
   console.log('[Detailed Liveview] Map initialized');
 }
@@ -107,6 +363,7 @@ async function loadSystemData(serial) {
     const lastUpdated = latest.DATETIME || null;
     const a_used = latest['ANTENNA USED'] !== undefined ? parseInt(latest['ANTENNA USED']) : null;
     const temp = latest.TEMP !== undefined ? parseFloat(latest.TEMP) : null;
+    const heading = latest.HEADING !== undefined ? parseFloat(latest.HEADING) : 0;
 
     // BEST SECTOR KPI FIELDS
     const earfcn = latest.EARFCN || 'N/A';
@@ -163,6 +420,7 @@ async function loadSystemData(serial) {
         name,
         lat,
         lon,
+        heading,
         earfcn,
         rsrp,
         rsrq,
@@ -215,7 +473,7 @@ async function loadSystemData(serial) {
       });
       
       // Create marker
-      createMarker(serial, lat, lon, name, earfcn, rsrp, rsrq, sinr, temp, lastUpdated);
+      createMarker(serial, lat, lon, name, earfcn, rsrp, rsrq, sinr, temp, lastUpdated, heading);
     }
   } catch (err) {
     console.error(`[Detailed Liveview] Error loading data for ${serial}:`, err);
@@ -223,7 +481,7 @@ async function loadSystemData(serial) {
 }
 
 // Create marker on map
-function createMarker(serial, lat, lon, name, earfcn, rsrp, rsrq, sinr, temp, lastUpdated) {
+function createMarker(serial, lat, lon, name, earfcn, rsrp, rsrq, sinr, temp, lastUpdated, heading) {
   if (!mapInstance) return;
   
   // Remove existing marker
@@ -231,25 +489,13 @@ function createMarker(serial, lat, lon, name, earfcn, rsrp, rsrq, sinr, temp, la
     mapInstance.removeLayer(markersMap.get(serial));
   }
   
-  const marker = L.circleMarker([lat, lon], {
-    radius: 8,
-    fillColor: '#0d6efd',
-    color: '#0d6efd',
-    weight: 2,
-    opacity: 0.8,
-    fillOpacity: 0.7
-  }).addTo(mapInstance);
+  const icon = getDirectionalIcon(heading, SYSTEM_DEFAULT_COLOR);
   
-  marker.bindPopup(
-    `<strong>${name}</strong><br/>
-    Serial: ${serial}<br/>
-    Serving EARFCN: ${earfcn}<br/>
-    RSRP: ${rsrp !== null ? `${rsrp} dBm` : 'N/A'}<br/>
-    RSRQ: ${rsrq !== null ? `${rsrq} dB` : 'N/A'}<br/>
-    SINR: ${sinr !== null ? `${sinr} dB` : 'N/A'}<br/>
-    Temperature: ${temp !== null ? `${temp} °C` : 'N/A'}<br/>
-    Last Updated: ${lastUpdated ? String(lastUpdated).replace('T', ' ') : 'N/A'}<br/>
-    `);
+  const marker = L.marker([lat, lon], {
+    icon: icon,
+    zIndexOffset: 100 // Keep systems visually above the cell markers
+  }).addTo(mapInstance);
+
   marker.on('click', () => selectSystem(serial));
   
   markersMap.set(serial, marker);
@@ -271,19 +517,25 @@ function escapeHtml(text) {
 
 function getCellCoordinatesFromEnrichment(enrichment) {
   if (!enrichment || typeof enrichment !== 'object') return null;
+  
   const values = {};
+  // Normalize all keys to lowercase for case-insensitive matching
   Object.entries(enrichment).forEach(([key, value]) => {
     if (!key) return;
     values[String(key).trim().toLowerCase()] = value;
   });
 
-  const lat = values.latitude ?? values.lat;
-  const lon = values.longitude ?? values.lon ?? values.long;
+  // Look for standard location keys AND the specific Latitude_Sector / Longitude_Sector keys
+  const lat = values.latitude ?? values.lat ?? values.latitude_sector;
+  const lon = values.longitude ?? values.lon ?? values.long ?? values.longitude_sector;
+  
   if (lat === undefined || lon === undefined || lat === '' || lon === '') return null;
 
   const parsedLat = parseFloat(lat);
   const parsedLon = parseFloat(lon);
+  
   if (!Number.isFinite(parsedLat) || !Number.isFinite(parsedLon)) return null;
+  
   return { lat: parsedLat, lon: parsedLon };
 }
 
@@ -370,7 +622,7 @@ function updateCellMarkerStyles(selectedSerial) {
 function buildCellMarkers() {
   clearCellMarkers();
 
-  if (!csvCellIndex || Object.keys(csvCellIndex).length === 0) {
+  if (!csvEnbIndex || Object.keys(csvEnbIndex).length === 0) {
     updateCsvCellStatusUI(0);
     return;
   }
@@ -379,39 +631,55 @@ function buildCellMarkers() {
 
   systemsData.forEach(system => {
     if (!system) return;
-    const ids = [system.nodeid, system.s0_ecid, system.s1_ecid, system.s2_ecid, system.s3_ecid];
-    ids.forEach(rawId => {
-      const cellid = normalizeCellId(rawId);
-      if (!cellid) return;
-      const enrichment = csvCellIndex[cellid];
-      if (!enrichment) return;
+    
+    // 1. Gather and deduplicate system fields dynamically (O(1) dedup)
+    const systemIdsToMatch = new Set([
+      // system.nodeid, 
+      system.s0_ecid, 
+      system.s1_ecid, 
+      system.s2_ecid, 
+      system.s3_ecid
+    ].map(normalizeCellId).filter(id => id !== ''));
 
-      const existing = cellMap.get(cellid);
-      const coords = getCellCoordinatesFromEnrichment(enrichment);
-      const lat = coords?.lat ?? (Number.isFinite(system.lat) ? system.lat : null);
-      const lon = coords?.lon ?? (Number.isFinite(system.lon) ? system.lon : null);
-      const locationSource = coords ? 'csv' : 'system';
+    // 2. Cross-reference deduplicated IDs directly against the ENBID index
+    systemIdsToMatch.forEach(idToMatch => {
+      // O(1) Instant Lookup - gets array of cells under this ENBID
+      const matchingCells = csvEnbIndex[idToMatch]; 
+      if (!matchingCells) return;
 
-      if (existing) {
-        existing.associatedSerials.add(system.serial);
-        if ((existing.lat === null || existing.lon === null) && lat !== null && lon !== null) {
-          existing.lat = lat;
-          existing.lon = lon;
-          existing.locationSource = locationSource;
+      // 3. Process matched cells
+      matchingCells.forEach(enrichment => {
+        const cellid = enrichment.ENBID;
+        const existing = cellMap.get(cellid);
+        
+        const coords = getCellCoordinatesFromEnrichment(enrichment);
+        const lat = coords?.lat ?? (Number.isFinite(system.lat) ? system.lat : null);
+        const lon = coords?.lon ?? (Number.isFinite(system.lon) ? system.lon : null);
+        const locationSource = coords ? 'csv' : 'system';
+
+        if (existing) {
+          // If cell is mapped by multiple systems (e.g. overlapping IDs), attach serial
+          existing.associatedSerials.add(system.serial);
+          if ((existing.lat === null || existing.lon === null) && lat !== null && lon !== null) {
+            existing.lat = lat;
+            existing.lon = lon;
+            existing.locationSource = locationSource;
+          }
+        } else {
+          cellMap.set(cellid, {
+            cellid,
+            enrichment,
+            associatedSerials: new Set([system.serial]),
+            lat,
+            lon,
+            locationSource
+          });
         }
-      } else {
-        cellMap.set(cellid, {
-          cellid,
-          enrichment,
-          associatedSerials: new Set([system.serial]),
-          lat,
-          lon,
-          locationSource
-        });
-      }
+      });
     });
   });
 
+  // Plot the deduplicated maps
   let displayedCount = 0;
   cellMap.forEach(cell => {
     if (cell.lat !== null && cell.lon !== null) {
@@ -427,19 +695,23 @@ function buildCellMarkers() {
   updateCellMarkerStyles(selectedSerial);
 }
 
+// Update the loader to grab the new ENBID index
 async function loadStoredCellReferenceCsv() {
   try {
     const stored = await loadCsvEnrichmentFromStorage();
-    if (!stored || !stored.index || Object.keys(stored.index).length === 0) {
+    if (!stored || !stored.indexByEnb || Object.keys(stored.indexByEnb).length === 0) {
       csvCellIndex = {};
+      csvEnbIndex = {};
       updateCsvCellStatusUI(0);
       return;
     }
-    csvCellIndex = stored.index;
+    csvCellIndex = stored.index || {};
+    csvEnbIndex = stored.indexByEnb || {}; // Assign the loaded ENBID index
     updateCsvCellStatusUI(0);
   } catch (error) {
     console.error('[Detailed Liveview] Failed to load stored CSV cell reference:', error);
     csvCellIndex = {};
+    csvEnbIndex = {};
     updateCsvCellStatusUI(0);
   }
 }
@@ -455,7 +727,7 @@ function selectSystem(serial) {
   
   // Zoom to marker
   if (systemInfo.lat && systemInfo.lon) {
-    mapInstance.setView([systemInfo.lat, systemInfo.lon], 15);
+    mapInstance.setView([systemInfo.lat, systemInfo.lon], 11);
   }
   
   // Show sidebar with details
@@ -463,14 +735,23 @@ function selectSystem(serial) {
   
   // Highlight marker
   markersMap.forEach((marker, key) => {
+    const sysInfo = systemsData.get(key);
+    const heading = sysInfo ? (sysInfo.heading || 0) : 0;
     if (key === serial) {
-      marker.setStyle({ fillColor: SYSTEM_SELECTED_COLOR, color: SYSTEM_SELECTED_COLOR });
+      marker.setIcon(getDirectionalIcon(heading, SYSTEM_SELECTED_COLOR));
+      marker.setZIndexOffset(1000); // Bring selected to front
     } else {
-      marker.setStyle({ fillColor: SYSTEM_DEFAULT_COLOR, color: SYSTEM_DEFAULT_COLOR });
+      marker.setIcon(getDirectionalIcon(heading, SYSTEM_DEFAULT_COLOR));
+      marker.setZIndexOffset(100);
     }
   });
 
   updateCellMarkerStyles(serial);
+  drawConnectionLines(serial);
+
+  if (systemOverviewControl) {
+    systemOverviewControl.updateInfo(systemInfo);
+  }
 }
 
 // Display system details in sidebar
@@ -481,285 +762,151 @@ function showSystemDetails(serial, systemInfo) {
   if (!content) return;
   
   const data = systemInfo.data || {};
-
-  const cellname = "TBD"; // Placeholder for cell name if available in future
   
-  let html = `
-    <div class="mb-3">
-      <h6 class="text-muted">Serial</h6>
-      <p class="mb-2"><strong>${systemInfo.name || serial}</strong></p>
-      <small class="text-secondary">${serial}</small>`;
-    // Show temperature with alarm status
-      if (data.TEMP !== undefined && data.TEMP !== null) {
-      const tempAlarm = isInAlarm('temp', data.TEMP);
-      const tempClass = tempAlarm ? 'text-danger' : 'text-success';
-      html += `<p class="mb-1"><small><strong class="${tempClass}">Temperature:</strong> ${data.TEMP} °C</small></p>`;
-    }
-    // Show last updated time
-    if (data.DATETIME) {
-      html += `
-      
-        <div>
-          <small class="text-muted">Last Updated</small><br/>
-          <small>${String(data.DATETIME).replace('T', ' ')}</small>
-        </div>
-        </div>
-      `;
-    }
-    // Show location and donor details
-    html +=`
-    <hr class="my-2" />
-    
-    <div class="mb-3">
-      <h6 class="text-muted">Location</h6>
-      <p class="mb-1"><small><strong>Latitude:</strong> ${systemInfo.lat ? systemInfo.lat.toFixed(6) : 'N/A'}</small></p>
-      <p class="mb-2"><small><strong>Longitude:</strong> ${systemInfo.lon ? systemInfo.lon.toFixed(6) : 'N/A'}</small></p>
-    </div>
-    <hr class="my-2" />
-    
-    <div class="mb-3">
-      <h6 class="text-muted">Donor Details</h6>
-      <p class="mb-1"><small><strong>Donor Sector:</strong> ${systemInfo.a_used ?? 'N/A'}</small></p>
-    </div>
-    <hr class="my-2" />
-    <div class="mb-3">
-      <h6 class="text-muted">Sector 0</h6>
-  `;
-  // Show SECTOR 0 Cell Info (EARFCN, BAND, PCI) with cell name if available
+  // 1. Master wrapper with smaller text and compact line-height
+  let html = `<div style="font-size: 0.85rem; line-height: 1.3;">`;
 
-  html += `<p`;
-  if (data.S0_eCID !== undefined && data.S0_eCID !== null) {
-    html += `class="mb-1"><small><strong>eCID:</strong> ${data.S0_eCID} </small>`;
+  // 2. Header & General Info
+  html += `
+    <div class="mb-2">
+      <h6 class="text-muted mb-1" style="font-size: 0.95rem;">Serial</h6>
+      <div class="mb-1"><strong>${systemInfo.name || serial}</strong> <span class="text-secondary ms-1">(${serial})</span></div>`;
+
+  if (data.TEMP !== undefined && data.TEMP !== null) {
+    const tempAlarm = isInAlarm('temp', data.TEMP);
+    const tempClass = tempAlarm ? 'text-danger' : 'text-success';
+    html += `<div><strong class="${tempClass}">Temperature:</strong> ${data.TEMP} °C</div>`;
   }
 
-  if (data.S0_CID !== undefined && data.S0_CID !== null) {
-    html += `<small><strong>CID:</strong> ${data.S0_CID} </small>`;
-  }
-
-  if (cellname !== undefined && cellname !== null) {
-    html += `<small><strong>Cell Name:</strong> ${cellname} </small>`;
-  }
-
-  html += `</p>`;
-
-  html += `<p`;
-  if (data.S0_EARFCN !== undefined && data.S0_EARFCN !== null) {
-    html += `class="mb-1"><small><strong>EARFCN:</strong> ${data.S0_EARFCN} </small>`;
-  }
-
-  if (data.S0_BAND !== undefined && data.S0_BAND !== null) {
-    html += `<small><strong>BAND:</strong> ${data.S0_BAND} </small>`;
-  }
-
-  if (data.S0_PCI !== undefined && data.S0_PCI !== null) {
-    html += `<small><strong>PCI:</strong> ${data.S0_PCI}</small>`;
-  }
-
-  html += `</p>`;
-
-  // SECTOR 0 RSRP, RSRQ, SINR with alarm status
-  if (data.RSRP !== undefined && data.RSRP !== null) {
-    const rsrpAlarm = isInAlarm('rsrp', data.RSRP);
-    const rsrpClass = rsrpAlarm ? 'text-danger' : 'text-success';
-    html += `<p class="mb-1"><small><strong class="${rsrpClass}">RSRP:</strong> ${data.S0_RSRP} dBm</small></p>`;
-  }
-
-  if (data.RSRQ !== undefined && data.RSRQ !== null) {
-    const rsrqAlarm = isInAlarm('rsrq', data.RSRQ);
-    const rsrqClass = rsrqAlarm ? 'text-danger' : 'text-success';
-    html += `<p class="mb-1"><small><strong class="${rsrqClass}">RSRQ:</strong> ${data.S0_RSRQ} dB</small></p>`;
+  if (data.DATETIME) {
+    html += `
+      <div class="text-muted mt-1" style="font-size: 0.75rem;">
+        Last Updated: ${String(data.DATETIME).replace('T', ' ')}
+      </div>
+    `;
   }
   
-  if (data.SINR !== undefined && data.SINR !== null) {
-    const sinrAlarm = isInAlarm('sinr', data.SINR);
-    const sinrClass = sinrAlarm ? 'text-danger' : 'text-success';
-    html += `<p class="mb-1"><small><strong class="${sinrClass}">SINR:</strong> ${data.S0_SINR} dB</small></p>`;
+  html += `</div>`; // Close Header
+
+  // 3. Location & Donor details combined to save space
+  // Build the Donor Sector line dynamically to include the Compass Button if Azimuth exists
+  // 3. Location & Donor details combined to save space
+  let donorHtml = `<div><strong>Donor Sector:</strong> ${systemInfo.a_used ?? 'N/A'}`;
+  
+  if (data.AZIMUTH !== undefined && data.AZIMUTH !== null) {
+    donorHtml += ` | <strong>Azimuth:</strong> ${data.AZIMUTH}°`;
   }
-  
-  
-  html += `</div>`;
+  donorHtml += `</div>`;
 
   html += `
-  </div>
-    <hr class="my-2" />
-    <div class="mb-3">
-      <h6 class="text-muted">Sector 1</h6>
+    <hr class="my-1" />
+    <div class="mb-2">
+      <h6 class="text-muted mb-1" style="font-size: 0.95rem;">Location & Donor</h6>
+      <div><strong>Lat:</strong> ${systemInfo.lat ? systemInfo.lat.toFixed(6) : 'N/A'} | <strong>Lon:</strong> ${systemInfo.lon ? systemInfo.lon.toFixed(6) : 'N/A'}</div>
+      ${donorHtml}
+    </div>
   `;
-  // Show SECTOR 1 Cell Info (EARFCN, BAND, PCI) with cell name if available
+  // 4. DRY Helper function to cleanly generate Sectors
+  const renderSector = (title, ecid, cid, earfcn, band, pci, rsrp, rsrq, sinr) => {
+    // Skip rendering if no data exists for this sector
+    if (ecid === undefined && earfcn === undefined && rsrp === undefined) return '';
 
-  html += `<p`;
-  if (data.S1_eCID !== undefined && data.S1_eCID !== null) {
-    html += `class="mb-1"><small><strong>eCID:</strong> ${data.S1_eCID} </small>`;
-  }
+    // --- NEW ROBUST LOGIC: Match via ENBID first, then pinpoint by PCI ---
+    let cellName = "TBD";
+    let matchedEnrichment = null;
 
-  if (data.S1_CID !== undefined && data.S1_CID !== null) {
-    html += `<small><strong>CID:</strong> ${data.S1_CID} </small>`;
-  }
+    // Gather all possible IDs the system might use to refer to the ENBID
+    const candIds = [ecid, cid, systemInfo.nodeid]
+      .filter(id => id !== undefined && id !== null)
+      .map(normalizeCellId);
 
-  if (cellname !== undefined && cellname !== null) {
-    html += `<small><strong>Cell Name:</strong> ${cellname} </small>`;
-  }
+    // 1. Search the ENBID Index (Since system IDs map to ENBID in the CSV)
+    if (typeof csvEnbIndex !== 'undefined' && csvEnbIndex) {
+      for (const id of candIds) {
+        if (csvEnbIndex[id]) {
+          const cellsUnderEnb = csvEnbIndex[id];
+          
+          // Try to pinpoint the exact sector using its unique PCI
+          if (pci !== undefined && pci !== null) {
+            matchedEnrichment = cellsUnderEnb.find(c => String(c.PCI) === String(pci) || String(c.BEST_PCI) === String(pci));
+          }
+          // Fallback 1: Try pinpointing by CID matching BEST_CELLID
+          if (!matchedEnrichment && cid !== undefined && cid !== null) {
+            matchedEnrichment = cellsUnderEnb.find(c => String(c.BEST_CELLID) === String(cid));
+          }
+          // Fallback 2: At least grab the first cell from this ENBID so we have a name instead of TBD
+          if (!matchedEnrichment && cellsUnderEnb.length > 0) {
+            matchedEnrichment = cellsUnderEnb[0];
+          }
+          
+          if (matchedEnrichment) break;
+        }
+      }
+    }
 
-  html += `</p>`;
+    // 2. Safety Net: Direct BEST_CELLID lookup just in case the system actually passed a Cell ID
+    if (!matchedEnrichment && typeof csvCellIndex !== 'undefined' && csvCellIndex) {
+      for (const id of candIds) {
+        if (csvCellIndex[id]) {
+          matchedEnrichment = csvCellIndex[id];
+          break;
+        }
+      }
+    }
 
-  html += `<p`;
-  if (data.S1_EARFCN !== undefined && data.S1_EARFCN !== null) {
-    html += `class="mb-1"><small><strong>EARFCN:</strong> ${data.S1_EARFCN} </small>`;
-  }
+    // 3. Extract the Cell Name (Case-Insensitive)
+    if (matchedEnrichment) {
+      const nameKey = Object.keys(matchedEnrichment).find(k => k.toUpperCase() === 'CELL_NAME');
+      if (nameKey && matchedEnrichment[nameKey]) {
+        cellName = matchedEnrichment[nameKey];
+      }
+    }
+    let secHtml = `
+      <hr class="my-1" />
+      <div class="mb-2">
+        <h6 class="text-muted mb-1" style="font-size: 0.95rem;">${title}</h6>
+        <div class="mb-1">
+    `;
 
-  if (data.S1_BAND !== undefined && data.S1_BAND !== null) {
-    html += `<small><strong>BAND:</strong> ${data.S1_BAND} </small>`;
-  }
+    // Row 1: Identifiers
+    const ids = [];
+    if (ecid !== undefined && ecid !== null) ids.push(`<strong>eCID:</strong> ${ecid}`);
+    if (cid !== undefined && cid !== null) ids.push(`<strong>CID:</strong> ${cid}`);
+    ids.push(`<strong>Name:</strong> ${cellName}`);
+    secHtml += ids.join(' | ') + `<br/>`;
 
-  if (data.S1_PCI !== undefined && data.S1_PCI !== null) {
-    html += `<small><strong>PCI:</strong> ${data.S1_PCI}</small>`;
-  }
+    // Row 2: Radio Config
+    const radio = [];
+    if (earfcn !== undefined && earfcn !== null) radio.push(`<strong>EARFCN:</strong> ${earfcn}`);
+    if (band !== undefined && band !== null) radio.push(`<strong>BAND:</strong> ${band}`);
+    if (pci !== undefined && pci !== null) radio.push(`<strong>PCI:</strong> ${pci}`);
+    if (radio.length > 0) secHtml += radio.join(' | ') + `<br/>`;
 
-  html += `</p>`;
+    // Row 3: KPIs
+    const kpis = [];
+    if (rsrp !== undefined && rsrp !== null) {
+      kpis.push(`<strong class="${isInAlarm('rsrp', rsrp) ? 'text-danger' : 'text-success'}">RSRP:</strong> ${rsrp} dBm`);
+    }
+    if (rsrq !== undefined && rsrq !== null) {
+      kpis.push(`<strong class="${isInAlarm('rsrq', rsrq) ? 'text-danger' : 'text-success'}">RSRQ:</strong> ${rsrq} dB`);
+    }
+    if (sinr !== undefined && sinr !== null) {
+      kpis.push(`<strong class="${isInAlarm('sinr', sinr) ? 'text-danger' : 'text-success'}">SINR:</strong> ${sinr} dB`);
+    }
+    if (kpis.length > 0) secHtml += kpis.join(' | ');
 
-  // SECTOR 1 RSRP, RSRQ, SINR with alarm status
-  if (data.RSRP !== undefined && data.RSRP !== null) {
-    const rsrpAlarm = isInAlarm('rsrp', data.RSRP);
-    const rsrpClass = rsrpAlarm ? 'text-danger' : 'text-success';
-    html += `<p class="mb-1"><small><strong class="${rsrpClass}">RSRP:</strong> ${data.S1_RSRP} dBm</small></p>`;
-  }
+    secHtml += `</div></div>`;
+    return secHtml;
+  };
 
-  if (data.RSRQ !== undefined && data.RSRQ !== null) {
-    const rsrqAlarm = isInAlarm('rsrq', data.RSRQ);
-    const rsrqClass = rsrqAlarm ? 'text-danger' : 'text-success';
-    html += `<p class="mb-1"><small><strong class="${rsrqClass}">RSRQ:</strong> ${data.S1_RSRQ} dB</small></p>`;
-  }
+  // 5. Build sectors dynamically
+  html += renderSector('Sector 0', data.S0_eCID, data.S0_CID, data.S0_EARFCN, data.S0_BAND, data.S0_PCI, data.S0_RSRP, data.S0_RSRQ, data.S0_SINR);
+  html += renderSector('Sector 1', data.S1_eCID, data.S1_CID, data.S1_EARFCN, data.S1_BAND, data.S1_PCI, data.S1_RSRP, data.S1_RSRQ, data.S1_SINR);
+  html += renderSector('Sector 2', data.S2_eCID, data.S2_CID, data.S2_EARFCN, data.S2_BAND, data.S2_PCI, data.S2_RSRP, data.S2_RSRQ, data.S2_SINR);
+  html += renderSector('Sector 3', data.S3_eCID, data.S3_CID, data.S3_EARFCN, data.S3_BAND, data.S3_PCI, data.S3_RSRP, data.S3_RSRQ, data.S3_SINR);
+
+  html += `</div>`; // Close master wrapper
   
-  if (data.SINR !== undefined && data.SINR !== null) {
-    const sinrAlarm = isInAlarm('sinr', data.SINR);
-    const sinrClass = sinrAlarm ? 'text-danger' : 'text-success';
-    html += `<p class="mb-1"><small><strong class="${sinrClass}">SINR:</strong> ${data.S1_SINR} dB</small></p>`;
-  }
-  
-  
-  html += `</div>`;
-
-  html += `
-  </div>
-    <hr class="my-2" />
-    <div class="mb-3">
-      <h6 class="text-muted">Sector 2</h6>
-  `;
-  // Show SECTOR 2 Cell Info (EARFCN, BAND, PCI) with cell name if available
-
-  html += `<p`;
-  if (data.S2_eCID !== undefined && data.S2_eCID !== null) {
-    html += `class="mb-1"><small><strong>eCID:</strong> ${data.S2_eCID} </small>`;
-  }
-
-  if (data.S2_CID !== undefined && data.S2_CID !== null) {
-    html += `<small><strong>CID:</strong> ${data.S2_CID} </small>`;
-  }
-
-  if (cellname !== undefined && cellname !== null) {
-    html += `<small><strong>Cell Name:</strong> ${cellname} </small>`;
-  }
-
-  html += `</p>`;
-
-  html += `<p`;
-  if (data.S2_EARFCN !== undefined && data.S2_EARFCN !== null) {
-    html += `class="mb-1"><small><strong>EARFCN:</strong> ${data.S2_EARFCN} </small>`;
-  }
-
-  if (data.S2_BAND !== undefined && data.S2_BAND !== null) {
-    html += `<small><strong>BAND:</strong> ${data.S2_BAND} </small>`;
-  }
-
-  if (data.S2_PCI !== undefined && data.S2_PCI !== null) {
-    html += `<small><strong>PCI:</strong> ${data.S2_PCI}</small>`;
-  }
-
-  html += `</p>`;
-
-  // SECTOR 2 RSRP, RSRQ, SINR with alarm status
-  if (data.RSRP !== undefined && data.RSRP !== null) {
-    const rsrpAlarm = isInAlarm('rsrp', data.RSRP);
-    const rsrpClass = rsrpAlarm ? 'text-danger' : 'text-success';
-    html += `<p class="mb-1"><small><strong class="${rsrpClass}">RSRP:</strong> ${data.S2_RSRP} dBm</small></p>`;
-  }
-
-  if (data.RSRQ !== undefined && data.RSRQ !== null) {
-    const rsrqAlarm = isInAlarm('rsrq', data.RSRQ);
-    const rsrqClass = rsrqAlarm ? 'text-danger' : 'text-success';
-    html += `<p class="mb-1"><small><strong class="${rsrqClass}">RSRQ:</strong> ${data.S2_RSRQ} dB</small></p>`;
-  }
-  
-  if (data.SINR !== undefined && data.SINR !== null) {
-    const sinrAlarm = isInAlarm('sinr', data.SINR);
-    const sinrClass = sinrAlarm ? 'text-danger' : 'text-success';
-    html += `<p class="mb-1"><small><strong class="${sinrClass}">SINR:</strong> ${data.S2_SINR} dB</small></p>`;
-  }
-  
-  
-  html += `</div>`;
-  
- html += `
-  </div>
-    <hr class="my-2" />
-    <div class="mb-3">
-      <h6 class="text-muted">Sector 2</h6>
-  `;
-  // Show SECTOR 3 Cell Info (EARFCN, BAND, PCI) with cell name if available
-
-  html += `<p`;
-  if (data.S3_eCID !== undefined && data.S3_eCID !== null) {
-    html += `class="mb-1"><small><strong>eCID:</strong> ${data.S3_eCID} </small>`;
-  }
-
-  if (data.S3_CID !== undefined && data.S3_CID !== null) {
-    html += `<small><strong>CID:</strong> ${data.S3_CID} </small>`;
-  }
-
-  if (cellname !== undefined && cellname !== null) {
-    html += `<small><strong>Cell Name:</strong> ${cellname} </small>`;
-  }
-
-  html += `</p>`;
-
-  html += `<p`;
-  if (data.S3_EARFCN !== undefined && data.S3_EARFCN !== null) {
-    html += `class="mb-1"><small><strong>EARFCN:</strong> ${data.S3_EARFCN} </small>`;
-  }
-
-  if (data.S3_BAND !== undefined && data.S3_BAND !== null) {
-    html += `<small><strong>BAND:</strong> ${data.S3_BAND} </small>`;
-  }
-
-  if (data.S3_PCI !== undefined && data.S3_PCI !== null) {
-    html += `<small><strong>PCI:</strong> ${data.S3_PCI}</small>`;
-  }
-
-  html += `</p>`;
-
-  // SECTOR 3 RSRP, RSRQ, SINR with alarm status
-  if (data.RSRP !== undefined && data.RSRP !== null) {
-    const rsrpAlarm = isInAlarm('rsrp', data.RSRP);
-    const rsrpClass = rsrpAlarm ? 'text-danger' : 'text-success';
-    html += `<p class="mb-1"><small><strong class="${rsrpClass}">RSRP:</strong> ${data.S3_RSRP} dBm</small></p>`;
-  }
-
-  if (data.RSRQ !== undefined && data.RSRQ !== null) {
-    const rsrqAlarm = isInAlarm('rsrq', data.RSRQ);
-    const rsrqClass = rsrqAlarm ? 'text-danger' : 'text-success';
-    html += `<p class="mb-1"><small><strong class="${rsrqClass}">RSRQ:</strong> ${data.S3_RSRQ} dB</small></p>`;
-  }
-  
-  if (data.SINR !== undefined && data.SINR !== null) {
-    const sinrAlarm = isInAlarm('sinr', data.SINR);
-    const sinrClass = sinrAlarm ? 'text-danger' : 'text-success';
-    html += `<p class="mb-1"><small><strong class="${sinrClass}">SINR:</strong> ${data.S3_SINR} dB</small></p>`;
-  }
-  
-  
-  html += `</div>`;
-  
-
   content.innerHTML = html;
   
   // Open sidebar
@@ -774,8 +921,12 @@ function handleFilterChange(e) {
   } else {
     // Show all markers
     closeSidebar();
-    markersMap.forEach(marker => {
-      marker.setStyle({ fillColor: '#0d6efd', color: '#0d6efd' });
+    clearConnectionLines();
+    markersMap.forEach((marker, key) => {
+      const sysInfo = systemsData.get(key);
+      const heading = sysInfo ? (sysInfo.heading || 0) : 0;
+      marker.setIcon(getDirectionalIcon(heading, SYSTEM_DEFAULT_COLOR));
+      marker.setZIndexOffset(100);
     });
   }
 }
@@ -785,6 +936,8 @@ function closeSidebar() {
   const sidebar = document.getElementById('sidebar');
   sidebar.classList.remove('open');
   selectedSerial = null;
+  clearConnectionLines();
+  if (systemOverviewControl) systemOverviewControl.hide();
 }
 
 // Setup dropdown event listeners
@@ -835,6 +988,49 @@ function setupDropdownListeners() {
   });
 }
 
+// Refresh map data without reloading the page
+async function refreshData() {
+  const btn = document.getElementById('refreshMapBtn');
+  const originalText = btn ? btn.innerHTML : '';
+  
+  // Set loading state
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = 'Refreshing...';
+  }
+
+  console.log('[Detailed Liveview] Refreshing map data...');
+
+  try {
+    // 1. Re-fetch systems and update the dropdown
+    await loadSystems();
+    
+    // 2. Fetch the latest telemetry/location for all systems
+    const allSystems = Array.from(systemsData.keys());
+    for (const serial of allSystems) {
+      await loadSystemData(serial);
+    }
+
+    // 3. Re-build the cell markers based on the fresh system data
+    buildCellMarkers();
+
+    // 4. Update the sidebar and marker colors if a system is currently selected
+    if (selectedSerial) {
+      selectSystem(selectedSerial);
+    }
+
+    console.log('[Detailed Liveview] Map data refreshed successfully');
+  } catch (error) {
+    console.error('[Detailed Liveview] Error refreshing map data:', error);
+  } finally {
+    // Restore button state
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = originalText;
+    }
+  }
+}
+
 // Initialize page
 async function init() {
   console.log('[Detailed Liveview] Starting initialization');
@@ -856,6 +1052,12 @@ async function init() {
   const closeBtn = document.getElementById('closeSidebar');
   if (closeBtn) {
     closeBtn.addEventListener('click', closeSidebar);
+  }
+
+  // Setup event listener for the refresh button
+  const refreshBtn = document.getElementById('refreshMapBtn');
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', refreshData);
   }
   
   // Mark page as loaded

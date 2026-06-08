@@ -233,6 +233,7 @@ function renderAlarmChart(statistics) {
                 `SINR Alarms: ${stat.sinr_alarms.toLocaleString()}`,
                 `GPS Alarms: ${stat.gps_alarms.toLocaleString()}`,
                 `TEMP Alarms: ${stat.temp_alarms.toLocaleString()}`,
+                `Antenna Issue Alarms: ${stat.rsrp_diff_alarms.toLocaleString()}`,
                 `Alarm Rate: ${stat.alarm_percentage}%`,
                 `Alarm Samples: ${stat.alarm_samples.toLocaleString()}`,
                 `Total Samples: ${stat.total_samples.toLocaleString()}`

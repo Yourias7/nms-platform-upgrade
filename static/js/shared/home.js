@@ -36,7 +36,7 @@ document.addEventListener('DOMContentLoaded', function () {
           destination = '/3skelion/liveview';
           break;
         case 'f-qual':
-          destination = '/f-qual/liveview';
+          destination = '/f-qual/dashboard';
           break;
         default:
           destination = '/coming_soon';
